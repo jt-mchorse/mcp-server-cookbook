@@ -1,0 +1,26 @@
+# Sample DB for the postgres-readonly MCP server.
+# Brings up Postgres 16 with the sample schema + read-only role from sample-db/init.sql.
+#
+# Usage:
+#   docker compose up -d
+#   DATABASE_URL=postgresql://mcp_reader:mcp_reader@localhost:5433/bench npm start
+#
+# Port 5433 (not 5432) so this doesn't collide with a host-side Postgres install.
+
+services:
+  bench-db:
+    image: postgres:16
+    container_name: mcp-postgres-readonly-bench
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: bench
+    ports:
+      - "5433:5432"
+    volumes:
+      - ./sample-db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d bench"]
+      interval: 3s
+      timeout: 3s
+      retries: 20

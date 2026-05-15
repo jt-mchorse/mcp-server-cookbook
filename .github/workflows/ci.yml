@@ -7,19 +7,23 @@ on:
     branches: [main]
 
 jobs:
-  lint:
+  postgres-readonly:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: servers/postgres-readonly
     steps:
       - uses: actions/checkout@v4
-      # Add language-specific lint setup per repo (ruff for Python, eslint for TS)
-      - run: echo "Configure lint for this repo's stack"
-
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      # Add test runner per repo (pytest, vitest, jest)
-      - run: echo "Configure tests for this repo's stack"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: servers/postgres-readonly/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
 
   memory-check:
     runs-on: ubuntu-latest
