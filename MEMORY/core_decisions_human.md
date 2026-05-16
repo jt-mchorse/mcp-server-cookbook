@@ -58,3 +58,30 @@ The composition closes the gaps: even if the role is mis-configured AND the pars
 **Reversibility:** Cheap. Each layer is independently swappable.
 
 **Related issues:** #1
+
+## D-005 — Allow-list is resolved at construction, not per call (2026-05-16)
+**Decision:** The filesystem-sandbox's allow-list paths are resolved to their canonical (symlink-followed) real-paths once, when `Sandbox.create(roots)` is called. Per-call path resolution then compares against those frozen roots.
+
+**Why:** Cheaper (no per-call `realpath` on every root), and locks the set so a mid-run symlink change on a root cannot widen the sandbox. If an operator wants to change the allow-list, they restart the server — the same shape as every other env-var-driven setting in this cookbook.
+
+**Alternatives considered:**
+- Resolve on every call — rejected: redundant `realpath` syscalls, plus opens a TOCTOU window if a root is symlinked.
+- Watch roots for changes (inotify-style) — rejected: too complex for a cookbook entry; "restart to change config" is the right primitive.
+
+**Reversibility:** Cheap. Move the `realpath` calls from constructor to per-call resolution; the rest of the API is unchanged.
+
+**Related issues:** #2
+
+## D-006 — Path resolution uses `fs.realpath` (follows symlinks), not `path.resolve` alone (2026-05-16)
+**Decision:** `Sandbox.resolve(input)` calls `fs.realpath(input)` to get the canonical, symlink-followed real-path before the containment check. `path.resolve` / `path.normalize` alone (which only normalize `..` and `.`) would let a symlink under the allow-list pointing outside it slip through.
+
+**Why:** The sandbox's whole point is to be safe against a misbehaving client. If `allowedRoot/leak → /etc/passwd` slips through because `path.resolve` doesn't dereference symlinks, the entire sandbox is fictional. `fs.realpath` is the right primitive — it's what the OS would dereference at `open()` time, so we're checking *what would actually be touched*, not what the client *typed*.
+
+**Alternatives considered:**
+- `path.resolve` only — rejected: doesn't dereference symlinks (the whole concern).
+- Parse symlinks manually — rejected: brittle, race-condition prone, and `fs.realpath` exists for exactly this.
+- Refuse all symlinks unconditionally — rejected: too restrictive; legitimate setups have symlinked dirs under their workspace (e.g., `node_modules` workspaces).
+
+**Reversibility:** Cheap. One function call swap; the boundary check around it is unchanged.
+
+**Related issues:** #2

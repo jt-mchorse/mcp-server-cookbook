@@ -36,3 +36,21 @@
   reversibility: cheap
   related_issues: [#1]
   superseded_by: null
+
+- id: D-005
+  date: 2026-05-16
+  decision: allowlist_resolved_at_construction_not_per_call
+  rationale: cheaper_no_per_call_realpath_on_roots_locks_the_set_so_a_mid_run_symlink_change_on_a_root_cant_widen_the_sandbox
+  alternatives_rejected: [resolve_on_every_call, watch_roots_for_changes_too_complex]
+  reversibility: cheap
+  related_issues: [#2]
+  superseded_by: null
+
+- id: D-006
+  date: 2026-05-16
+  decision: path_resolution_uses_fs_realpath_follows_symlinks_not_path_resolve_alone
+  rationale: symlink_under_allowlist_pointing_outside_must_not_succeed_normalize_only_doesnt_dereference
+  alternatives_rejected: [path_resolve_only, parse_symlinks_manually_brittle, refuse_all_symlinks_too_restrictive]
+  reversibility: cheap
+  related_issues: [#2]
+  superseded_by: null
