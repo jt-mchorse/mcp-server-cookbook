@@ -36,10 +36,11 @@ live next to the server itself.
 
 ## Quickstart
 
-Each server is independently runnable. The `postgres-readonly` server
-(this PR's deliverable) brings up a sample Postgres + read-only role via
-Docker compose so you can exercise all three of its tools without any
-external setup:
+Each server is independently runnable.
+
+**`postgres-readonly`** — read-only Postgres MCP server with three tools
+(`describe_schema`, `run_select`, `sample_rows`) and a defense-in-depth
+SQL guard. Brings up a sample DB via Docker compose:
 
 ```bash
 cd servers/postgres-readonly
@@ -48,15 +49,26 @@ npm install && npm run build
 DATABASE_URL=postgresql://mcp_reader:mcp_reader@localhost:5433/bench npm start
 ```
 
-Test suite (no Docker needed for the SQL guard suite):
+**`filesystem-sandbox`** — filesystem MCP server with three tools
+(`list_directory`, `read_file`, `write_file`) constrained to an
+operator-defined allow-list. Symlink-safe, path-traversal-rejecting,
+mandatory allow-list at boot. No external setup:
 
 ```bash
-cd servers/postgres-readonly
-npm install && npm test                                  # 38 hermetic tests on the SQL guard
+cd servers/filesystem-sandbox
+npm install && npm run build
+MCP_FS_SANDBOX_ALLOWLIST=/tmp/scratch:/tmp/uploads npm start
+```
+
+Test suites are hermetic (no Docker needed for the guard tests):
+
+```bash
+cd servers/postgres-readonly  && npm install && npm test    # 38 SQL-guard tests
+cd servers/filesystem-sandbox && npm install && npm test    # 38 sandbox + tool + config tests
 ```
 
 Wiring into Claude Desktop, the Claude Code CLI, or your own MCP client is
-documented in each server's README.
+documented in each server's README, alongside the threat model.
 
 ## Benchmarks / Results
 
