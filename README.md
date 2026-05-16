@@ -60,11 +60,24 @@ npm install && npm run build
 MCP_FS_SANDBOX_ALLOWLIST=/tmp/scratch:/tmp/uploads npm start
 ```
 
-Test suites are hermetic (no Docker needed for the guard tests):
+**`github-gists`** — SaaS-API-wrapper MCP server with two tools
+(`get_gist`, `update_gist_file`) over the GitHub Gists REST API. Token
+auth via `GITHUB_TOKEN`; redaction at error boundaries so the bearer
+value never appears in tool results, error messages, or logs. Demonstrates
+the cookbook's auth-token pattern. No external setup beyond the token:
+
+```bash
+cd servers/github-gists
+npm install && npm run build
+GITHUB_TOKEN=ghp_yourTokenWithGistScope npm start
+```
+
+Test suites are hermetic (no Docker / no network needed):
 
 ```bash
 cd servers/postgres-readonly  && npm install && npm test    # 38 SQL-guard tests
 cd servers/filesystem-sandbox && npm install && npm test    # 38 sandbox + tool + config tests
+cd servers/github-gists       && npm install && npm test    # 28 config + client (redaction) + tool tests
 ```
 
 Wiring into Claude Desktop, the Claude Code CLI, or your own MCP client is
@@ -93,6 +106,11 @@ See [`MEMORY/core_decisions_human.md`](MEMORY/core_decisions_human.md). Notable:
   Security notes are mandatory, not optional.
 - **D-004.** `postgres-readonly` enforces default-deny on writes via
   *both* a read-only DB role and server-side SQL parsing. Defense in depth.
+- **D-007.** Token-bearing servers (`github-gists` and any future
+  cookbook entry that holds a credential) redact auth at error
+  boundaries: the bearer value never appears in error messages, tool
+  results, or logs, and the request body is dropped from error context
+  so user-supplied content can't leak through that path either.
 
 ## License
 

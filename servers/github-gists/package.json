@@ -1,0 +1,35 @@
+{
+  "name": "@mcp-cookbook/github-gists",
+  "version": "0.1.0",
+  "description": "API-wrapper MCP server: thin GitHub Gists adapter with token auth, two tools (get_gist, update_gist_file), and a redaction-at-error-boundaries posture. The third cookbook entry; demonstrates the SaaS-API-wrapper pattern.",
+  "type": "module",
+  "private": true,
+  "main": "dist/server.js",
+  "bin": {
+    "mcp-github-gists": "dist/server.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "dev": "tsx src/server.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "eslint . --ext .ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.5.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "@typescript-eslint/eslint-plugin": "^8.18.0",
+    "@typescript-eslint/parser": "^8.18.0",
+    "eslint": "^9.17.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0",
+    "vitest": "^2.1.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
