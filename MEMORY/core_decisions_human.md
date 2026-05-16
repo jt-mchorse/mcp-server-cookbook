@@ -85,3 +85,17 @@ The composition closes the gaps: even if the role is mis-configured AND the pars
 **Reversibility:** Cheap. One function call swap; the boundary check around it is unchanged.
 
 **Related issues:** #2
+
+## D-007 — Token-bearing servers redact auth at error boundaries; request bodies are dropped from error context (2026-05-16)
+**Decision:** Any cookbook server that holds a credential (currently `github-gists`; the API-wrapper pattern in general) follows two rules: (1) the bearer value never appears in any error message, tool result, or log statement that crosses the server's process boundary, and (2) the request body is dropped from error context entirely. Errors that escape the client layer carry the HTTP status, the request path (without query strings), and the upstream-reported `message` field. Nothing else.
+
+**Why:** Token leakage through tool responses is the first failure mode of an API-wrapper server, and the most embarrassing one — a single error returned to an MCP client that happens to forward it to a chat transcript or a PR comment can leak a long-lived PAT. Redacting at the *client* layer (rather than at the tool layer or in a logger filter) means the tool layer never has to be aware of what's secret, which is the only way to make this rule hold under future code changes. Request bodies get the same treatment because they carry user-supplied content (gist descriptions, file contents) that the user wouldn't want appearing in error surfaces either — and once we accept "errors should not contain secrets", "client-supplied content" is the next category that must not leak. This is a sibling rule to D-003's mandatory threat model: defense in depth, made explicit.
+
+**Alternatives considered:**
+- Redact in the logger only — rejected: doesn't cover tool results or error messages returned to MCP clients, which is the bigger leakage surface.
+- Redact in the tool layer — rejected: pushes secret-awareness outward into every tool, which is exactly the kind of knowledge-leak the client-layer encapsulation should prevent.
+- Full request/response logging "for debugging" — rejected: convenience tradeoff that loses in adversarial conditions; the right place to add request inspection is a developer-opt-in flag that isn't on in production.
+
+**Reversibility:** Cheap. The redaction posture lives in two small methods (`request` and `reasonFromResponse` on `GistsClient`); future API wrappers replicate the pattern.
+
+**Related issues:** #3

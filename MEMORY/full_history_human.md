@@ -37,3 +37,20 @@ Chronological log of work sessions. Most recent first below the divider.
 **Open questions / blockers:** None. The remaining cookbook servers (api-wrapper, internal-tools-bridge) are priority:med and follow the same shape.
 
 **Next session:** All v0.1-critical work shipped in mcp-server-cookbook; move to a different repo.
+
+## 2026-05-16 — Issue #3: github-gists API-wrapper MCP server
+**Duration:** ~60 min · **Branch:** `session/2026-05-16-1920-issue-3`
+
+- Shipped the third cookbook entry under `servers/github-gists/` — the API-wrapper-with-auth pattern, demonstrated against the GitHub Gists REST API. Two tools: `get_gist(gist_id)` (auth optional, used for public reads + private reads + rate-limit headroom) and `update_gist_file(gist_id, filename, content, description?)` (auth required, surfaces `TokenRequiredError` before any network call when `GITHUB_TOKEN` is unset).
+- Recorded D-007: token-bearing servers redact auth at error boundaries and drop the request body from error context. The `Authorization` header is built inside `GistsClient` and never leaks into a tool response, an error message, or a log line; error messages carry HTTP status + endpoint + the upstream `message` field (capped at 200 chars when the body isn't JSON), nothing else. Tests assert directly that a 401 against a configured token does not surface the token value.
+- Per-file response cap (100 KB): files larger than the cap come back with `truncated: true` and `content: null` so a multi-megabyte committed file can't blow the MCP response budget; the API's own `truncated` flag is also honored.
+- Injectable `fetch` seam — `GistsClient` takes a `FetchLike` so all 28 hermetic tests (9 config + 12 client + 7 tools) drive request shaping, header content, error mapping, timeout-as-`RequestTimeoutError`, and the redaction posture without any live GitHub call. Real-API smoke is operator-triggered locally; CI stays token-free.
+- Per-server README leads with a threat model per D-003: protects against token leak via tool results / logs, confused-deputy writes (no token = refuse, not 401), config drift (bad base URL refuses to start), tool-result size blowup, hung calls; explicitly does NOT protect against the token being valid for too many things, rate-limit DoS, accidentally-public gists, audit logging, SSRF via an attacker-controlled base URL.
+- CI: added a `github-gists` job mirroring the postgres-readonly job shape (npm ci → lint → typecheck → test → build) — the cookbook now has 3 servers + 2 CI jobs. Filesystem-sandbox CI gap will be filed as a separate priority:low followup so this PR stays focused on issue #3.
+- Root README updated with the third server's quickstart, test command, and a new D-007 bullet under "Why these decisions".
+
+**Why this work, this session:** Issue #3 is the lowest-numbered open priority:med in this repo and exactly the next planned cookbook entry. The threat-model + per-server-subdir patterns from D-002/D-003 carried over cleanly; the only new decision needed was D-007 (token redaction posture), which generalizes to any future credential-holding server in the cookbook (Notion, Linear, Slack, etc.).
+
+**Open questions / blockers:** None. PR will go up for review per D-004; the next scheduled session can squash-merge.
+
+**Next session:** Issue #4 (internal-tools bridge) or #6 (pin MCP spec version) — both small. The cookbook is now within one server of its v0.1 quality bar.

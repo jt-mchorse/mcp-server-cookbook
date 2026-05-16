@@ -46,3 +46,27 @@ context_for_next_session:
 decisions_made: [D-005, D-006]
 followups: []
 ---
+
+---
+session: 2026-05-16T20:00Z
+duration_min: 60
+issue: 3
+focus: github_gists_api_wrapper_mcp_server_with_token_auth
+delta:
+  files_added: 11
+  files_changed: 2
+  tests_added: 28
+  test_pass_rate: "28/28 (server local) plus prior 38+38 unchanged"
+context_for_next_session:
+  - new_server_at_servers_github_gists_two_tools_get_gist_update_gist_file
+  - auth_via_github_token_env_var_optional_for_get_gist_required_for_update_gist_file
+  - client_redacts_authorization_header_drops_request_body_caps_error_text_body_at_200_chars_d_007
+  - per_file_response_cap_100kb_truncated_true_content_null_above_cap
+  - injectable_fetch_seam_for_hermetic_tests_no_real_github_calls_in_ci
+  - ci_yml_added_github_gists_job_lint_typecheck_test_build
+  - cookbook_now_has_three_servers_postgres_readonly_filesystem_sandbox_github_gists
+  - filesystem_sandbox_ci_job_still_missing_filed_as_separate_followup_priority_low
+  - issue_3_acceptance_auth_via_env_vars_never_logged_done_two_tools_wired_read_write_done_sample_client_run_documented_done
+decisions_made: [D-007]
+followups: []
+---

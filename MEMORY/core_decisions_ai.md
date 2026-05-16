@@ -54,3 +54,12 @@
   reversibility: cheap
   related_issues: [#2]
   superseded_by: null
+
+- id: D-007
+  date: 2026-05-16
+  decision: token_bearing_servers_redact_auth_at_error_boundaries_drop_request_body_from_error_context
+  rationale: token_leak_via_tool_result_or_error_message_is_the_first_failure_mode_of_an_api_wrapper_redaction_at_the_client_layer_means_tool_layer_never_has_to_know_what_is_secret_request_body_can_contain_user_supplied_content_so_it_also_must_not_leak_through_errors
+  alternatives_rejected: [redact_in_logger_only_does_not_cover_tool_results, redact_in_tool_layer_pushes_secret_awareness_outward, full_request_response_logging_for_debugging_unacceptable]
+  reversibility: cheap
+  related_issues: [#3]
+  superseded_by: null
