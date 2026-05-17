@@ -83,6 +83,16 @@ cd servers/github-gists       && npm install && npm test    # 28 config + client
 Wiring into Claude Desktop, the Claude Code CLI, or your own MCP client is
 documented in each server's README, alongside the threat model.
 
+### Spec alignment
+
+The MCP spec revision and the pinned `@modelcontextprotocol/sdk`
+version every server agrees on are declared in
+[`docs/spec-version.md`](docs/spec-version.md). The `spec-version`
+CI job runs `tools/check-spec-version.mjs` on every PR and fails if
+any server's `package.json` drifts from the doc, or if the servers
+disagree among themselves. The bump procedure is in the same doc
+(read the SDK release notes, update doc + every server in one PR).
+
 ## Benchmarks / Results
 
 This repo doesn't carry benchmark numbers — its quality bar is "the threat

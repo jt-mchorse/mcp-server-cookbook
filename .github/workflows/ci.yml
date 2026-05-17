@@ -56,3 +56,15 @@ jobs:
       - name: Verify D-001 baseline decision exists
         run: |
           grep -q "id: D-001" MEMORY/core_decisions_ai.md
+
+  spec-version:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Verify every server pins the SDK to docs/spec-version.md
+        run: node tools/check-spec-version.mjs
+      - name: Run the spec-version script's own unit tests
+        run: node --test tools/check-spec-version.test.mjs
