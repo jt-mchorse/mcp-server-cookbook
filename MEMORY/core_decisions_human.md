@@ -99,3 +99,17 @@ The composition closes the gaps: even if the role is mis-configured AND the pars
 **Reversibility:** Cheap. The redaction posture lives in two small methods (`request` and `reasonFromResponse` on `GistsClient`); future API wrappers replicate the pattern.
 
 **Related issues:** #3
+
+## D-008 — Canonical SDK version lives in `docs/spec-version.md`; CI script enforces conformance (2026-05-17)
+**Decision:** The single source of truth for the pinned `@modelcontextprotocol/sdk` version is `docs/spec-version.md`. It carries a fenced YAML block with `sdk_package`, `sdk_version`, `mcp_spec_revision`, the upstream spec URL, and the bump procedure. `tools/check-spec-version.mjs` (dep-free Node stdlib) parses that block at CI time and asserts every `servers/*/package.json` declares the SDK at the documented version, and that all servers pin the same value.
+
+**Why:** Two structural facts force the design. First, the cookbook is "per-server independence" (D-002) — there's no root `package.json` to carry a workspace-level dependency pin, so the cross-server invariant can't be expressed in code without inventing a layer the cookbook explicitly avoided. Second, the *purpose* of the pin is reviewer-visible. A drift between the doc and `package.json` is exactly what a reviewer should be able to see at a glance, which is why the doc is markdown rather than another JSON file: when an SDK bump lands, the operator updates the doc *and* every server in one PR, and the reviewer reads the doc's bump procedure section to understand what changed. The CI script catches drift between the two; an operator who forgets one or the other gets a loud failure with the filename. Upstream verification against modelcontextprotocol.io is left as a manual step in the bump procedure (CI doesn't reach the network) because the spec changes slowly enough that automating it would buy DNS flakes more often than it would buy a real signal.
+
+**Alternatives considered:**
+- Read from one designated server's `package.json` and broadcast — rejected: silos the cross-server decision in a code file, hostile to reviewers, and creates an asymmetry where one server is "blessed" while others are "downstream."
+- Per-server declarations + CI script reconciles — rejected: no single owner of the invariant, harder to bump (operator has to remember every file).
+- Online check against modelcontextprotocol.io — rejected: makes CI depend on third-party DNS + uptime + throttling for a check that needs to be deterministic.
+
+**Reversibility:** Cheap. The doc parser is ~25 lines; if the doc grows past the fixed-shape five-line block, swap in `yaml` from npm and update the tests. The script's two invariants are pure functions and exposed for testing.
+
+**Related issues:** #6

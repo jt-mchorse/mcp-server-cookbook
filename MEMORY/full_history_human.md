@@ -54,3 +54,20 @@ Chronological log of work sessions. Most recent first below the divider.
 **Open questions / blockers:** None. PR will go up for review per D-004; the next scheduled session can squash-merge.
 
 **Next session:** Issue #4 (internal-tools bridge) or #6 (pin MCP spec version) — both small. The cookbook is now within one server of its v0.1 quality bar.
+
+## 2026-05-17 — Issue #6: Pin MCP spec version + CI drift check
+**Duration:** ~35 min · **Branch:** `session/2026-05-17-2318-issue-6`
+
+- Wrote `docs/spec-version.md` — single source of truth for the `@modelcontextprotocol/sdk` version every server pins to. Carries a fenced YAML block with `sdk_package`, `sdk_version` (the canonical pin), `mcp_spec_revision` (informational, sourced from SDK release notes), `mcp_spec_url`, and an explicit bump procedure (release notes → doc → servers → lockfiles → local script run → PR). The block is machine-parseable; the script's tests cover the parser edge cases (comments, single-quote values, missing fences).
+- Built `tools/check-spec-version.mjs` — Node stdlib only, dep-free, runs in CI without an install step. Enforces two invariants: (1) every `servers/*/package.json` declares the SDK at the exact version pinned in the doc, and (2) every server pins the same value (intra-repo consistency, which falls out for free because every server is compared against the same expected string). Failure messages name the file that drifted and point at the bump procedure. Exit codes 0/1/2 (clean / drift / bad input).
+- 14 hermetic tests in `tools/check-spec-version.test.mjs` using `node:test` (no test-runner dep). Parser (extract fields, no block, comments+blanks, single-quoted values), `findServerPackageFiles` (lists servers, skips `node_modules`, returns `[]` cleanly when `servers/` is absent), `readSdkPin` (deps + devDeps + missing), and the pure-function `check` (clean pass, drift fails with location, missing dep fails, no-servers fails, intra-repo invariant). All pass under Node 25 locally; CI runs Node 20.
+- Wired a `spec-version` CI job that runs both the check script and its own tests. Mirrors the existing `postgres-readonly` and `github-gists` jobs in shape.
+- README gets a `Spec alignment` section pointing at the doc and the CI gate; brief mention of the bump procedure lives in the doc itself.
+- Recorded D-008: canonical SDK version lives in `docs/spec-version.md` as a markdown source-of-truth, the CI script enforces conformance. Alternative rejected: read from one designated server's `package.json` and broadcast (silently silos the decision in code, hostile to reviewers).
+- Note: Node 25's strict parser balked at a JSDoc comment containing the word `package` inside backticks. Switched the script header to plain `//` comments. Node 20 (CI) would have been fine either way, but the local-dev environment matters.
+
+**Why this work, this session:** Issue #6 is one of two remaining `priority:med` open issues in this repo and tightly scoped (45-min estimate, came in at 35 min). The other (#4, internal-tools bridge) needs more design surface; #6 is purely a discipline gate that protects the cookbook's "aligned to current MCP spec" claim from drifting silently.
+
+**Open questions / blockers:** None. The doc's `mcp_spec_revision` is sourced from the SDK 1.5.x release notes; an upstream-modelcontextprotocol.io verification is intentionally left as a manual operator step in the bump procedure to avoid CI DNS flakes.
+
+**Next session:** Issue #4 (internal-tools bridge MCP server) is the last `priority:med` open in this repo. With it shipped, the cookbook hits its v0.1 quality bar (four servers).

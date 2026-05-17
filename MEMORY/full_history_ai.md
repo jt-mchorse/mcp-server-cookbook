@@ -70,3 +70,28 @@ context_for_next_session:
 decisions_made: [D-007]
 followups: []
 ---
+
+---
+session: 2026-05-17T23:35Z
+duration_min: 35
+issue: 6
+focus: pin_mcp_spec_version_with_ci_drift_check
+delta:
+  files_added: 3  # docs/spec-version.md, tools/check-spec-version.mjs, tools/check-spec-version.test.mjs
+  files_changed: 2  # .github/workflows/ci.yml, README.md
+  tests_added: 14
+  test_pass_rate: "14/14 (node:test stdlib)"
+context_for_next_session:
+  - docs_spec_version_md_is_single_source_of_truth_yaml_block_carries_sdk_package_sdk_version_mcp_spec_revision_url_notes
+  - tools_check_spec_version_mjs_dep_free_node_stdlib_only_no_install_step_runs_in_ci
+  - two_invariants_recorded_vs_actual_each_server_pin_eq_doc_pin_intra_repo_consistency_all_servers_pin_same_value
+  - ci_spec_version_job_runs_check_plus_its_own_node_test_suite
+  - bump_procedure_documented_in_doc_release_notes_then_doc_then_servers_then_lockfiles_then_local_run_then_pr
+  - upstream_modelcontextprotocol_io_verification_intentionally_offline_avoid_ci_dns_flakes
+  - d_008_canonical_sdk_version_in_markdown_source_of_truth_not_in_one_servers_package_json
+  - node_25_strict_parser_balked_at_jsdoc_with_package_word_switched_to_plain_double_slash_comments_node_20_ci_will_work
+  - filesystem_sandbox_ci_gap_pre_existing_not_in_scope_for_this_issue
+  - cookbook_now_one_priority_med_away_from_v0_1_complete_remaining_issue_4_internal_tools_bridge
+decisions_made: [D-008]
+followups: []
+---

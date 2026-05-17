@@ -63,3 +63,12 @@
   reversibility: cheap
   related_issues: [#3]
   superseded_by: null
+
+- id: D-008
+  date: 2026-05-17
+  decision: canonical_sdk_version_lives_in_docs_spec_version_md_single_markdown_source_of_truth_ci_script_enforces_conformance
+  rationale: cookbook_per_server_independence_d_002_means_no_root_package_json_to_carry_a_shared_pin_doc_as_source_of_truth_makes_the_invariant_human_readable_and_reviewable_in_a_pr_check_script_is_dep_free_node_stdlib_so_ci_runs_without_an_install_step_offline_upstream_verification_avoids_ci_dns_flakes
+  alternatives_rejected: [read_from_one_designated_server_package_json_and_broadcast_silos_decision_in_code_file_hostile_to_reviewers, per_server_declarations_with_ci_script_reconciling_no_single_owner_harder_to_bump, online_check_against_modelcontextprotocol_io_too_flaky_in_ci]
+  reversibility: cheap
+  related_issues: [6]
+  superseded_by: null
