@@ -95,3 +95,22 @@ context_for_next_session:
 decisions_made: [D-008]
 followups: []
 ---
+
+---
+session: 2026-05-18T03:55Z
+duration_min: 50
+issue: 4
+focus: internal_tools_bridge_fourth_cookbook_server
+delta:
+  files_changed: 13
+  tests_added: 20
+context_for_next_session:
+  - fourth_cookbook_server_internal_tools_bridge_ships_d_009
+  - bundled_cli_bin_repo_stats_mjs_dep_free_node_stdlib_walks_directory_returns_json
+  - bridge_posture_shell_false_allowlist_env_passlist_output_cap_timeout_each_pinned_by_regression_test
+  - root_readme_servers_list_3_to_4_decisions_list_gains_d_009
+  - ci_workflow_now_has_internal_tools_bridge_job_mirrors_existing_per_server_shape
+  - spec_version_drift_check_passes_with_4_servers_at_sdk_1_5_0
+decisions_made: [D-009]
+followups: []
+---

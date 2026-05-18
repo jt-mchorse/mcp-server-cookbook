@@ -72,3 +72,12 @@
   reversibility: cheap
   related_issues: [6]
   superseded_by: null
+
+- id: D-009
+  date: 2026-05-18
+  decision: internal_tools_bridge_uses_shell_free_spawn_with_allowlist_env_scrub_output_cap_timeout_structured_args_only
+  rationale: defense_in_depth_against_arg_injection_and_secret_exfil_each_layer_pinned_by_a_regression_test_no_shell_means_metacharacters_are_literal_data_allowlist_means_path_search_cant_widen_the_attack_surface_env_passlist_means_host_secrets_dont_leak_into_child_output_cap_plus_timeout_means_runaway_cli_cant_oom_or_hang_the_server
+  alternatives_rejected: [child_process_exec_shell_interprets_metacharacters_nonstarter, no_allowlist_bridge_becomes_generic_shell_equivalent_regardless_of_shell_false, no_env_scrub_node_spawn_inherits_process_env_secrets_leak_by_default, output_cap_only_stdout_chatty_stderr_can_still_oom]
+  reversibility: cheap
+  related_issues: [4]
+  superseded_by: null

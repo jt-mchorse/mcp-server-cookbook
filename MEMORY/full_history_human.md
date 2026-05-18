@@ -71,3 +71,16 @@ Chronological log of work sessions. Most recent first below the divider.
 **Open questions / blockers:** None. The doc's `mcp_spec_revision` is sourced from the SDK 1.5.x release notes; an upstream-modelcontextprotocol.io verification is intentionally left as a manual operator step in the bump procedure to avoid CI DNS flakes.
 
 **Next session:** Issue #4 (internal-tools bridge MCP server) is the last `priority:med` open in this repo. With it shipped, the cookbook hits its v0.1 quality bar (four servers).
+
+## 2026-05-18 — Issue #4: Internal-tools bridge MCP server
+**Duration:** ~50 min · **Branch:** `session/2026-05-18-issue-04` · **PR:** #12
+
+- Added the fourth cookbook entry: `servers/internal-tools-bridge/`. Bundles a dep-free Node CLI (`bin/repo-stats.mjs`) that walks a directory and returns file counts by extension + total bytes; wraps it as the MCP tool `repo_stats(path, max_depth?)`. The interesting code is `src/bridge.ts`, a `child_process.spawn` helper that pins every security-relevant layer: `shell: false`, absolute-path binary allowlist, env scrubbed to a documented passlist, per-call 10s timeout, 1 MiB per-stream output cap. Each layer has a regression test that would fail loudly if removed.
+- 20 hermetic tests (10 bridge, 10 tools) covering allowlist enforcement, shell-metacharacter pass-through, env scrub against a planted sentinel, timeout, output cap, cwd lock, non-zero exit, input validation, real-CLI execution against tmp fixtures. Lint + typecheck + build clean.
+- Root README: servers list now lists 4 patterns (postgres-readonly, filesystem-sandbox, github-gists, internal-tools-bridge); decisions list gains D-009. CI workflow gains an `internal-tools-bridge` job mirroring the existing per-server shape (Node 20, npm ci → lint → typecheck → test → build). The drift-check workflow confirms 4 servers now agree on `@modelcontextprotocol/sdk@^1.5.0`.
+
+**Why this work, this session:** Issue #4 was the next med-priority item in the cookbook with a contained, security-narrative-rich scope that completes the four-pattern lineup the repo's READMEs have been promising since #1.
+
+**Open questions / blockers:** None.
+
+**Next session:** nextjs-streaming-ai-patterns #4 or #5 (frontend pattern session).

@@ -113,3 +113,27 @@ The composition closes the gaps: even if the role is mis-configured AND the pars
 **Reversibility:** Cheap. The doc parser is ~25 lines; if the doc grows past the fixed-shape five-line block, swap in `yaml` from npm and update the tests. The script's two invariants are pure functions and exposed for testing.
 
 **Related issues:** #6
+
+## D-009 — `internal-tools-bridge` uses shell-free spawn with allowlist, env scrub, output cap, and timeout — structured args only (2026-05-18)
+
+**Decision:** The `internal-tools-bridge` server invokes its bundled CLI via `child_process.spawn` with `shell: false`, passing args as an array. The binary must be in an explicit absolute-path allowlist (default: `process.execPath` only). The environment is scrubbed to a documented passlist (`PATH`, `LANG`, `LC_ALL`, `TZ`, `NODE_OPTIONS`). Stdout and stderr are each capped at 1 MiB; the bridge SIGKILLs on a 10-second timeout. The MCP tool's input is structured args validated before the argv array is built, never a raw command string.
+
+**Why:** The bridge pattern's whole job is to expose internal CLIs to an agent without giving the agent a shell. Every layer of the defense matters because each defeats a different attack:
+
+- `shell: false` + array argv means shell metacharacters (`;`, `&&`, `|`, `$()`, `>`) survive as literal data, never as additional commands. The `argv shape > never invokes a shell` test passes those exact tokens through and asserts they reach the child's `argv` verbatim. If a future refactor flips `shell: true`, the test fails.
+- The absolute-path allowlist defeats PATH-based attack widening: even if `PATH` were attacker-controlled (it isn't — we scrub env — but the principle is *defense in depth*), the bridge wouldn't run `/tmp/evil/node`. A relative path like `"node"` is also rejected.
+- The env scrub defeats secret exfiltration via the child. Node's `spawn` inherits `process.env` by default — the bridge constructs a fresh env containing only the passlist. The `env scrub > does not leak secrets` test plants a sentinel in the parent env and asserts the child reads back `null`.
+- The output cap plus timeout means a buggy or hostile CLI can't OOM the server or hang it indefinitely. Both are tested with deliberate violations.
+- Validating tool input *before* building the argv array means a malformed input is rejected with a typed `ToolInputError` (which the server's catch turns into an `isError` MCP response) rather than reaching `spawn`. The shape of the validated input — `{ path: string (non-empty, no NUL), max_depth?: integer ∈ [1,10] }` — is a contract callers can rely on.
+
+This is the same defense-in-depth posture used by D-004 (postgres-readonly: no single layer of write-blocking is sufficient) and D-007 (github-gists: redaction at every error boundary). The cookbook's recurring point is that each server's *security pattern* is the load-bearing artifact, not the wrapped tool itself.
+
+**Alternatives considered:**
+- `child_process.exec` (string command line, shell-on) — rejected: the shell interprets metacharacters; nonstarter for an LLM-facing bridge.
+- No allowlist (rely on the calling code to pass a sensible binary) — rejected: defense-in-depth fails. The bridge becomes a generic shell-equivalent regardless of `shell: false` if any path can be spawned.
+- No env scrub (inherit `process.env`) — rejected: host secrets (`ANTHROPIC_API_KEY`, `GITHUB_TOKEN`, anything sourced from `~/.zshrc`) leak into the child by default. A CLI that prints `process.env` (or one with a bug that does so) becomes a data exfil channel.
+- Output cap on stdout only — rejected: a chatty stderr can still OOM the server. Cap both, equally.
+
+**Reversibility:** Cheap. The bridge is one file (`src/bridge.ts`, ~160 lines). Each layer can be relaxed independently if a specific use case demands it, but the *default* must be the tight one — operators who want to loosen explicitly pass a wider `BridgeConfig`.
+
+**Related issues:** #4
