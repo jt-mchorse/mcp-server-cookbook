@@ -87,6 +87,19 @@ npm install && npm run build
 npm start
 ```
 
+**`filesystem-sandbox-py`** — Python parity port of `filesystem-sandbox`
+(#5). Same threat model, same tools, same security primitive, exposed
+via the official `mcp` Python SDK. The security primitive is itself
+dep-free — the MCP SDK is needed only to run the server, not to
+exercise the tests:
+
+```bash
+cd servers/filesystem-sandbox-py
+python -m venv .venv && . .venv/bin/activate
+pip install -e '.[server]'
+MCP_FS_SANDBOX_ALLOWLIST=/tmp/scratch mcp-filesystem-sandbox-py
+```
+
 Test suites are hermetic (no Docker / no network needed):
 
 ```bash
@@ -94,6 +107,7 @@ cd servers/postgres-readonly      && npm install && npm test    # 38 SQL-guard t
 cd servers/filesystem-sandbox     && npm install && npm test    # 38 sandbox + tool + config tests
 cd servers/github-gists           && npm install && npm test    # 28 config + client (redaction) + tool tests
 cd servers/internal-tools-bridge  && npm install && npm test    # 20 bridge + tool tests (no shell, env scrub, output cap)
+cd servers/filesystem-sandbox-py  && pip install -e '.[dev]' && pytest  # 54 sandbox + tool + config tests
 ```
 
 Wiring into Claude Desktop, the Claude Code CLI, or your own MCP client is
