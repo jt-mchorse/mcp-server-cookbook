@@ -130,3 +130,22 @@ context_for_next_session:
 decisions_made: []
 followups: []
 ---
+
+---
+session: 2026-05-18T05:35Z
+duration_min: 55
+issue: 5
+focus: python_parity_port_filesystem_sandbox
+delta:
+  files_changed: 13
+  tests_added: 54
+context_for_next_session:
+  - servers_filesystem_sandbox_py_ports_filesystem_sandbox_with_full_parity_test_suite_54_tests
+  - mcp_python_sdk_lazy_imported_in_server_py_so_primitive_tests_dep_free
+  - primitive_imports_only_stdlib_stricter_dep_posture_than_ts_port
+  - no_new_d_entry_parity_translation_of_existing_d_005_d_006
+  - choice_of_mcp_over_fastmcp_documented_in_pr_not_in_memory_reversibility_cheap
+  - root_readme_quickstart_now_lists_both_ts_and_python_test_invocations
+decisions_made: []
+followups: []
+---

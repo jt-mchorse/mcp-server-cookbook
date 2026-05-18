@@ -97,3 +97,18 @@ Chronological log of work sessions. Most recent first below the divider.
 **Open questions / blockers:** None.
 
 **Next session:** Likely rag-production-kit #8 (the only remaining med-priority issue across the portfolio).
+
+## 2026-05-18 — Issue #5: Python parity port (filesystem-sandbox)
+**Duration:** ~55 min · **Branch:** `session/2026-05-18-issue-py` · **PR:** #14
+
+- Shipped `servers/filesystem-sandbox-py/`: line-for-line port of the TypeScript filesystem-sandbox server to Python with full parity on the security primitive (D-005, D-006). Three tools (`list_directory`, `read_file`, `write_file`) wired to the official `mcp` Python SDK v1.27 — same upstream the TS cookbook pins.
+- The MCP SDK is lazy-imported in `server.py`, so the security primitive (`sandbox.py` + `tools.py` + `config.py`) is *entirely* dep-free. Its 54 tests run on a stdlib-only Python install — stricter dep posture than the TS port can achieve.
+- The Python test suite (`tests/test_sandbox.py` 22, `tests/test_tools.py` 13, `tests/test_config.py` 19) pins every security invariant the TS suite pins: empty input, null bytes, control chars, relative paths, traversal, symlinks-out, prefix-sibling overlap (`/tmp/foo` vs `/tmp/foobar`), `must_exist=False` semantics. Plus Python-idiomatic shape tests for the env parser.
+- Server README is the parity doc: matrix of identical properties + idiomatic differences (sync vs async, test runner, dep posture). Root README's Quickstart gets a Python paragraph + a test row.
+- No new D-NNN: this is a parity translation of existing decisions, not a new architectural commitment. The choice of `mcp` over `fastmcp` is documented in the PR description; reversibility is cheap (one file imports the SDK).
+
+**Why this work, this session:** Last remaining open issue in the cookbook; gives the repo a *cross-language* story which is genuinely useful as a teaching artifact ("here's how the same security posture translates between SDK ecosystems").
+
+**Open questions / blockers:** PR explicitly flags that a *running* side-by-side comparison in Claude Desktop wasn't performed inside the PR — the parity matrix + the test suite cover the wiring; the end-to-end is a manual one-shot.
+
+**Next session:** Wrap. All open issues with actionable work across the night-target portfolio are now closed. Remaining backlog is the data-blocked embedding-shootout #4 (commented honestly, waiting on operator-triggered real-provider runs).
