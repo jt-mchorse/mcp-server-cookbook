@@ -17,10 +17,10 @@ demonstrate four distinct patterns of *agent ↔ external system* mediation
 that come up in real LLM applications, with the security work done
 visibly:
 
-1. **Read-only data access** to a stateful system (this PR — Postgres).
-2. **Sandboxed filesystem access** with an explicit allow-list.
-3. **API wrapper with auth** for a SaaS tool integration.
-4. **Internal-tools bridge** wrapping a small custom CLI.
+1. **Read-only data access** to a stateful system — `postgres-readonly`.
+2. **Sandboxed filesystem access** with an explicit allow-list — `filesystem-sandbox` (TS) + `filesystem-sandbox-py` (Python parity).
+3. **API wrapper with auth** for a SaaS tool integration — `github-gists`.
+4. **Internal-tools bridge** wrapping a small custom CLI — `internal-tools-bridge`.
 
 Each subdirectory's README leads with the threat model — what the server is
 defending against, what it isn't, and where the operator's responsibility
@@ -131,9 +131,18 @@ threat model and the test suite that exercises it.
 
 ## Demo
 
-60-second demo pending until at least two servers are wired up so the
-demo shows a *pattern* (read-only Postgres + filesystem sandbox), not a
-single one-off.
+Today the live "demo" is a per-server `npm start` (Python parity uses
+`mcp-filesystem-sandbox-py`) against the documented client wiring —
+every server brings up locally in under a minute on a fresh clone, no
+account setup. Each server's README leads with the threat model and
+copy-pasteable client wiring (Claude Desktop, Claude Code CLI, or your
+own MCP client).
+
+A captured 60-second walkthrough (GIF or video) is **pending** — tracked
+in [#16](https://github.com/jt-mchorse/mcp-server-cookbook/issues/16). The
+intended path: bring up `postgres-readonly` + `filesystem-sandbox` (or
+its Python parity) + `github-gists` against a single MCP client, exercise
+one tool per server, and capture the trace.
 
 ## Why these decisions
 
