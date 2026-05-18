@@ -72,12 +72,28 @@ npm install && npm run build
 GITHUB_TOKEN=ghp_yourTokenWithGistScope npm start
 ```
 
+**`internal-tools-bridge`** — wraps an in-repo CLI as a structured-args
+MCP tool. The bundled CLI is `bin/repo-stats.mjs` (dep-free Node;
+returns file counts by extension and total bytes for a directory).
+The interesting code is `src/bridge.ts`: a `child_process.spawn` helper
+that is shell-free (`shell: false`, array argv), runs only allow-listed
+binaries, scrubs env to a documented passlist, caps stdout/stderr at
+1 MiB, and SIGKILLs on a 10-second timeout. Demonstrates the
+cookbook's internal-CLI-as-MCP-tool pattern. No external setup:
+
+```bash
+cd servers/internal-tools-bridge
+npm install && npm run build
+npm start
+```
+
 Test suites are hermetic (no Docker / no network needed):
 
 ```bash
-cd servers/postgres-readonly  && npm install && npm test    # 38 SQL-guard tests
-cd servers/filesystem-sandbox && npm install && npm test    # 38 sandbox + tool + config tests
-cd servers/github-gists       && npm install && npm test    # 28 config + client (redaction) + tool tests
+cd servers/postgres-readonly      && npm install && npm test    # 38 SQL-guard tests
+cd servers/filesystem-sandbox     && npm install && npm test    # 38 sandbox + tool + config tests
+cd servers/github-gists           && npm install && npm test    # 28 config + client (redaction) + tool tests
+cd servers/internal-tools-bridge  && npm install && npm test    # 20 bridge + tool tests (no shell, env scrub, output cap)
 ```
 
 Wiring into Claude Desktop, the Claude Code CLI, or your own MCP client is
@@ -121,6 +137,12 @@ See [`MEMORY/core_decisions_human.md`](MEMORY/core_decisions_human.md). Notable:
   boundaries: the bearer value never appears in error messages, tool
   results, or logs, and the request body is dropped from error context
   so user-supplied content can't leak through that path either.
+- **D-009.** The `internal-tools-bridge` server invokes its bundled
+  CLI via `child_process.spawn` with `shell: false`, an explicit
+  binary allow-list, an env passlist (`PATH`, `LANG`, `LC_ALL`, `TZ`,
+  `NODE_OPTIONS` only), a 1 MiB per-stream output cap, and a per-call
+  timeout — every layer enforced by regression tests. The MCP tool's
+  input is structured args, never a raw command string.
 
 ## License
 
