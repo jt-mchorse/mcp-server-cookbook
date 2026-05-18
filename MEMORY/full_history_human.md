@@ -84,3 +84,16 @@ Chronological log of work sessions. Most recent first below the divider.
 **Open questions / blockers:** None.
 
 **Next session:** nextjs-streaming-ai-patterns #4 or #5 (frontend pattern session).
+
+## 2026-05-18 — Issue #10: filesystem-sandbox CI job
+**Duration:** ~10 min · **Branch:** `session/2026-05-18-issue-10` (stacked on PR #12) · **PR:** #13
+
+- Added the missing `filesystem-sandbox` job in `.github/workflows/ci.yml`. Byte-identical shape to the other three per-server jobs (Node 20, npm cache keyed on the lockfile, npm ci → lint → typecheck → test → build).
+- Local pre-flight on `servers/filesystem-sandbox/`: 38 tests pass, lint + typecheck + build clean.
+- No new D-NNN entry — this was a pure CI-gap fill flagged during #3, no architectural decision in play.
+
+**Why this work, this session:** Low-priority issue, but small and complementary to PR #12's CI restructuring. Closing it now while the workflow is fresh.
+
+**Open questions / blockers:** None.
+
+**Next session:** Likely rag-production-kit #8 (the only remaining med-priority issue across the portfolio).
