@@ -149,3 +149,26 @@ context_for_next_session:
 decisions_made: []
 followups: []
 ---
+
+---
+session: 2026-05-18T23:24Z
+duration_min: 30
+issue: 15
+focus: readme_truth_pass_drop_session_specific_framing_plus_ci_readme_check
+delta:
+  files_changed: 2   # README.md, .github/workflows/ci.yml
+  files_added: 2     # tools/check-readme.mjs, tools/check-readme.test.mjs
+  tests_added: 19    # node --test
+  ts_per_server_tests_unchanged_38_38_28_20
+  py_per_server_tests_unchanged_54
+context_for_next_session:
+  - readme_pattern_catalog_now_names_server_dirs_drops_this_pr_postgres_parenthetical
+  - readme_demo_section_describes_today_state_per_server_npm_start_capture_filed_as_followup_16
+  - new_tools_check_readme_mjs_verifies_server_refs_exist_plus_per_server_test_count_claims_match_static_count
+  - python_parametrize_supported_via_top_level_comma_counter_quoted_string_aware_stacked_decorators_multiplied
+  - ts_counter_ignores_identifiers_with_test_substring_via_column_boundary_regex
+  - new_readme_check_ci_job_runs_script_plus_19_unit_tests_on_every_pr
+  - pattern_parallels_today_snapshot_test_pattern_across_five_repos_cost_optimizer_prompt_regression_rag_kit_nextjs_streaming_agent_orchestration
+decisions_made: []
+followups: [#16]
+---

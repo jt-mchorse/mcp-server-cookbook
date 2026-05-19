@@ -104,3 +104,15 @@ jobs:
         run: node tools/check-spec-version.mjs
       - name: Run the spec-version script's own unit tests
         run: node --test tools/check-spec-version.test.mjs
+
+  readme-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Verify README server refs + test-count claims match reality
+        run: node tools/check-readme.mjs
+      - name: Run the README check script's own unit tests
+        run: node --test tools/check-readme.test.mjs

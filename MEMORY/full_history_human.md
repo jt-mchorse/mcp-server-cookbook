@@ -112,3 +112,18 @@ Chronological log of work sessions. Most recent first below the divider.
 **Open questions / blockers:** PR explicitly flags that a *running* side-by-side comparison in Claude Desktop wasn't performed inside the PR — the parity matrix + the test suite cover the wiring; the end-to-end is a manual one-shot.
 
 **Next session:** Wrap. All open issues with actionable work across the night-target portfolio are now closed. Remaining backlog is the data-blocked embedding-shootout #4 (commented honestly, waiting on operator-triggered real-provider runs).
+
+## 2026-05-18 — Issue #15: README truth pass + CI lock
+
+**Duration:** ~30 min · **Branch:** `session/2026-05-18-2324-issue-15`
+
+- Removed two stale fragments from the README. The pattern catalog read `1. Read-only data access (this PR — Postgres)` — leftover wording from when the README was authored inside `postgres-readonly`'s landing PR — and was rewritten to name each pattern's server directory. The Demo section claimed a 60s capture was "pending until at least two servers are wired up", a blocking condition that's been met for weeks (five servers ship); reframed to describe today's per-server `npm start` reality and tracked the captured asset as follow-up #16.
+- Added `tools/check-readme.mjs`, a dep-free Node stdlib script in the same shape as the existing `tools/check-spec-version.mjs`. Two invariants: every `servers/<name>/` reference in the README points to a real directory, and every per-server test-count claim (`# 38 SQL-guard tests`, etc.) matches the static count from the server's test files. Handles vitest `it(`/`test(` for the TS servers and Python `def test_*` with `@pytest.mark.parametrize(...)` expansion for the Python parity port (top-level comma counter that's quoted-string-aware; stacked decorators multiply).
+- 19 `node --test` unit tests cover the parser surfaces. New `readme-check` CI job runs both the script and the unit tests on every PR. Verified the failure path by tampering one count to `999`: the script exits 1 with the offending line and an actionable hint. Reverted, script clean again.
+- All TS per-server counts (38 / 38 / 28 / 20) and the Python parity count (54) match what the script finds statically — same numbers `pytest` and `vitest` report at runtime.
+
+**Why this work, this session:** A README claiming work is pending when the work has shipped is the same drift mode this repo's spec-version-check guards against for SDK pins; extending the same pattern to README claims keeps the docs honest and detectable from CI rather than from periodic manual passes.
+
+**Open questions / blockers:** Captured 60s asset still doesn't exist — owned by #16. Live capture across three servers + an MCP client is best done with screen-capture tooling rather than in an autonomous session.
+
+**Next session:** Substantive feature work for this repo is done. Open issues are now #16 (low) only.
