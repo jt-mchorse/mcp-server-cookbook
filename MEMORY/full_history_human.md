@@ -127,3 +127,16 @@ Chronological log of work sessions. Most recent first below the divider.
 **Open questions / blockers:** Captured 60s asset still doesn't exist — owned by #16. Live capture across three servers + an MCP client is best done with screen-capture tooling rather than in an autonomous session.
 
 **Next session:** Substantive feature work for this repo is done. Open issues are now #16 (low) only.
+
+## 2026-05-20 — Issue #18: lock filesystem_sandbox public surface
+**Duration:** ~20 min · **Branch:** `session/2026-05-20-0330-issue-18`
+
+- Added `servers/filesystem-sandbox-py/tests/test_public_surface.py` (4 standalone + 2 parametrized = 6 test items) and `__version__ = "0.1.0"` on the `filesystem_sandbox` package (mirrors pyproject; this package is at 0.1.0, not 0.0.1 like the prior five pattern repos). Six axes: semver, all-bound, all-matches, package-docstring-imports (novel — only Python repo in the portfolio where the "Library use" promise lives in `__init__.py`'s own docstring rather than the README), README+pyproject dotted-path `filesystem_sandbox.server.main`, one anchor for `sandbox`.
+- Tamper-verified four axes: bad version, drop `"SandboxedPath"` from `__all__`, in-process delete of `server.main` (which the CLI entry-point and README's `python -m` invocation both depend on), alias-rename `Sandbox as SandboxV2` (fires three axes simultaneously).
+- Full suite 60/60 in the Python sub-package (was 54; +6 new).
+
+**Why this work, this session:** Eighth and final portable strike of the portfolio-wide public-surface hygiene pattern. This repo's TypeScript servers (`filesystem-sandbox`, `postgres-readonly`, `github-gists`) would need their own pattern translation (e.g., `tsd` or `tsc --noEmit` snapshot) and are out of scope here.
+
+**Open questions / blockers:** None — PR ready for review.
+
+**Next session:** The Python public-surface pattern is now complete across the portfolio (8 strikes: `llm-eval-harness#25`, `llm-cost-optimizer#23`, `prompt-regression-suite#20`, `rag-production-kit#24`, `embedding-model-shootout#14`, `chunking-strategies-lab#16`, `python-async-llm-pipelines#19`, this one). Loop forward into TypeScript hygiene, demo capture, or whichever issue surface JT highlights next.

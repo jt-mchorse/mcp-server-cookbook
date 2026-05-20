@@ -172,3 +172,23 @@ context_for_next_session:
 decisions_made: []
 followups: [#16]
 ---
+
+---
+session: 2026-05-20T03:30Z
+duration_min: 20
+issue: 18
+focus: public_surface_snapshot_test_locks_filesystem_sandbox_python_parity_port
+delta:
+  files_added: 1   # servers/filesystem-sandbox-py/tests/test_public_surface.py
+  files_changed: 1   # servers/filesystem-sandbox-py/filesystem_sandbox/__init__.py (+__version__)
+  tests_added: 6   # 4 standalone + 1 dotted-path + 1 submodule anchor
+  test_pass_rate: "60/60 in filesystem-sandbox-py"
+context_for_next_session:
+  - filesystem_sandbox_now_publishes_dunder_version_str_0_1_0_note_different_from_0_0_1_used_in_prior_pattern_repos
+  - novel_axis_introduced_package_docstring_imports_resolve_only_python_repo_in_portfolio_where_library_use_lives_in_init_docstring_not_readme
+  - readme_dotted_path_filesystem_sandbox_server_main_pairs_with_pyproject_console_script_mcp_filesystem_sandbox_py
+  - tamper_verified_four_axes_bad_version_drop_sandboxedpath_inproc_delete_server_main_alias_rename_sandbox
+  - portable_pattern_eighth_strike_completes_python_surface_of_portfolio_remaining_typescript_servers_in_this_repo_need_separate_pattern_tsd_or_tsc_noemit_out_of_scope_this_pr
+decisions_made: []
+followups: []
+---
