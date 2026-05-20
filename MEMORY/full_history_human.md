@@ -140,3 +140,17 @@ Chronological log of work sessions. Most recent first below the divider.
 **Open questions / blockers:** None — PR ready for review.
 
 **Next session:** The Python public-surface pattern is now complete across the portfolio (8 strikes: `llm-eval-harness#25`, `llm-cost-optimizer#23`, `prompt-regression-suite#20`, `rag-production-kit#24`, `embedding-model-shootout#14`, `chunking-strategies-lab#16`, `python-async-llm-pipelines#19`, this one). Loop forward into TypeScript hygiene, demo capture, or whichever issue surface JT highlights next.
+
+## 2026-05-20 — Issue #20: lock public surface across all 4 TS servers
+**Duration:** ~25 min · **Branch:** `session/2026-05-20-0356-issue-20`
+
+- Added `test/public-surface.test.ts` to each of the four TS servers (`filesystem-sandbox`, `postgres-readonly`, `github-gists`, `internal-tools-bridge`). Identical 3-axis shape per server (~95 lines each): `package.json#version` semver, `package.json#main` maps to `src/server.ts` via tsconfig `rootDir=src`/`outDir=dist`, every `package.json#bin.<name>` entry maps to a real pre-build source. `src/server.ts` intentionally NOT smoke-imported because top-level `main().catch(...)` starts the MCP stdio transport on import.
+- First multi-package strike in the pattern series — one PR adds the test to all four servers because they share the same shape; their CI jobs run separately.
+- README test-count claims bumped to match the new totals (filesystem-sandbox 38→41, postgres-readonly 38→41, github-gists 28→31, internal-tools-bridge 20→23). Same drill that PR #19 had to do for filesystem-sandbox-py.
+- Tamper-verified three axes on `filesystem-sandbox` as the representative server. All four servers: vitest passes, eslint clean, tsc --noEmit clean.
+
+**Why this work, this session:** Thirteenth strike of the portfolio-wide public-surface hygiene pattern. With this PR, the pattern covers every Python and TypeScript package in the portfolio — twelve strikes prior + this multi-package one.
+
+**Open questions / blockers:** None — PR ready for review.
+
+**Next session:** Public-surface pattern is complete across the portfolio. Pivot to a different hygiene gap or wait for JT to direct.

@@ -192,3 +192,31 @@ context_for_next_session:
 decisions_made: []
 followups: []
 ---
+
+---
+session: 2026-05-20T03:56Z
+duration_min: 25
+issue: 20
+focus: ts_public_surface_pattern_multi_package_strike_four_ts_servers_in_cookbook
+delta:
+  files_added: 4   # one test/public-surface.test.ts per server
+  files_changed: 1   # README test count claims bumped
+  tests_added: 12   # 3 per server × 4 servers
+  test_pass_rate_per_server:
+    filesystem_sandbox: "41/41 was 38"
+    postgres_readonly: "41/41 was 38"
+    github_gists: "31/31 was 28"
+    internal_tools_bridge: "23/23 was 20"
+  typecheck_pass: true
+  lint_pass: true
+context_for_next_session:
+  - first_multi_package_strike_in_pattern_series_one_pr_four_packages_identical_shape
+  - each_ts_server_is_script_not_library_so_no_aggregator_index_axis_no_smoke_import_top_level_main_catch_starts_transport
+  - three_axes_per_server_pkg_version_semver_main_pre_build_source_bin_entries_pre_build_sources
+  - dist_source_mapping_consistent_across_all_four_dist_server_js_to_src_server_ts_via_rootdir_src_outdir_dist
+  - tamper_verified_three_axes_on_filesystem_sandbox_representative
+  - readme_test_count_claims_bumped_38_to_41_28_to_31_20_to_23_consistent_with_pr_19_doc_pattern
+  - portfolio_wide_public_surface_pattern_now_thirteen_strikes_covers_all_python_and_typescript_packages_in_portfolio
+decisions_made: []
+followups: []
+---
