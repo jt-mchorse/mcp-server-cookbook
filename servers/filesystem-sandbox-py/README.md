@@ -113,14 +113,16 @@ on macOS):
 
 ```bash
 pip install -e '.[dev]'      # no [server] needed — primitive tests don't import mcp
-pytest                        # 54 tests, ~60 ms
+pytest                        # 60 tests, ~60 ms
 ruff check . && ruff format --check .
 ```
 
 The test suite (`tests/test_sandbox.py` + `tests/test_tools.py` +
-`tests/test_config.py`) pins **every security invariant** the TS suite
-pins, plus a few Python-idiomatic ones (control-char parametrize over
-boundary code points; sibling-prefix attack via two fresh tmp dirs).
+`tests/test_config.py` + `tests/test_public_surface.py`) pins **every
+security invariant** the TS suite pins, plus a few Python-idiomatic
+ones (control-char parametrize over boundary code points; sibling-prefix
+attack via two fresh tmp dirs) and a public-surface snapshot that locks
+the package's `__init__` exports against silent rename / drop drift.
 Where the TS suite uses `vitest`'s `await expect(...).rejects` shape,
 the Python tests use `pytest.raises(SandboxEscape) as ei; assert
 ei.value.reason == ...` — same invariant, different syntax.

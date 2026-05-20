@@ -107,7 +107,7 @@ cd servers/postgres-readonly      && npm install && npm test    # 38 SQL-guard t
 cd servers/filesystem-sandbox     && npm install && npm test    # 38 sandbox + tool + config tests
 cd servers/github-gists           && npm install && npm test    # 28 config + client (redaction) + tool tests
 cd servers/internal-tools-bridge  && npm install && npm test    # 20 bridge + tool tests (no shell, env scrub, output cap)
-cd servers/filesystem-sandbox-py  && pip install -e '.[dev]' && pytest  # 54 sandbox + tool + config tests
+cd servers/filesystem-sandbox-py  && pip install -e '.[dev]' && pytest  # 60 sandbox + tool + config + public-surface tests
 ```
 
 Wiring into Claude Desktop, the Claude Code CLI, or your own MCP client is
