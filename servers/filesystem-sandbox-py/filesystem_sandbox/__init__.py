@@ -14,6 +14,8 @@ is imported lazily so the security primitive's tests run without the
 ``mcp`` Python SDK installed.
 """
 
+__version__ = "0.1.0"  # mirror of pyproject.toml [project] version
+
 from .sandbox import Sandbox, SandboxedPath, SandboxEscape, SandboxEscapeReason
 
 __all__ = ["Sandbox", "SandboxedPath", "SandboxEscape", "SandboxEscapeReason"]
