@@ -103,10 +103,10 @@ MCP_FS_SANDBOX_ALLOWLIST=/tmp/scratch mcp-filesystem-sandbox-py
 Test suites are hermetic (no Docker / no network needed):
 
 ```bash
-cd servers/postgres-readonly      && npm install && npm test    # 38 SQL-guard tests
-cd servers/filesystem-sandbox     && npm install && npm test    # 38 sandbox + tool + config tests
-cd servers/github-gists           && npm install && npm test    # 28 config + client (redaction) + tool tests
-cd servers/internal-tools-bridge  && npm install && npm test    # 20 bridge + tool tests (no shell, env scrub, output cap)
+cd servers/postgres-readonly      && npm install && npm test    # 41 SQL-guard + public-surface tests
+cd servers/filesystem-sandbox     && npm install && npm test    # 41 sandbox + tool + config + public-surface tests
+cd servers/github-gists           && npm install && npm test    # 31 config + client (redaction) + tool + public-surface tests
+cd servers/internal-tools-bridge  && npm install && npm test    # 23 bridge + tool + public-surface tests (no shell, env scrub, output cap)
 cd servers/filesystem-sandbox-py  && pip install -e '.[dev]' && pytest  # 60 sandbox + tool + config + public-surface tests
 ```
 
