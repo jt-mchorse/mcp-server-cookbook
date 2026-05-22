@@ -131,18 +131,45 @@ threat model and the test suite that exercises it.
 
 ## Demo
 
-Today the live "demo" is a per-server `npm start` (Python parity uses
-`mcp-filesystem-sandbox-py`) against the documented client wiring —
-every server brings up locally in under a minute on a fresh clone, no
-account setup. Each server's README leads with the threat model and
-copy-pasteable client wiring (Claude Desktop, Claude Code CLI, or your
-own MCP client).
+`tools/capture_demo.sh` is the deterministic driver for the 60-second
+walkthrough. Each of three surfaces exercises a load-bearing security
+primitive — the part of the threat model the demo is actually proving:
+
+1. **`postgres-readonly` · SQL guard (D-004).** `guardQuery()` against
+   allowed reads (`SELECT`, `WITH`, `EXPLAIN`) and rejected writes /
+   admin / multi-statement input. No DB needed — this is the layer
+   that refuses an attempted write before the DB role's read-only
+   check even runs.
+2. **`filesystem-sandbox-py` · path resolution (D-005, D-006).**
+   `Sandbox.create([tmp_allowlist])` then `resolve()` on inside,
+   traversal, absolute-outside, symlink-outside, relative, null-byte,
+   and control-char inputs. Real disk IO under a tempdir; every
+   rejection carries a typed `SandboxEscape` reason.
+3. **`github-gists` · token redaction at error boundaries (D-007).**
+   Injected fake `fetch` returning a fixture gist (truncation cap
+   fires) and a 401 with a recognizable token sentinel. The script
+   prints `GithubApiError.message` and asserts the sentinel literal
+   is absent from both the message and a `JSON.stringify`d error.
+
+Run on a fresh clone — no DB, no network, no real `GITHUB_TOKEN`:
+
+```bash
+( cd servers/postgres-readonly && npm ci )
+( cd servers/github-gists      && npm ci )
+pip install -e servers/filesystem-sandbox-py
+bash tools/capture_demo.sh                   # CAPTURE_PACE_SECONDS=2 (recording pace)
+```
 
 A captured 60-second walkthrough (GIF or video) is **pending** — tracked
-in [#16](https://github.com/jt-mchorse/mcp-server-cookbook/issues/16). The
-intended path: bring up `postgres-readonly` + `filesystem-sandbox` (or
-its Python parity) + `github-gists` against a single MCP client, exercise
-one tool per server, and capture the trace.
+in [#16](https://github.com/jt-mchorse/mcp-server-cookbook/issues/16),
+with the GIF/video itself being the operator's recording step. The
+`capture-demo` CI job runs the script with `CAPTURE_PACE_SECONDS=0` on
+every PR (via `tools/check-capture-demo.mjs`) so the demo can't bitrot;
+the asserter pins the three surface banners, the named guard rejections,
+the per-file truncation cap, and the absence of the token sentinel from
+stdout. Per-server `npm start` against the documented client wiring
+remains the way to drive the live MCP integration end-to-end (each
+server's README has the Claude Desktop / Claude Code CLI snippet).
 
 ## Why these decisions
 

@@ -128,3 +128,31 @@ jobs:
         run: node tools/check-architecture-doc.mjs
       - name: Run the architecture-doc check script's own unit tests
         run: node --test tools/check-architecture-doc.test.mjs
+
+  capture-demo:
+    # Hermetic smoke for tools/capture_demo.sh — the deterministic driver
+    # for the 60-second README demo (#16). Each of three surfaces exercises
+    # a load-bearing primitive (D-004 SQL guard, D-005/D-006 sandbox path
+    # resolution, D-007 token redaction). No DB, no network, no real token.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install postgres-readonly node_modules (for tsx)
+        working-directory: servers/postgres-readonly
+        run: npm ci
+      - name: Install github-gists node_modules (for tsx)
+        working-directory: servers/github-gists
+        run: npm ci
+      - name: Install filesystem-sandbox-py (importable for the demo)
+        working-directory: servers/filesystem-sandbox-py
+        run: pip install -e .
+      - name: Run capture-demo smoke + assert contract
+        run: node tools/check-capture-demo.mjs
+      - name: Run capture-demo asserter's own unit tests
+        run: node --test tools/check-capture-demo.test.mjs
