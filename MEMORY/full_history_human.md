@@ -154,3 +154,17 @@ Chronological log of work sessions. Most recent first below the divider.
 **Open questions / blockers:** None — PR ready for review.
 
 **Next session:** Public-surface pattern is complete across the portfolio. Pivot to a different hygiene gap or wait for JT to direct.
+
+## 2026-05-22 — docs/architecture.md was frozen at postgres-readonly's first PR, mislabeled four shipped servers as pending (#22)
+
+**Duration:** ~30 min. **Issue:** [#22](https://github.com/jt-mchorse/mcp-server-cookbook/issues/22). **PR:** [#23](https://github.com/jt-mchorse/mcp-server-cookbook/pull/23).
+
+`docs/architecture.md` was first committed alongside `postgres-readonly`'s first PR and never reframed when the other four servers (`filesystem-sandbox` #2, `github-gists` #3, `internal-tools-bridge` #4, `filesystem-sandbox-py` #5) landed. The directory diagram still said three of the four shipped servers were `pending`, named a never-shipped `api-with-auth` directory instead of the real `github-gists` (the API-wrapper-with-auth concrete became GitHub Gists at the D-007 decision point), didn't include `filesystem-sandbox-py` at all, and carried a `"this PR"` framing left over from when the doc was first added in `postgres-readonly`'s PR. The "Pending entries" section three quarters of the way down repeated the same staleness. The root `README.md` was already correct — only `docs/architecture.md` lagged. A reader landing on the architecture doc first (linked from the README's Architecture section) got the wrong picture.
+
+Rewrote the directory diagram to list the five actually-shipped server directories with concise `D-NNN` annotations, and replaced the "Pending entries" section with a "Shipped entries" section naming each server's pattern, tools, and load-bearing security decision. Dropped the `"this PR"` framing; the doc is now a steady-state reference, not a PR description.
+
+Lock-against-drift: `tools/check-architecture-doc.{mjs,test.mjs}` — a parallel to the existing `tools/check-readme.{mjs,test.mjs}` checker. Three invariants: every `servers/<name>/` path token in the doc resolves to a real directory; every existing `servers/<name>/` directory is referenced at least once (catches a future sixth server shipping without the doc updating); none of `api-with-auth`, `pending issue`, `pending (not yet filed)`, `this PR` appear (the exact four shapes the pre-#22 doc carried). CI gains a new `architecture-doc-check` job running both the script and its 8 unit tests on every PR — same shape as the existing `readme-check` and `spec-version` jobs.
+
+Tamper-verified two ways: reinjecting all four banned phrases on a scratch copy fires the stale-phrase assertion with each one quoted in the error; stashing the doc fix fires the unreferenced-servers assertion with the four missing names listed.
+
+Issue #22 was filed in-session — third drift fix of this session and the eleventh in the portfolio pattern. Open questions / blockers: none. Next session: continue the multi-issue loop or stop cleanly within the cap.
