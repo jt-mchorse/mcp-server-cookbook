@@ -116,3 +116,15 @@ jobs:
         run: node tools/check-readme.mjs
       - name: Run the README check script's own unit tests
         run: node --test tools/check-readme.test.mjs
+
+  architecture-doc-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Verify docs/architecture.md server refs and stale-phrase absence
+        run: node tools/check-architecture-doc.mjs
+      - name: Run the architecture-doc check script's own unit tests
+        run: node --test tools/check-architecture-doc.test.mjs

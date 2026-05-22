@@ -8,12 +8,14 @@ let a reader copy one entry without dragging in five sibling abstractions.
 ```
 mcp-server-cookbook/
 ├── servers/
-│   ├── postgres-readonly/        ← shipped (this PR · issue #1)
-│   ├── filesystem-sandbox/       ← pending issue #2
-│   ├── api-with-auth/            ← pending (not yet filed)
-│   └── internal-tools-bridge/    ← pending (not yet filed)
+│   ├── postgres-readonly/        ← read-only DB (#1, D-004)
+│   ├── filesystem-sandbox/       ← allow-listed FS, TS (#2, D-005/D-006)
+│   ├── filesystem-sandbox-py/    ← Python parity of filesystem-sandbox (#5)
+│   ├── github-gists/             ← SaaS-API wrapper with token redaction (#3, D-007)
+│   └── internal-tools-bridge/    ← in-repo CLI as MCP tool (#4, D-009)
 └── docs/
-    └── architecture.md           ← you are here
+    ├── architecture.md           ← you are here
+    └── spec-version.md           ← canonical MCP SDK pin (D-008)
 ```
 
 Each server is its own npm workspace **without** an actual workspaces
@@ -103,10 +105,26 @@ raw input.
   are wired into clients (Claude Desktop, Claude Code, etc.) by config,
   one at a time.
 
-## Pending entries (open issues)
+## Shipped entries
 
-- **`#2`** — `filesystem-sandbox` MCP server with allow-listed paths and
-  explicit path-traversal rejection.
-- *(unfiled)* — `api-with-auth` wrapping a SaaS tool with token-handling
-  + scoped permissions.
-- *(unfiled)* — `internal-tools-bridge` wrapping a small custom CLI.
+All four cookbook patterns ship today; the Python parity port of the
+filesystem sandbox is a fifth directory exercising the same threat
+model from a second language ecosystem.
+
+- **`servers/postgres-readonly/`** — read-only data access to Postgres.
+  Three tools (`describe_schema`, `run_select`, `sample_rows`),
+  defense-in-depth SQL guard (D-004). Closes #1.
+- **`servers/filesystem-sandbox/`** — allow-listed filesystem access
+  (TS). Three tools (`list_directory`, `read_file`, `write_file`),
+  construction-time allow-list resolution (D-005), `realpath`-based
+  symlink dereferencing (D-006). Closes #2.
+- **`servers/github-gists/`** — API-wrapper-with-auth pattern over the
+  GitHub Gists REST API. Two tools (`get_gist`, `update_gist_file`),
+  token redaction at error boundaries (D-007). Closes #3.
+- **`servers/internal-tools-bridge/`** — in-repo CLI exposed as a
+  structured-args MCP tool. Shell-free `spawn` with binary allow-list,
+  env passlist, output cap, per-call timeout (D-009). Closes #4.
+- **`servers/filesystem-sandbox-py/`** — Python parity port of
+  `servers/filesystem-sandbox/` against the official `mcp` Python SDK.
+  Same threat model, same primitive shape, dep-free security core.
+  Closes #5.
