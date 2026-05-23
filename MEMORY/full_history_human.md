@@ -193,3 +193,27 @@ A small JS scoping gotcha: my first pass named the new local `const unreferenced
 **Open questions / blockers:** None — PR ready for review when CI is green.
 
 **Next session:** Apply the same axis to `ai-app-integration-tests` (`test/architecture-doc.test.ts`, vitest). That closes the active-decision-range upper-bound axis across all twelve repos.
+
+## 2026-05-24 — 60-second demo capture orchestrator (#16, AC3 of 3)
+
+**Duration:** ~30 min. **Issue:** [#16](https://github.com/jt-mchorse/mcp-server-cookbook/issues/16). **PR:** [#27](https://github.com/jt-mchorse/mcp-server-cookbook/pull/27).
+
+Fifth and final issue in the day-session multi-issue loop, after `llm-eval-harness#33`, `llm-cost-optimizer#29`, `prompt-regression-suite#28`, `rag-production-kit#31`. First TypeScript/Node repo in the loop — the orchestrator is ported to Node stdlib so it lives alongside the existing `tools/check-*.mjs` suite with no new deps.
+
+The cookbook's recording is uniquely operator-driven: only an MCP client (Claude Desktop or Claude Code CLI) can actually invoke a server's tool, so the script can't itself drive the demo. What it *can* do — and what AC3 actually asks for — is lock the **inputs** to those tool calls so the recording's arguments and results are byte-stable across re-captures.
+
+Three stages, one per server:
+
+- **STAGE 1 (postgres-readonly).** Prints the sha256 of `servers/postgres-readonly/sample-db/init.sql` so the operator can verify the seed hasn't drifted between recordings. `--launch-postgres` optionally `docker compose up -d`. Cheat-sheet covers `describe_schema` + a `DELETE FROM orders` that fails *both* server-side parsing AND the read-only role (D-004 defense in depth) — the recording shows both error paths.
+
+- **STAGE 2 (filesystem-sandbox).** Creates `/tmp/mcp-demo-fs-sandbox/` with a known small layout (`hello.txt` + `nested/note.md`) on every run. Cheat-sheet shows the `MCP_FS_SANDBOX_ALLOWLIST` env var the operator pastes into the server's startup command + the two `read_file` invocations (success inside the allow-list, blocked traversal against `/etc/passwd`).
+
+- **STAGE 3 (github-gists).** Reads the fixture gist ID from a new `docs/demo_fixture.md` (the script falls back to a placeholder when the file or field is missing). Cheat-sheet covers `get_gist` success + a 404 against a non-existent gist that exercises D-007 token redaction (the recording shows the bearer value isn't in the error message).
+
+`tools/capture-demo.test.mjs` adds **14** `node:test` unit tests under the same posture as `tools/check-*.test.mjs`. New CI job `capture-demo-test` runs them alongside the existing `readme-check` and `architecture-doc-check` jobs. README "Demo" section gains a one-line forward reference to the new script + `docs/demo_fixture.md`; the existing `check-readme.mjs` and `check-architecture-doc.mjs` invariants still pass.
+
+**Why this work, this session:** Last loop iteration. With this PR, every one of the seven `[demo]` GIF/MP4 issues in the portfolio has its AC3 row landed (the five new capture scripts in this loop's PRs plus the two pre-existing scripts in `nextjs-streaming-ai-patterns` and `ai-app-integration-tests`). The day-session's primary goal — multi-issue, multi-repo close pattern — completes here.
+
+**Open questions / blockers:** AC1 + AC2 are operator-only across all seven `[demo]` issues. The next operator-action work-shape is the screen recording sweep: seven GIFs / MP4s, one per repo, README embed in each. Nothing Claude can pre-stage further.
+
+**Next session:** Portfolio is now genuinely quiescent on `priority:low` (and above). When trending intake or operator filing produces new issues, work resumes; otherwise the script-coverage layer is at 7 of 7 and waiting on operator recordings.

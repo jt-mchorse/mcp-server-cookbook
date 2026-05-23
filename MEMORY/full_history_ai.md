@@ -268,3 +268,27 @@ context_for_next_session:
 decisions_made: []
 followups: []
 ---
+
+---
+session: 2026-05-24T00:10Z
+duration_min: 30
+issue: 16
+focus: demo_capture_orchestrator_node_stdlib_three_stages_per_server_with_deterministic_input_locking
+delta:
+  files_added: 3   # tools/capture-demo.mjs, tools/capture-demo.test.mjs, docs/demo_fixture.md
+  files_changed: 2  # README.md (one-line forward reference), .github/workflows/ci.yml (capture-demo-test job)
+  tests_added: 14
+  test_pass_rate: "65 prior tools tests + 14 new = 79 total node:test cases"
+decisions_made: []
+context_for_next_session:
+  - fifth_in_day_session_loop_after_eval_harness_33_cost_optimizer_29_prompt_regression_suite_28_rag_production_kit_31_first_typescript_node_repo_in_loop
+  - node_stdlib_only_no_new_deps_lives_alongside_existing_tools_check_mjs_suite
+  - three_stages_one_per_server_each_locks_deterministic_input_postgres_sha256_sandbox_tmpdir_layout_fixture_gist_id
+  - new_docs_demo_fixture_md_names_public_fixture_gist_with_placeholder_value_operator_overrides_on_first_real_capture
+  - ci_yaml_added_capture_demo_test_job_running_node_test_tools_capture_demo_test_mjs
+  - readme_demo_section_gained_one_line_forward_reference_to_capture_script_plus_docs_demo_fixture_md
+  - existing_check_readme_check_architecture_doc_locks_still_pass_no_new_decisions_no_memory_core_decisions_changes
+  - issue_16_now_1_of_3_ac_complete_ac1_gif_mp4_and_ac2_readme_embed_remain_operator_only_recording_through_mcp_client_ui
+  - portfolio_demo_script_coverage_now_complete_for_all_seven_demo_gif_issues_eval_harness_done_cost_optimizer_done_prompt_regression_suite_done_rag_production_kit_done_mcp_server_cookbook_done_nextjs_already_done_ai_app_already_done
+followups: []
+---
