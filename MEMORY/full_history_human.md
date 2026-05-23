@@ -168,3 +168,28 @@ Lock-against-drift: `tools/check-architecture-doc.{mjs,test.mjs}` — a parallel
 Tamper-verified two ways: reinjecting all four banned phrases on a scratch copy fires the stale-phrase assertion with each one quoted in the error; stashing the doc fix fires the unreferenced-servers assertion with the four missing names listed.
 
 Issue #22 was filed in-session — third drift fix of this session and the eleventh in the portfolio pattern. Open questions / blockers: none. Next session: continue the multi-issue loop or stop cleanly within the cap.
+
+
+## 2026-05-23 — Architecture-doc lock gains active-decision-range + shipped-issue axes (#25)
+
+**Duration:** ~30 min. **Issue:** [#25](https://github.com/jt-mchorse/mcp-server-cookbook/issues/25). **PR:** TBD (this session).
+
+Extended `tools/check-architecture-doc.mjs` from three invariants to five, applying the portfolio-wide upper-bound axis pattern shipped over the past two sessions in `llm-eval-harness` (#32), `prompt-regression-suite` (#27), `embedding-model-shootout` (#22), `vector-search-at-scale` (#24), `nextjs-streaming-ai-patterns` (#21), and earlier in `rag-production-kit`, `llm-cost-optimizer`, `python-async-llm-pipelines`, and `chunking-strategies-lab`. With this PR, ten of twelve repos carry the active-decision-range axis on their architecture-doc lock; only `ai-app-integration-tests` remains.
+
+The two new axes:
+
+1. **Active-decision coverage.** `MEMORY/core_decisions_ai.md` is parsed for non-superseded `D-NNN >= 2` entries; the architecture doc must cite every one. Parsing is regex-only (split on `^- id:` block boundaries, grep `superseded_by` per block); no YAML-parser dep is added, matching the dep-free CI posture and D-008's spirit. A doc citation of `D-7`, `D-07`, or `D-007` all normalize to id `7`, so the lock doesn't trip on stylistic choice.
+
+2. **Closed-feature-issue coverage.** `KNOWN_SHIPPED_ISSUES = [1, 2, 3, 4, 5]` (the five shipped cookbook entries: `postgres-readonly`, `filesystem-sandbox`, `github-gists`, `internal-tools-bridge`, `filesystem-sandbox-py`); the doc must reference every one. A future sixth server shipping under `#N` must bump the array AND add a doc reference — the hard-pin test makes the former unmissable.
+
+Both `MIN_ACTIVE_DECISION_ID = 2` and `KNOWN_SHIPPED_ISSUES = [1..5]` are hard-pinned in `tools/check-architecture-doc.test.mjs` with comments naming why each value is load-bearing. Eight new node:test cases cover the parser shapes (sorted output, superseded skipped, missing-superseded-by treated as active, leading-zero `D-NNN` citations tolerated, declared-order preservation for the missing list).
+
+Tamper-verified two ways: appending a synthetic `D-099` with `superseded_by: null` to the decisions file → axis 4 fires naming `D-099`; `sed -i.bak 's/#1[^0-9]/__/g'` stripping `#1` from the doc → axis 5 fires naming `#1`. Doc itself didn't need changes — D-002 through D-009 are all already cited in the current `docs/architecture.md`, and the five `#N` annotations are already there in the directory diagram and Shipped-entries section. Real-drift-caught count is zero on first run; the axes exist to catch *future* drift.
+
+A small JS scoping gotcha: my first pass named the new local `const unreferenced` inside `main()` to mirror invariant 2's variable, which collided in the same function scope; Node's ES-module strict mode caught it at load time with `SyntaxError: Identifier 'unreferenced' has already been declared`. Renamed to `unreferencedDecisions` and the script loads.
+
+**Why this work, this session:** Second of (target) 2–4 issues in this DAY session, after Phase A merged five clean architecture-doc-axis PRs from the prior session. The active-decision-range upper-bound axis was missing in three repos (mcp-server-cookbook, ai-app-integration-tests, plus the agent-orchestration-platform recheck which turned out to already have it from #23). mcp-server-cookbook is build-sequence position #10 — earlier than `ai-app-integration-tests` at #12 — so it goes first, leaving the latter for the next loop iteration of this session.
+
+**Open questions / blockers:** None — PR ready for review when CI is green.
+
+**Next session:** Apply the same axis to `ai-app-integration-tests` (`test/architecture-doc.test.ts`, vitest). That closes the active-decision-range upper-bound axis across all twelve repos.
