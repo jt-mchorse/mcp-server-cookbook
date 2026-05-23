@@ -144,6 +144,13 @@ intended path: bring up `postgres-readonly` + `filesystem-sandbox` (or
 its Python parity) + `github-gists` against a single MCP client, exercise
 one tool per server, and capture the trace.
 
+`tools/capture-demo.mjs` makes the inputs to that recording reproducible:
+it fingerprints the postgres seed, writes a deterministic allow-list
+layout for the sandbox, and surfaces the public fixture gist ID
+documented in [`docs/demo_fixture.md`](docs/demo_fixture.md). Re-run it
+on every re-capture so the operator's screen recorder sees identical
+arguments and results across takes.
+
 ## Why these decisions
 
 See [`MEMORY/core_decisions_human.md`](MEMORY/core_decisions_human.md). Notable:
