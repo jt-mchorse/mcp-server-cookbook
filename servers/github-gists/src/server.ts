@@ -7,7 +7,13 @@ import {
   ListToolsRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
 
-import { GistsClient, GithubApiError, RequestTimeoutError, TokenRequiredError } from "./client.js";
+import {
+  GistsClient,
+  GithubApiError,
+  RequestTimeoutError,
+  TokenRequiredError,
+  formatGithubApiError,
+} from "./client.js";
 import { hasToken, readGistsConfigFromEnv } from "./config.js";
 import { defaultToolDeps, getGist, updateGistFile } from "./tools.js";
 
@@ -95,7 +101,7 @@ function errorMessage(err: unknown): string {
   // Surface the API/timeout/auth errors directly — they're already
   // built to be safe to show (token redacted, body dropped). Everything
   // else falls through to a generic Error.message.
-  if (err instanceof GithubApiError) return err.message;
+  if (err instanceof GithubApiError) return formatGithubApiError(err);
   if (err instanceof RequestTimeoutError) return err.message;
   if (err instanceof TokenRequiredError) return err.message;
   return err instanceof Error ? err.message : String(err);

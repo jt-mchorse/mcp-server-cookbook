@@ -72,6 +72,8 @@ npm install && npm run build
 GITHUB_TOKEN=ghp_yourTokenWithGistScope npm start
 ```
 
+API error responses follow the contract `github_api_error (<status> <endpoint>): <reason> | request-id=<X-GitHub-Request-Id> rate-limit-remaining=<n> rate-limit-reset=<unix-epoch> retry-after-seconds=<n>` — non-null diagnostic fields are appended in that order; missing headers are omitted (no `field=null` noise), so a non-GitHub-API path or a 5xx with headers stripped renders the unchanged base message.
+
 **`internal-tools-bridge`** — wraps an in-repo CLI as a structured-args
 MCP tool. The bundled CLI is `bin/repo-stats.mjs` (dep-free Node;
 returns file counts by extension and total bytes for a directory).
@@ -105,7 +107,7 @@ Test suites are hermetic (no Docker / no network needed):
 ```bash
 cd servers/postgres-readonly      && npm install && npm test    # 41 SQL-guard + public-surface tests
 cd servers/filesystem-sandbox     && npm install && npm test    # 41 sandbox + tool + config + public-surface tests
-cd servers/github-gists           && npm install && npm test    # 36 config + client (redaction + rate-limit diag) + tool + public-surface tests
+cd servers/github-gists           && npm install && npm test    # 41 config + client (redaction + rate-limit diag) + error-message-format + tool + public-surface tests
 cd servers/internal-tools-bridge  && npm install && npm test    # 23 bridge + tool + public-surface tests (no shell, env scrub, output cap)
 cd servers/filesystem-sandbox-py  && pip install -e '.[dev]' && pytest  # 60 sandbox + tool + config + public-surface tests
 ```
