@@ -36,26 +36,86 @@ export interface Gist {
   files: Record<string, GistFile>;
 }
 
+/**
+ * Minimal Headers surface needed for diagnostic header extraction.
+ * Native fetch's `Response.headers` (`Headers` instance) satisfies this
+ * via `.get(name)`; test fakes implement the same.
+ */
+export interface HeadersLike {
+  get(name: string): string | null;
+}
+
 export type FetchLike = (
   input: string,
   init?: { method?: string; headers?: Record<string, string>; body?: string; signal?: AbortSignal },
 ) => Promise<{
   status: number;
   ok: boolean;
+  headers: HeadersLike;
   text(): Promise<string>;
   json(): Promise<unknown>;
 }>;
 
+export interface GithubApiErrorDiagnostics {
+  /** `X-GitHub-Request-Id` if present. Load-bearing for GitHub support tickets. */
+  requestId: string | null;
+  /** `X-RateLimit-Remaining` parsed as int; null when header absent or unparseable. */
+  rateLimitRemaining: number | null;
+  /** `X-RateLimit-Reset` parsed as unix epoch (seconds); null when absent. */
+  rateLimitResetEpoch: number | null;
+  /** `Retry-After` in seconds; null when absent. Typically set on 429 secondary rate limit. */
+  retryAfterSeconds: number | null;
+}
+
+const _EMPTY_DIAG: GithubApiErrorDiagnostics = {
+  requestId: null,
+  rateLimitRemaining: null,
+  rateLimitResetEpoch: null,
+  retryAfterSeconds: null,
+};
+
 export class GithubApiError extends Error {
+  readonly requestId: string | null;
+  readonly rateLimitRemaining: number | null;
+  readonly rateLimitResetEpoch: number | null;
+  readonly retryAfterSeconds: number | null;
+
   constructor(
     public readonly status: number,
     public readonly endpoint: string,
     public readonly reason: string,
+    diag: GithubApiErrorDiagnostics = _EMPTY_DIAG,
   ) {
-    // Format: `github_api_error (404 GET /gists/abc123): Not Found`. Token never appears here.
+    // Format: `github_api_error (404 GET /gists/abc123): Not Found`. Token
+    // never appears here; nor do diagnostic header values — those live on
+    // the structured fields below, so log lines stay one-liner and grep-able.
     super(`github_api_error (${status} ${endpoint}): ${reason}`);
     this.name = "GithubApiError";
+    this.requestId = diag.requestId;
+    this.rateLimitRemaining = diag.rateLimitRemaining;
+    this.rateLimitResetEpoch = diag.rateLimitResetEpoch;
+    this.retryAfterSeconds = diag.retryAfterSeconds;
   }
+}
+
+/**
+ * Extract GitHub's diagnostic headers off a response. Missing or
+ * unparseable headers leave the corresponding field null — never throw
+ * from this path; an observability helper must not break the error path.
+ */
+export function extractGithubDiagnostics(headers: HeadersLike): GithubApiErrorDiagnostics {
+  return {
+    requestId: headers.get("X-GitHub-Request-Id"),
+    rateLimitRemaining: _parseIntHeader(headers.get("X-RateLimit-Remaining")),
+    rateLimitResetEpoch: _parseIntHeader(headers.get("X-RateLimit-Reset")),
+    retryAfterSeconds: _parseIntHeader(headers.get("Retry-After")),
+  };
+}
+
+function _parseIntHeader(raw: string | null): number | null {
+  if (raw === null) return null;
+  const n = Number.parseInt(raw, 10);
+  return Number.isFinite(n) ? n : null;
 }
 
 export class RequestTimeoutError extends Error {
@@ -100,7 +160,12 @@ export class GistsClient {
     const endpoint = `/gists/${encodeURIComponent(gistId.trim())}`;
     const res = await this.request("GET", endpoint, undefined);
     if (!res.ok) {
-      throw new GithubApiError(res.status, `GET ${endpoint}`, await this.reasonFromResponse(res));
+      throw new GithubApiError(
+        res.status,
+        `GET ${endpoint}`,
+        await this.reasonFromResponse(res),
+        extractGithubDiagnostics(res.headers),
+      );
     }
     const body = (await res.json()) as Gist;
     return body;
@@ -143,7 +208,12 @@ export class GistsClient {
     }
     const res = await this.request("PATCH", endpoint, JSON.stringify(payload));
     if (!res.ok) {
-      throw new GithubApiError(res.status, `PATCH ${endpoint}`, await this.reasonFromResponse(res));
+      throw new GithubApiError(
+        res.status,
+        `PATCH ${endpoint}`,
+        await this.reasonFromResponse(res),
+        extractGithubDiagnostics(res.headers),
+      );
     }
     return (await res.json()) as Gist;
   }

@@ -27,9 +27,25 @@ interface RecordedCall {
 }
 
 function recordingFetch(
-  response: { status: number; ok: boolean; jsonBody?: unknown; textBody?: string },
+  response: {
+    status: number;
+    ok: boolean;
+    jsonBody?: unknown;
+    textBody?: string;
+    responseHeaders?: Record<string, string>;
+  },
 ): { fetch: FetchLike; calls: RecordedCall[] } {
   const calls: RecordedCall[] = [];
+  // HeadersLike fake: case-insensitive lookup, matches the contract
+  // native fetch's `Headers` honors per WHATWG spec.
+  const lookup = new Map<string, string>(
+    Object.entries(response.responseHeaders ?? {}).map(([k, v]) => [k.toLowerCase(), v]),
+  );
+  const headers = {
+    get(name: string): string | null {
+      return lookup.get(name.toLowerCase()) ?? null;
+    },
+  };
   const fetch: FetchLike = async (input, init) => {
     calls.push({
       url: input,
@@ -40,6 +56,7 @@ function recordingFetch(
     return {
       status: response.status,
       ok: response.ok,
+      headers,
       async text() {
         return response.textBody ?? (response.jsonBody !== undefined ? JSON.stringify(response.jsonBody) : "");
       },
@@ -242,5 +259,122 @@ describe("GistsClient timeout handling", () => {
     };
     const client = new GistsClient({ cfg: baseCfg({ timeoutMs: 50 }), fetch });
     await expect(client.getGist("abc")).rejects.toBeInstanceOf(RequestTimeoutError);
+  });
+});
+
+// ---------------- diagnostic headers on GithubApiError (issue #28) ----------------
+
+describe("GithubApiError diagnostic headers", () => {
+  it("populates requestId from X-GitHub-Request-Id on a 404", async () => {
+    const { fetch } = recordingFetch({
+      status: 404,
+      ok: false,
+      jsonBody: { message: "Not Found" },
+      responseHeaders: { "X-GitHub-Request-Id": "ABCD:1234:5678:9012:34567890" },
+    });
+    const client = new GistsClient({ cfg: baseCfg(), fetch });
+    try {
+      await client.getGist("missing");
+      throw new Error("expected throw");
+    } catch (e) {
+      expect(e).toBeInstanceOf(GithubApiError);
+      const err = e as GithubApiError;
+      expect(err.requestId).toBe("ABCD:1234:5678:9012:34567890");
+      // The other diagnostics stay null when their headers are absent.
+      expect(err.rateLimitRemaining).toBeNull();
+      expect(err.rateLimitResetEpoch).toBeNull();
+      expect(err.retryAfterSeconds).toBeNull();
+    }
+  });
+
+  it("populates rate-limit triad on a 403 'rate limit exceeded'", async () => {
+    const { fetch } = recordingFetch({
+      status: 403,
+      ok: false,
+      jsonBody: { message: "API rate limit exceeded for user ID 1." },
+      responseHeaders: {
+        "X-GitHub-Request-Id": "RATE:1",
+        "X-RateLimit-Remaining": "0",
+        "X-RateLimit-Reset": "1717420000",
+      },
+    });
+    const client = new GistsClient({ cfg: baseCfg(), fetch });
+    try {
+      await client.getGist("abc");
+      throw new Error("expected throw");
+    } catch (e) {
+      expect(e).toBeInstanceOf(GithubApiError);
+      const err = e as GithubApiError;
+      expect(err.requestId).toBe("RATE:1");
+      expect(err.rateLimitRemaining).toBe(0);
+      expect(err.rateLimitResetEpoch).toBe(1717420000);
+      expect(err.retryAfterSeconds).toBeNull();
+    }
+  });
+
+  it("populates retryAfterSeconds from Retry-After on a 429 secondary rate limit", async () => {
+    const { fetch } = recordingFetch({
+      status: 429,
+      ok: false,
+      jsonBody: { message: "You have exceeded a secondary rate limit." },
+      responseHeaders: {
+        "X-GitHub-Request-Id": "SRL:1",
+        "Retry-After": "60",
+      },
+    });
+    const client = new GistsClient({ cfg: baseCfg(), fetch });
+    try {
+      await client.getGist("abc");
+      throw new Error("expected throw");
+    } catch (e) {
+      expect(e).toBeInstanceOf(GithubApiError);
+      const err = e as GithubApiError;
+      expect(err.retryAfterSeconds).toBe(60);
+      expect(err.requestId).toBe("SRL:1");
+    }
+  });
+
+  it("leaves all four fields null and keeps the existing message on a 500 with no diagnostic headers (regression)", async () => {
+    const { fetch } = recordingFetch({
+      status: 500,
+      ok: false,
+      textBody: "Internal Server Error",
+      responseHeaders: {},
+    });
+    const client = new GistsClient({ cfg: baseCfg(), fetch });
+    try {
+      await client.getGist("abc");
+      throw new Error("expected throw");
+    } catch (e) {
+      expect(e).toBeInstanceOf(GithubApiError);
+      const err = e as GithubApiError;
+      expect(err.requestId).toBeNull();
+      expect(err.rateLimitRemaining).toBeNull();
+      expect(err.rateLimitResetEpoch).toBeNull();
+      expect(err.retryAfterSeconds).toBeNull();
+      // Message format unchanged.
+      expect(err.message).toMatch(/^github_api_error \(500 GET \/gists\/abc\):/);
+      // And the secret/private-context redaction posture is preserved.
+      expect(err.message).not.toContain("Internal Server Error".slice(0, 0) + "Bearer");
+    }
+  });
+
+  it("does not include header values in the error message itself (D-007 grep-able log)", async () => {
+    const { fetch } = recordingFetch({
+      status: 403,
+      ok: false,
+      jsonBody: { message: "Forbidden" },
+      responseHeaders: {
+        "X-GitHub-Request-Id": "PRIVATE_REQUEST_ID_VALUE",
+        "X-RateLimit-Remaining": "0",
+      },
+    });
+    const client = new GistsClient({ cfg: baseCfg(), fetch });
+    try {
+      await client.getGist("abc");
+      throw new Error("expected throw");
+    } catch (e) {
+      expect((e as Error).message).not.toContain("PRIVATE_REQUEST_ID_VALUE");
+    }
   });
 });
