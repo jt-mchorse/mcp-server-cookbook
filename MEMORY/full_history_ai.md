@@ -315,3 +315,27 @@ context_for_next_session:
   - tenth_in_night_session_loop_third_observability_or_safety_gap_fix_after_python_async_pipelines_26_and_agent_orchestration_25
 followups: []
 ---
+
+---
+session: 2026-05-24T15:35Z
+duration_min: 20
+issue: 30
+focus: github_gists_surface_request_id_and_rate_limit_diagnostics_through_mcp_errormessage
+delta:
+  files_changed: 3   # servers/github-gists/src/client.ts, servers/github-gists/src/server.ts, README.md
+  files_added: 1     # servers/github-gists/test/format-github-api-error.test.ts
+  tests_added: 5
+  test_pass_rate: "41_passed_github_gists_only"
+decisions_made: []
+context_for_next_session:
+  - 28_added_the_diag_fields_to_github_api_error_but_server_ts_errormessage_only_forwarded_err_message_so_clients_never_saw_them
+  - format_github_api_error_helper_lives_in_client_ts_not_server_ts_because_server_ts_has_top_level_main_catch_that_starts_stdio_transport_on_import_so_test_import_would_actually_start_a_server
+  - format_field_order_request_id_then_rate_limit_remaining_then_rate_limit_reset_then_retry_after_seconds_pinned_by_test_for_a_full_population_case
+  - null_fields_omitted_no_field_eq_null_noise_back_compat_for_non_github_paths_and_proxies_that_strip_headers
+  - rate_limit_remaining_0_is_load_bearing_used_eq_eq_eq_not_truthiness_explicitly_pinned_by_test
+  - token_redaction_invariant_d_007_preserved_with_explicit_no_ghp_no_token_no_authorization_test_guard
+  - readme_test_count_36_to_41_check_readme_mjs_passed_after_bump
+  - readme_error_message_contract_documented_under_github_gists_quickstart_section_clients_can_grep_request_id_rate_limit_remaining_rate_limit_reset_retry_after_seconds
+  - portfolio_pattern_third_in_day_session_loop_after_llm_eval_harness_37_list_out_and_prompt_regression_suite_32_diff_html
+followups: []
+---

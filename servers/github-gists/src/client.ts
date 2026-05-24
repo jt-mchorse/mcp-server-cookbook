@@ -118,6 +118,37 @@ function _parseIntHeader(raw: string | null): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
+/**
+ * Build a single-line client-visible message from a `GithubApiError`,
+ * appending any non-null diagnostic header captured by
+ * `extractGithubDiagnostics` (request-id, rate-limit-remaining,
+ * rate-limit-reset-epoch, retry-after-seconds).
+ *
+ * Without this helper, the rich diagnostic fields populated by #28
+ * stay client-side and never reach an MCP consumer — the gap a
+ * 429-with-retry-after surfaces under, where the caller sees "too
+ * many requests" but not the backoff window.
+ *
+ * Null fields are omitted so a non-GitHub-API path (or a 5xx with
+ * the headers stripped by an upstream proxy) renders the unchanged
+ * base message — the back-compat guarantee for callers that already
+ * grep `github_api_error (...)` lines verbatim.
+ */
+export function formatGithubApiError(err: GithubApiError): string {
+  const parts: string[] = [];
+  if (err.requestId !== null) parts.push(`request-id=${err.requestId}`);
+  if (err.rateLimitRemaining !== null) {
+    parts.push(`rate-limit-remaining=${err.rateLimitRemaining}`);
+  }
+  if (err.rateLimitResetEpoch !== null) {
+    parts.push(`rate-limit-reset=${err.rateLimitResetEpoch}`);
+  }
+  if (err.retryAfterSeconds !== null) {
+    parts.push(`retry-after-seconds=${err.retryAfterSeconds}`);
+  }
+  return parts.length === 0 ? err.message : `${err.message} | ${parts.join(" ")}`;
+}
+
 export class RequestTimeoutError extends Error {
   constructor(public readonly endpoint: string, public readonly timeoutMs: number) {
     super(`request_timed_out (${endpoint}, ${timeoutMs}ms)`);
