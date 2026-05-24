@@ -235,3 +235,21 @@ The repo-level README lock test caught a side effect: the github-gists test-coun
 **Open questions / blockers:** none — PR ready for review.
 
 **Next session:** Continue to build-sequence #11 (`nextjs-streaming-ai-patterns`) if loop continues; otherwise wrap.
+
+## 2026-05-24 — Issue #30: `errorMessage()` surfaces GithubApiError diagnostics through the MCP boundary
+
+**Duration:** ~20 min. **Issue:** [#30](https://github.com/jt-mchorse/mcp-server-cookbook/issues/30). **Branch:** `session/2026-05-24-1523-issue-30`.
+
+#28 added `requestId`, `rateLimitRemaining`, `rateLimitResetEpoch`, and `retryAfterSeconds` to `GithubApiError` and pinned them at the client layer. But `servers/github-gists/src/server.ts`'s `errorMessage()` only forwarded `err.message` — so the rich fields were populated on the error object and never reached an MCP consumer. A 429 with `Retry-After=60` looked like `too many requests` to the caller with no backoff window visible. This PR finishes the half-implemented #28.
+
+New `formatGithubApiError(err)` helper in `client.ts` (not `server.ts` — because `server.ts` has a top-level `main().catch(...)` that starts the stdio transport on import, so importing it from a test would actually try to start a server) builds the single-line shape `<base> | request-id=X rate-limit-remaining=Y rate-limit-reset=Z retry-after-seconds=W`. Null fields are omitted (no `field=null` noise); when every diagnostic field is null the base message is returned verbatim — the back-compat path for non-GitHub callers and proxies that strip the headers. `server.ts`'s `errorMessage()` routes `GithubApiError` through the helper; the other error classes are unchanged.
+
+Five new tests in `servers/github-gists/test/format-github-api-error.test.ts`. The notable ones: `rate-limit-remaining=0` is the load-bearing case (you're at the cap) — the implementation must use `!== null` not truthiness, and there's a dedicated test that pins this. A second invariant-pinning test asserts the diagnostic suffix never leaks `GITHUB_TOKEN`-shaped material — D-007 (token redaction at error boundaries) is preserved even with the new fields populated.
+
+README bumped from 36 to 41 tests for github-gists and the error-message contract is now documented under the server's quickstart section so clients can grep `request-id` / `rate-limit-remaining` / `rate-limit-reset` / `retry-after-seconds` verbatim.
+
+**Why this work, this session:** Third Phase B+C target of a 180-min day session, after `llm-eval-harness` #37 and `prompt-regression-suite` #32. The pattern across all three is the same: a previous PR added the capability one layer down and the polish PR surfaces it at the public boundary.
+
+**Open questions / blockers:** none — PR ready for review.
+
+**Next session:** Continue the day-session loop. Strong next candidates by build sequence: `embedding-model-shootout` (#5), `chunking-strategies-lab` (#6), `vector-search-at-scale` (#7). Survey each CLI / test surface for analogous polish gaps — half-implemented features whose top layer never reached the user.
