@@ -292,3 +292,26 @@ context_for_next_session:
   - portfolio_demo_script_coverage_now_complete_for_all_seven_demo_gif_issues_eval_harness_done_cost_optimizer_done_prompt_regression_suite_done_rag_production_kit_done_mcp_server_cookbook_done_nextjs_already_done_ai_app_already_done
 followups: []
 ---
+
+---
+session: 2026-05-24T04:15Z
+duration_min: 25
+issue: 28
+focus: github_gists_surface_request_id_and_rate_limit_headers_on_github_api_error
+delta:
+  files_changed: 3   # servers/github-gists/src/client.ts, servers/github-gists/test/client.test.ts, README.md
+  files_added: 0
+  tests_added: 5
+  test_pass_rate: "36_passed_github_gists_only"
+decisions_made: []
+context_for_next_session:
+  - github_gists_github_api_error_carried_only_status_endpoint_reason_threw_away_x_github_request_id_and_rate_limit_triad
+  - new_headers_like_interface_in_fetch_like_contract_native_fetch_satisfies_test_fakes_implement_case_insensitive_lookup
+  - github_api_error_gained_four_readonly_nullable_fields_request_id_rate_limit_remaining_rate_limit_reset_epoch_retry_after_seconds
+  - optional_fourth_constructor_arg_back_compat_with_existing_callers_no_diagnostics_supplied_means_all_null
+  - extract_github_diagnostics_helper_never_throws_observability_helper_must_not_break_error_path
+  - error_message_unchanged_header_values_never_in_message_d_007_redaction_posture_preserved_with_explicit_test_guard
+  - readme_test_count_for_github_gists_bumped_31_to_36_to_keep_repo_level_readme_lock_test_passing
+  - tenth_in_night_session_loop_third_observability_or_safety_gap_fix_after_python_async_pipelines_26_and_agent_orchestration_25
+followups: []
+---

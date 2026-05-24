@@ -217,3 +217,21 @@ Three stages, one per server:
 **Open questions / blockers:** AC1 + AC2 are operator-only across all seven `[demo]` issues. The next operator-action work-shape is the screen recording sweep: seven GIFs / MP4s, one per repo, README embed in each. Nothing Claude can pre-stage further.
 
 **Next session:** Portfolio is now genuinely quiescent on `priority:low` (and above). When trending intake or operator filing produces new issues, work resumes; otherwise the script-coverage layer is at 7 of 7 and waiting on operator recordings.
+
+## 2026-05-24 — Issue #28: `GithubApiError` surfaces request-id + rate-limit headers
+
+**Duration:** ~25 min. **Issue:** [#28](https://github.com/jt-mchorse/mcp-server-cookbook/issues/28). **Branch:** `session/2026-05-24-0411-issue-28`.
+
+The github-gists server's `GithubApiError` carried `status`, `endpoint`, and a redacted `reason` — but threw away two routine GitHub diagnostic surfaces: `X-GitHub-Request-Id` (load-bearing for opening GitHub support tickets) and the `X-RateLimit-*` / `Retry-After` triad (needed for any rate-limit-aware retry decision). A caller hitting a 403 "rate limit exceeded" or 429 secondary rate limit had no programmatic way to know when to retry without re-parsing the response themselves.
+
+Extended `FetchLike` with a minimal `HeadersLike` interface (`get(name)` only — matches WHATWG `Headers` so native fetch satisfies it). `GithubApiError` gained four readonly nullable fields (`requestId`, `rateLimitRemaining`, `rateLimitResetEpoch`, `retryAfterSeconds`) via an optional fourth constructor arg with sane null defaults, so existing callers stay byte-compatible. A new exported `extractGithubDiagnostics(headers)` helper does the read; both throw sites in the client (GET, PATCH) wire it through. Missing or unparseable headers leave fields `null` — observability helpers must never break the error path.
+
+The error `message` is unchanged in shape and explicitly never contains the header values themselves; one of the five new tests verifies the redaction posture (D-007) is preserved even with the new fields populated. The other four tests cover the three header families (request-id, rate-limit triad, retry-after) plus a regression guard that a 500 with no diagnostic headers leaves all four fields `null` and the existing message format unchanged.
+
+The repo-level README lock test caught a side effect: the github-gists test-count claim went from 31 to 36 (5 new tests), so bumped the README's per-server line accordingly. Now the README and the test count are co-locked again.
+
+**Why this work, this session:** Tenth issue in the night-session multi-issue loop. Third observability/safety gap fix tonight (after `python-async-llm-pipelines` #26's per-tool timeout and `agent-orchestration-platform` #25's retry-cap/jitter). The pattern: every repo had at least one production-realism surface that read cleanly from the source.
+
+**Open questions / blockers:** none — PR ready for review.
+
+**Next session:** Continue to build-sequence #11 (`nextjs-streaming-ai-patterns`) if loop continues; otherwise wrap.
