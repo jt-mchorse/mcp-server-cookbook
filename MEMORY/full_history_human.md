@@ -253,3 +253,16 @@ README bumped from 36 to 41 tests for github-gists and the error-message contrac
 **Open questions / blockers:** none — PR ready for review.
 
 **Next session:** Continue the day-session loop. Strong next candidates by build sequence: `embedding-model-shootout` (#5), `chunking-strategies-lab` (#6), `vector-search-at-scale` (#7). Survey each CLI / test surface for analogous polish gaps — half-implemented features whose top layer never reached the user.
+
+## 2026-05-25 — Issue #32: internal-tools-bridge validateConfig blocks degenerate BridgeConfig at runBridged entry
+**Duration:** ~30 min · **Branch:** `session/2026-05-24-issue-32`
+
+- `BridgeConfig` fields were typed as plain `number`/`string` and not runtime-validated. Four concrete sites silently undermined D-009 ("output cap plus timeout means runaway CLI can't OOM or hang the server"): `timeoutMs = 0` (instant timeout because `setTimeout` fires next tick), `maxOutputBytes = 0` (every chunk satisfies `> 0` and trips the cap), `allowlist` entries that aren't absolute paths (PATH lookup inside `spawn` widens attack surface — D-009's "no shell" guard does nothing about `$PATH`), `cwd` not absolute (resolves against `process.cwd()`, violates "locked root" guarantee). The field docstrings already said "Must be absolute"; the check was missing.
+- Added `validateConfig(cfg)` at the entry of `runBridged`, before the allowlist check and before spawn. Each invalid field throws `BridgeError` naming the field and value. `path.isAbsolute` guards catch the two security-relevant cases (`allowlist` entries + `cwd`); `Number.isInteger(x) && x >= 1` guards catch the two operational cases (`timeoutMs` + `maxOutputBytes`). Defaults (`DEFAULT_TIMEOUT_MS`, `MAX_OUTPUT_BYTES`) and back-compat paths (undefined fields preserve defaults) are unchanged.
+- 13 new tests in `servers/internal-tools-bridge/test/bridge.test.ts` under an issue-`#32` `describe` block: per-field rejection (zero, negative, fractional, NaN, +Infinity, relative-path, empty-string); boundary acceptance at `1` / `1` / absolute path; one "validation before spawn" pin that proves a relative allowlist entry raises `BridgeError` (validation) not `AllowlistError` (post-validation) — critical so the entry-site placement can't drift. Plus a `maxOutputBytes=1` acceptance test exercising the existing `OutputCapError` path with the smallest valid cap. Bridge tests 29/29 (was 16). Package overall 42/42 (was 29).
+
+**Why this work, this session:** Third Phase B+C target in the 360-min night session. Second TypeScript repo to ship the contract-tightening sweep pattern. The first (`agent-orchestration-platform` #29) used entry-function validation as the TS analogue of Python's `__post_init__`; this one extends the pattern to a server module whose existing protective intent (D-009) was already documented but operator-overridable. The validateConfig pattern now lives in two TS repos and seven Python repos.
+
+**Open questions / blockers:** none — PR ready for review.
+
+**Next session:** Continue the loop. `nextjs-streaming-ai-patterns` (build seq #11) and `ai-app-integration-tests` (build seq #12) are the next unvisited-tonight repos.
