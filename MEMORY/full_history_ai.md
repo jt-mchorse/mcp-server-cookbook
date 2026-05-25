@@ -339,3 +339,49 @@ context_for_next_session:
   - portfolio_pattern_third_in_day_session_loop_after_llm_eval_harness_37_list_out_and_prompt_regression_suite_32_diff_html
 followups: []
 ---
+
+---
+session: 2026-05-25T04:00Z
+duration_min: 30
+issue: 32
+focus: internal_tools_bridge_validateconfig_at_runbridged_entry_blocks_degenerate_bridgeconfig
+delta:
+  files_changed: 2   # servers/internal-tools-bridge/src/bridge.ts, servers/internal-tools-bridge/test/bridge.test.ts
+  files_added: 0
+  tests_added: 13   # net (bridge.test.ts: 16 -> 29; package overall 29 -> 42)
+  test_pass_rate: "42_passed_internal_tools_bridge_only"
+decisions_made: []
+context_for_next_session:
+  - bridgeconfig_fields_typed_as_plain_number_string_no_runtime_validation_silently_undermined_d_009_protective_posture
+  - timeoutms_zero_or_negative_settimeout_coercion_sigkill_on_next_tick_every_call_instantly_timeouterrors
+  - maxoutputbytes_zero_or_negative_first_byte_satisfies_gt_zero_chunk_trips_cap_silent_no_output_allowed
+  - critical_security_allowlist_entries_relative_path_falls_through_to_spawn_path_lookup_no_shell_doesnt_block_path_search_so_relative_allowlist_widens_attack_surface
+  - cwd_not_absolute_resolves_against_process_cwd_violates_locked_root_guarantee_in_field_docstring
+  - validateconfig_at_top_of_runbridged_before_allowlist_check_before_spawn_each_invalid_field_throws_bridgeerror_naming_field_and_value
+  - path_isabsolute_guard_catches_two_security_relevant_cases_allowlist_entries_plus_cwd_integer_geq_1_guards_catch_two_operational_cases_timeoutms_plus_maxoutputbytes
+  - validation_before_spawn_pin_proves_relative_allowlist_entry_raises_bridgeerror_not_allowlisterror_critical_for_d_009_posture_preservation
+  - maxoutputbytes_eq_1_acceptance_test_exercises_existing_outputcaperror_path_with_smallest_valid_cap_so_future_refactors_cant_shortcut_chain
+  - mirrors_portfolio_contract_tightening_sweep_eval_harness_40_cost_optimizer_34_rag_kit_36_emb_shootout_29_vector_search_27_chunking_lab_27_python_async_30_prompt_regression_35_agent_orchestration_29
+  - second_typescript_repo_to_ship_pattern_first_was_agent_orchestration_30_both_use_entry_function_validation_as_ts_analogue_of_python_post_init
+  - third_phase_bc_target_in_360_min_night_session_after_prompt_regression_35_and_agent_orchestration_29
+followups: []
+---
+
+---
+session: 2026-05-25T15:10Z
+duration_min: 10
+issue: 32
+focus: docs_sync_readme_test_counts_after_validateconfig_sweep
+delta:
+  files_changed: 2   # README.md, servers/internal-tools-bridge/README.md
+  tests_added: 0
+decisions_made: []
+context_for_next_session:
+  - readme_check_failure_was_pure_docs_drift_top_level_readme_quoted_23_internal_tools_bridge_tests_static_count_is_32
+  - per_server_readme_was_staler_quoted_20_runtime_is_42
+  - resolution_top_level_to_32_matches_check_readme_mjs_static_counter_per_server_to_42_matches_npm_test_runtime
+  - top_level_readme_test_count_is_enforced_by_ci_per_server_is_documentation_for_humans_so_they_show_different_numbers_intentionally_static_vs_runtime
+  - 13_new_tests_in_de521e0_were_2_it_each_tables_of_5_cases_plus_3_singletons_static_counter_sees_each_it_each_as_1_runtime_expands_to_5_each
+  - validateconfig_pr_33_now_ci_green_and_ready_for_merge
+followups: []
+---

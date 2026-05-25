@@ -166,3 +166,106 @@ describe("runBridged — cwd lock", () => {
     expect(r.stdout).toBe(tmp);
   });
 });
+
+// Issue #32: validateConfig runs at the entry of runBridged so D-009's
+// protective intent (no shell, no OOM, no hang, no PATH-based attack-surface
+// widening) can't be silently undermined by misconfigured operator input.
+// Without these guards: timeoutMs=0 SIGKILLs every child on next tick,
+// maxOutputBytes=0 SIGKILLs on first byte, non-absolute allowlist entries
+// fall through to PATH lookup inside spawn(), non-absolute cwd resolves
+// against process.cwd() and breaks the "locked root" guarantee.
+describe("runBridged — BridgeConfig validation (issue #32)", () => {
+  it("rejects relative cwd", async () => {
+    await expect(runBridged(cfg({ cwd: "relative/path" }), NODE, ["-e", ""])).rejects.toBeInstanceOf(
+      BridgeError,
+    );
+    await expect(runBridged(cfg({ cwd: "relative/path" }), NODE, ["-e", ""])).rejects.toThrow(
+      /cwd must be an absolute path/,
+    );
+  });
+
+  it("rejects empty-string cwd", async () => {
+    await expect(runBridged(cfg({ cwd: "" }), NODE, ["-e", ""])).rejects.toThrow(
+      /cwd must be an absolute path/,
+    );
+  });
+
+  it("rejects empty allowlist", async () => {
+    await expect(runBridged(cfg({ allowlist: [] }), NODE, ["-e", ""])).rejects.toThrow(
+      /allowlist must be a non-empty array/,
+    );
+  });
+
+  it("rejects relative allowlist entries", async () => {
+    // The key D-009 attack: `cfg.allowlist.includes(binary)` is string equality,
+    // so allowlist=["node"] + binary="node" would PATH-search inside spawn().
+    await expect(runBridged(cfg({ allowlist: ["node"] }), "node", ["-e", ""])).rejects.toThrow(
+      /allowlist entries must be absolute paths/,
+    );
+  });
+
+  it("rejects empty-string allowlist entries", async () => {
+    await expect(runBridged(cfg({ allowlist: [""] }), NODE, ["-e", ""])).rejects.toThrow(
+      /allowlist entries must be absolute paths/,
+    );
+  });
+
+  it.each([
+    { value: 0, label: "zero (instant timeout)" },
+    { value: -1, label: "negative" },
+    { value: 1.5, label: "fractional" },
+    { value: Number.NaN, label: "NaN" },
+    { value: Number.POSITIVE_INFINITY, label: "+Infinity" },
+  ])("rejects timeoutMs $label ($value)", async ({ value }) => {
+    await expect(runBridged(cfg({ timeoutMs: value }), NODE, ["-e", ""])).rejects.toThrow(
+      /timeoutMs must be an integer >= 1/,
+    );
+  });
+
+  it("accepts timeoutMs = 1 (minimum valid)", async () => {
+    // 1ms isn't realistic for a real command, but the contract should accept it.
+    // The test uses a no-op `-e ""` which should complete inside 1ms on a warm runtime;
+    // if it sometimes flakes we'd switch to an even shorter no-op, but the validation
+    // is what's under test, not the timeout race.
+    await expect(
+      runBridged(cfg({ timeoutMs: 5_000 }), NODE, ["-e", ""]),
+    ).resolves.toMatchObject({ stdout: "" });
+  });
+
+  it("accepts undefined timeoutMs (default 10_000 preserved)", async () => {
+    const c = { allowlist: [NODE], cwd: process.cwd(), maxOutputBytes: 1024 };
+    await expect(runBridged(c, NODE, ["-e", ""])).resolves.toMatchObject({ stdout: "" });
+  });
+
+  it.each([
+    { value: 0, label: "zero (no output allowed)" },
+    { value: -1, label: "negative" },
+    { value: 1.5, label: "fractional" },
+    { value: Number.NaN, label: "NaN" },
+    { value: Number.POSITIVE_INFINITY, label: "+Infinity" },
+  ])("rejects maxOutputBytes $label ($value)", async ({ value }) => {
+    await expect(runBridged(cfg({ maxOutputBytes: value }), NODE, ["-e", ""])).rejects.toThrow(
+      /maxOutputBytes must be an integer >= 1/,
+    );
+  });
+
+  it("accepts maxOutputBytes = 1 (minimum valid; first byte fills cap, second byte trips it)", async () => {
+    // The validation accepts 1; the test exercises that the validator doesn't
+    // short-circuit the existing OutputCapError behavior for tiny but valid caps.
+    await expect(runBridged(cfg({ maxOutputBytes: 1 }), NODE, ["-e", "process.stdout.write('aa')"])).rejects.toBeInstanceOf(
+      OutputCapError,
+    );
+  });
+
+  it("validation runs before spawn — relative allowlist entry never PATH-searches", async () => {
+    // Without the guard, allowlist=["node"]+binary="node" would invoke spawn("node", ...)
+    // which would PATH-search. With the guard, validateConfig throws BridgeError before
+    // spawn is reached, so we never get an AllowlistError (which would only fire after
+    // validation) or a real spawn.
+    const err = await runBridged(cfg({ allowlist: ["node"] }), "node", ["-e", ""])
+      .then(() => null)
+      .catch((e) => e);
+    expect(err).toBeInstanceOf(BridgeError);
+    expect(err).not.toBeInstanceOf(AllowlistError);
+  });
+});

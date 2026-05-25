@@ -15,6 +15,7 @@
 // the argv array.
 
 import { spawn } from "node:child_process";
+import { isAbsolute } from "node:path";
 
 export const MAX_OUTPUT_BYTES = 1_048_576; // 1 MiB per stream
 export const DEFAULT_TIMEOUT_MS = 10_000;
@@ -77,6 +78,59 @@ export interface RunResult {
 }
 
 /**
+ * Validate a `BridgeConfig` at the entry of `runBridged` so D-009's
+ * protective posture (no shell, no OOM, no hang, no PATH-based attack
+ * surface widening) cannot be silently undermined by a misconfigured
+ * operator input. Without this guard:
+ *   - timeoutMs = 0 SIGKILLs every child on the next tick.
+ *   - maxOutputBytes = 0 SIGKILLs on the first byte of any output.
+ *   - allowlist entries that are not absolute paths trigger PATH lookups
+ *     inside spawn() — the "no shell" posture only blocks metacharacters,
+ *     not PATH search, so a relative allowlist entry widens the attack
+ *     surface beyond the documented contract at the BridgeConfig field
+ *     docstring.
+ *   - cwd that is not absolute resolves against process.cwd(), violating
+ *     the "locked to a configured root" guarantee in the same docstring.
+ *
+ * Mirrors the portfolio's contract-tightening sweep (PRs
+ * llm-eval-harness#41, llm-cost-optimizer#35, rag-production-kit#37,
+ * embedding-model-shootout#30, vector-search-at-scale#28,
+ * chunking-strategies-lab#28, python-async-llm-pipelines#31,
+ * prompt-regression-suite#36, agent-orchestration-platform#30):
+ * operator-supplied numeric/path inputs validated at the entry site
+ * with a loud error rather than silent degeneracy.
+ */
+function validateConfig(cfg: BridgeConfig): void {
+  if (typeof cfg.cwd !== "string" || cfg.cwd.length === 0 || !isAbsolute(cfg.cwd)) {
+    throw new BridgeError(`BridgeConfig.cwd must be an absolute path; got ${JSON.stringify(cfg.cwd)}`);
+  }
+  if (!Array.isArray(cfg.allowlist) || cfg.allowlist.length === 0) {
+    throw new BridgeError("BridgeConfig.allowlist must be a non-empty array of absolute paths");
+  }
+  for (const entry of cfg.allowlist) {
+    if (typeof entry !== "string" || entry.length === 0 || !isAbsolute(entry)) {
+      throw new BridgeError(
+        `BridgeConfig.allowlist entries must be absolute paths; got ${JSON.stringify(entry)}`,
+      );
+    }
+  }
+  if (cfg.timeoutMs !== undefined) {
+    if (!Number.isInteger(cfg.timeoutMs) || cfg.timeoutMs < 1) {
+      throw new BridgeError(
+        `BridgeConfig.timeoutMs must be an integer >= 1; got ${cfg.timeoutMs}`,
+      );
+    }
+  }
+  if (cfg.maxOutputBytes !== undefined) {
+    if (!Number.isInteger(cfg.maxOutputBytes) || cfg.maxOutputBytes < 1) {
+      throw new BridgeError(
+        `BridgeConfig.maxOutputBytes must be an integer >= 1; got ${cfg.maxOutputBytes}`,
+      );
+    }
+  }
+}
+
+/**
  * Run an allow-listed binary with an array of args.
  *
  * Never enables `shell`. The binary string MUST be present in the
@@ -87,6 +141,7 @@ export async function runBridged(
   binary: string,
   args: ReadonlyArray<string>,
 ): Promise<RunResult> {
+  validateConfig(cfg);
   if (!cfg.allowlist.includes(binary)) {
     throw new AllowlistError(
       `binary not on allowlist: ${binary} (allowed: ${cfg.allowlist.join(", ")})`,

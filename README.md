@@ -108,7 +108,7 @@ Test suites are hermetic (no Docker / no network needed):
 cd servers/postgres-readonly      && npm install && npm test    # 41 SQL-guard + public-surface tests
 cd servers/filesystem-sandbox     && npm install && npm test    # 41 sandbox + tool + config + public-surface tests
 cd servers/github-gists           && npm install && npm test    # 41 config + client (redaction + rate-limit diag) + error-message-format + tool + public-surface tests
-cd servers/internal-tools-bridge  && npm install && npm test    # 23 bridge + tool + public-surface tests (no shell, env scrub, output cap)
+cd servers/internal-tools-bridge  && npm install && npm test    # 32 bridge + tool + public-surface tests (no shell, env scrub, output cap, validateConfig)
 cd servers/filesystem-sandbox-py  && pip install -e '.[dev]' && pytest  # 60 sandbox + tool + config + public-surface tests
 ```
 
