@@ -142,7 +142,7 @@ Returns (paths and counts are real on a fresh clone):
 ## Tests
 
 ```bash
-npm test          # 20 tests (10 bridge, 10 tools), ~800ms
+npm test          # 42 tests (29 bridge, 10 tools, 3 public-surface) — ~1s
 npm run lint
 npm run typecheck
 ```
