@@ -366,3 +366,22 @@ context_for_next_session:
   - third_phase_bc_target_in_360_min_night_session_after_prompt_regression_35_and_agent_orchestration_29
 followups: []
 ---
+
+---
+session: 2026-05-25T15:10Z
+duration_min: 10
+issue: 32
+focus: docs_sync_readme_test_counts_after_validateconfig_sweep
+delta:
+  files_changed: 2   # README.md, servers/internal-tools-bridge/README.md
+  tests_added: 0
+decisions_made: []
+context_for_next_session:
+  - readme_check_failure_was_pure_docs_drift_top_level_readme_quoted_23_internal_tools_bridge_tests_static_count_is_32
+  - per_server_readme_was_staler_quoted_20_runtime_is_42
+  - resolution_top_level_to_32_matches_check_readme_mjs_static_counter_per_server_to_42_matches_npm_test_runtime
+  - top_level_readme_test_count_is_enforced_by_ci_per_server_is_documentation_for_humans_so_they_show_different_numbers_intentionally_static_vs_runtime
+  - 13_new_tests_in_de521e0_were_2_it_each_tables_of_5_cases_plus_3_singletons_static_counter_sees_each_it_each_as_1_runtime_expands_to_5_each
+  - validateconfig_pr_33_now_ci_green_and_ready_for_merge
+followups: []
+---

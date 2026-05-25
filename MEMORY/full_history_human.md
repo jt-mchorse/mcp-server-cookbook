@@ -266,3 +266,16 @@ README bumped from 36 to 41 tests for github-gists and the error-message contrac
 **Open questions / blockers:** none — PR ready for review.
 
 **Next session:** Continue the loop. `nextjs-streaming-ai-patterns` (build seq #11) and `ai-app-integration-tests` (build seq #12) are the next unvisited-tonight repos.
+
+## 2026-05-25 — Issue #32 (docs sync): READMEs lagged validateConfig sweep
+**Duration:** ~10 min · **Branch:** `session/2026-05-24-issue-32` (existing PR #33)
+
+- The validateConfig commit (de521e0) shipped 13 new tests (2 `it.each` tables × 5 cases + 3 singletons) but didn't refresh either of the two test-count claims. Top-level `README.md` line 111 quoted "23 tests" (the static counter `tools/check-readme.mjs` now sees 32 because each `it.each` counts as 1 statically). Per-server `servers/internal-tools-bridge/README.md` line 145 quoted "20 tests (10 bridge, 10 tools)" — staler still; runtime is 42 because each `it.each` expands to 5.
+- Bumped both: top-level to 32 (CI-enforced static count), per-server to 42 (what `npm test` actually outputs). The deliberate discrepancy is a feature, not a bug — the top-level count is a contract against source-text drift; the per-server count is what a human sees on their terminal.
+- Confirmed `node tools/check-readme.mjs` exits 0 locally before pushing. CI should be clean.
+
+**Why this work, this session:** Phase A's PR review pass found `mcp-server-cookbook#33` failing readme-check while the other 11 ready PRs across the portfolio were green. Fixing it unblocks the merge and closes #32 — the only `priority:high` issue across all 12 repos.
+
+**Open questions / blockers:** none — PR ready for re-evaluation.
+
+**Next session:** Continue Phase B+C loop on the next repo with actionable work.
