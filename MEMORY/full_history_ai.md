@@ -441,3 +441,20 @@ context_for_next_session:
   - five_consecutive_same_shape_prs_in_one_day_session_about_six_min_per_pr_excluding_phase_a_pr_review_merge_step
 followups: []
 ---
+
+---
+session: 2026-05-27T00:05Z
+duration_min: 10
+issue: 38
+focus: readme_decision_range_upper_bound_lock_propagation_9_of_10
+delta:
+  files_changed: 3
+  tests_added: 7
+context_for_next_session:
+  - readme_decision_range_lock_pattern_now_ten_repos_chunking_lab_eval_harness_cost_optimizer_prompt_regression_rag_kit_emb_shootout_vector_search_async_pipelines_agent_orch_mcp_cookbook
+  - two_more_repos_pending_nextjs_streaming_ai_integration_tests_both_typescript
+  - chose_to_extend_tools_check_readme_mjs_rather_than_add_new_script_because_existing_readme_check_ci_job_already_runs_it_zero_workflow_changes_needed
+  - parser_helper_maxactivedecisionid_mirrors_shape_of_tools_check_architecture_doc_mjs_activedecisions_kept_local_to_avoid_circular_imports_per_d_008_dep_free_spirit
+decisions_made: []
+followups: []
+---

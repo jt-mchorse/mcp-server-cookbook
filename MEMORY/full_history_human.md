@@ -307,3 +307,15 @@ README bumped from 36 to 41 tests for github-gists and the error-message contrac
 **Open questions / blockers:** none — PR ready for review.
 
 **Next session:** Atomicity arc now spans five repos (four Python, one TypeScript). The helper shape is proven portable across languages. Three TypeScript repos remain that *might* host similar writes — `agent-orchestration-platform` (trace artifacts), `nextjs-streaming-ai-patterns` (no obvious file writes; SSR-only), `ai-app-integration-tests` (cassette file writes during recording). The next natural session could pick the highest-blast-radius of those if continuing the arc, or pivot to a fresh harm class entirely.
+
+## 2026-05-26 — Issue #38: README decision-range upper-bound lock
+**Duration:** ~10 min · **Branch:** `session/2026-05-26-2337-issue-38`
+
+- Extended `tools/check-readme.mjs` with `maxActiveDecisionId()` and `readmeDecisionRangeBound()`.
+- Wired a third invariant into the existing `readme-check` CI job.
+- Added 7 tests + `D-002…D-009` citation under `## Architecture`.
+
+**Why this work, this session:** Propagation 9 of 10 of the cross-portfolio drift class. Extending the existing tool rather than adding a new one keeps the CI surface unchanged and matches D-008's dep-free spirit.
+
+**Open questions / blockers:** none.
+**Next session:** Continue to nextjs-streaming-ai-patterns.
