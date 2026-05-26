@@ -378,3 +378,42 @@ describe("GithubApiError diagnostic headers", () => {
     }
   });
 });
+
+// ---------------- GistsClient constructor validation (#34) ----------------
+
+describe("GistsClient — constructor cfg validation (#34)", () => {
+  // Mirrors `internal-tools-bridge` BridgeConfig validation (#32). `setTimeout`
+  // silently coerces NaN / negative / Infinity, so a malformed timeoutMs
+  // produces silent client degradation (every request times out immediately,
+  // OR the timeout is effectively disabled). Validate at the constructor.
+  const { fetch } = recordingFetch({ status: 200, ok: true, jsonBody: {} });
+
+  it.each([
+    Number.NaN,
+    Number.POSITIVE_INFINITY,
+    Number.NEGATIVE_INFINITY,
+    -1,
+    0,
+    0.5,
+    1.5,
+    true,
+    false,
+    "5",
+    null,
+  ])("rejects timeoutMs=%p", (bad) => {
+    expect(
+      () => new GistsClient({ cfg: baseCfg({ timeoutMs: bad as unknown as number }), fetch }),
+    ).toThrow(RangeError);
+  });
+
+  it.each([1, 10, 100, 1_000, 10_000, 60_000])("accepts timeoutMs=%p", (good) => {
+    // Constructor must not throw for a valid integer >= 1.
+    expect(() => new GistsClient({ cfg: baseCfg({ timeoutMs: good }), fetch })).not.toThrow();
+  });
+
+  it("RangeError message names the field and value", () => {
+    expect(
+      () => new GistsClient({ cfg: baseCfg({ timeoutMs: -42 }), fetch }),
+    ).toThrow(/GistsConfig\.timeoutMs must be an integer >= 1; got -42/);
+  });
+});

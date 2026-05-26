@@ -279,3 +279,16 @@ README bumped from 36 to 41 tests for github-gists and the error-message contrac
 **Open questions / blockers:** none — PR ready for re-evaluation.
 
 **Next session:** Continue Phase B+C loop on the next repo with actionable work.
+
+## 2026-05-26 — Issue #34: GistsClient constructor validation completes the #32 sweep
+**Duration:** ~25 min · **Branch:** `session/2026-05-26-0000-issue-34`
+
+- `GistsClient.constructor` previously consumed `deps.cfg.timeoutMs` directly without validation, while the sibling `internal-tools-bridge` had `validateConfig` at `runBridged` entry (#32). The env-reading layer at `servers/github-gists/src/config.ts:57-67` guards the standard path, but programmatic construction (tests, embedding apps, alternate config sources) was unguarded. Added a `validateConfig` helper above the `GistsClient` class with the same shape as the internal-tools-bridge version (Number.isInteger + < 1 + RangeError naming field and value); called as the first statement in the constructor.
+- Closed five silent failure modes — per ES2024 spec, `setTimeout` coerces NaN / negative / Infinity silently: `timeoutMs=NaN` made every request error with `RequestTimeoutError` immediately (silently disables the client), `timeoutMs=Infinity` clamped to setTimeout's max delay (~50 days, effectively no timeout — operator deadline silently removed), `timeoutMs=1.5` implementation-dependent truncation, `timeoutMs=-1` clamped to 0 same as NaN, `timeoutMs=0` immediate fire.
+- 18 new collected test cases (11 it.each reject + 6 it.each accept + 1 message-shape pin) in `servers/github-gists/test/client.test.ts`. Full per-server test count 59 (was 43). Top-level README test-count claim updated from 41 → 43 (the static counter sees `it.each` blocks as single entries per the prior memory note on static-vs-runtime semantics). Per-server README left unchanged per the documented intentional split.
+
+**Why this work, this session:** Seventh Phase B+C target in the 360-min night session and second TypeScript Phase B+C PR (after `agent-orchestration-platform#32`). Picked via build-sequence #10. The `GistsClient` constructor was the only Client class in the repo without entry-time numeric validation after #32 tightened `internal-tools-bridge`.
+
+**Open questions / blockers:** none — PR ready for review.
+
+**Next session:** Continue the loop. `nextjs-streaming-ai-patterns` (build #11) and `ai-app-integration-tests` (build #12) are the remaining TS repos. After those, the validation-sweep arc has comprehensively touched every portfolio repo.

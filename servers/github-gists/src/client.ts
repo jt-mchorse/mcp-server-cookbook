@@ -168,11 +168,33 @@ export interface GistsClientDeps {
   fetch?: FetchLike;
 }
 
+/**
+ * Validate a `GistsConfig` at the constructor entry (#34).
+ *
+ * Sibling to `validateConfig` in `internal-tools-bridge/src/bridge.ts`
+ * (#32). The env-reading layer at `config.ts:57-67` already guards the
+ * standard path, but anyone constructing programmatically — test
+ * setups, embedding apps, alternate config sources — needs the same
+ * loud-failure surface.
+ *
+ * `setTimeout` silently coerces NaN/negative/Infinity, so a malformed
+ * `timeoutMs` produces silent client degradation (every request times
+ * out immediately, OR the timeout is effectively disabled).
+ */
+function validateConfig(cfg: GistsConfig): void {
+  if (!Number.isInteger(cfg.timeoutMs) || cfg.timeoutMs < 1) {
+    throw new RangeError(
+      `GistsConfig.timeoutMs must be an integer >= 1; got ${cfg.timeoutMs}`,
+    );
+  }
+}
+
 export class GistsClient {
   private readonly cfg: GistsConfig;
   private readonly fetchImpl: FetchLike;
 
   constructor(deps: GistsClientDeps) {
+    validateConfig(deps.cfg);
     this.cfg = deps.cfg;
     this.fetchImpl = deps.fetch ?? (globalThis.fetch as unknown as FetchLike);
   }
