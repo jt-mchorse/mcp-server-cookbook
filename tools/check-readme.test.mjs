@@ -8,7 +8,9 @@ import assert from "node:assert/strict";
 
 import {
   countTestsInFile,
+  maxActiveDecisionId,
   parametrizeCases,
+  readmeDecisionRangeBound,
   readmeServerRefs,
   readmeTestCountClaims,
   topLevelCommasInList,
@@ -186,4 +188,57 @@ test("countTestsInFile breaks the decorator chain on non-decorator code", () => 
   ].join("\n");
   // The `x = 1` line breaks the chain, so the def counts as 1, not 3.
   assert.equal(countTestsInFile("test_x.py", src), 1);
+});
+
+test("maxActiveDecisionId picks the highest non-superseded id", () => {
+  const md = [
+    "- id: D-001",
+    "  superseded_by: D-003",
+    "",
+    "- id: D-002",
+    "  superseded_by: null",
+    "",
+    "- id: D-003",
+    "  superseded_by: null",
+    "",
+    "- id: D-009",
+    "  superseded_by: null",
+  ].join("\n");
+  assert.equal(maxActiveDecisionId(md), 9);
+});
+
+test("maxActiveDecisionId skips superseded entries even when their id is highest", () => {
+  const md = [
+    "- id: D-005",
+    "  superseded_by: null",
+    "",
+    "- id: D-099",
+    "  superseded_by: D-005",
+  ].join("\n");
+  assert.equal(maxActiveDecisionId(md), 5);
+});
+
+test("maxActiveDecisionId returns 0 when no active entries exist", () => {
+  assert.equal(maxActiveDecisionId("just prose, no decisions"), 0);
+});
+
+test("readmeDecisionRangeBound extracts the upper bound from a D-002…D-NNN range", () => {
+  const md = "blah blah (D-002…D-009) blah";
+  assert.equal(readmeDecisionRangeBound(md), 9);
+});
+
+test("readmeDecisionRangeBound accepts ASCII three-dot form", () => {
+  const md = "blah (D-002...D-012) blah";
+  assert.equal(readmeDecisionRangeBound(md), 12);
+});
+
+test("readmeDecisionRangeBound returns null when no range is found", () => {
+  assert.equal(readmeDecisionRangeBound("no range here"), null);
+});
+
+test("readmeDecisionRangeBound picks the highest when multiple ranges appear", () => {
+  // Defensive: a future README change might end up quoting two
+  // ranges; the lock should still bind on the highest.
+  const md = "first D-002…D-007 then D-002…D-013 then D-002…D-009";
+  assert.equal(readmeDecisionRangeBound(md), 13);
 });

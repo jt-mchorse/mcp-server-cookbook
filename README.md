@@ -31,8 +31,9 @@ failure).
 ## Architecture
 
 See [`docs/architecture.md`](docs/architecture.md) for the cross-server
-layout and the shared conventions. Per-server design and threat model
-live next to the server itself.
+layout, the shared conventions, and the design decisions behind each
+one (D-002…D-009). Per-server design and threat model live next to the
+server itself.
 
 ## Quickstart
 

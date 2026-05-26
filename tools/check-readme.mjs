@@ -27,6 +27,47 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..");
 const README_PATH = path.join(REPO_ROOT, "README.md");
 const SERVERS_DIR = path.join(REPO_ROOT, "servers");
+const DECISIONS_PATH = path.join(REPO_ROOT, "MEMORY/core_decisions_ai.md");
+
+/**
+ * Parse `MEMORY/core_decisions_ai.md` and return the highest active
+ * (non-superseded) `D-NNN` integer id. Returns 0 if no active entries
+ * are found.
+ *
+ * Mirrors the shape of `tools/check-architecture-doc.mjs`'s
+ * `activeDecisions(decisionsMd)` parser — same regex anchors, same
+ * superseded_by handling, but folded down to a single max. Kept here
+ * rather than imported so this script stays dep-free and the two
+ * tools don't grow a circular relationship.
+ */
+export function maxActiveDecisionId(decisionsMd) {
+  const blocks = decisionsMd.split(/\n(?=- id:)/);
+  let best = 0;
+  for (const block of blocks) {
+    const idMatch = block.match(/- id:\s*D-(\d+)/);
+    if (!idMatch) continue;
+    const supMatch = block.match(/superseded_by:\s*(\S+)/);
+    const supValue = supMatch ? supMatch[1].trim().toLowerCase() : "null";
+    if (supValue !== "null") continue;
+    const n = Number.parseInt(idMatch[1], 10);
+    if (Number.isFinite(n) && n > best) best = n;
+  }
+  return best;
+}
+
+/**
+ * Return the upper bound `N` cited in the README's `D-002…D-N`
+ * range citation, or null if no such range is found. Accepts both the
+ * unicode ellipsis (`D-002…D-N`) and the ASCII three-dot form
+ * (`D-002...D-N`).
+ */
+export function readmeDecisionRangeBound(markdown) {
+  const matches = Array.from(
+    markdown.matchAll(/D-0*2\s*(?:…|\.\.\.)\s*D-0*(\d+)/g),
+  ).map((m) => Number.parseInt(m[1], 10));
+  if (matches.length === 0) return null;
+  return Math.max(...matches);
+}
 
 /**
  * Collect every `servers/<name>/` substring from the README and return the
@@ -258,6 +299,32 @@ function main() {
           `but ${counted.total} were found in ${counted.files} test file(s). ` +
           `Update the README's "${claim.line.trim()}" line or audit the server's tests.`,
       );
+    }
+  }
+
+  // Decision-range upper-bound check (#38). The README's architecture-
+  // section summary cites a range like `D-002…D-N`; the upper bound
+  // must equal the highest active D-NNN in MEMORY/core_decisions_ai.md.
+  // Same drift class that `check-architecture-doc.mjs` catches inside
+  // `docs/architecture.md`, but for the README's range citation.
+  if (existsSync(DECISIONS_PATH)) {
+    const decisions = readFileSync(DECISIONS_PATH, "utf-8");
+    const latest = maxActiveDecisionId(decisions);
+    const cited = readmeDecisionRangeBound(readme);
+    if (latest > 0) {
+      if (cited === null) {
+        errors.push(
+          "README must cite the active-decision range as `D-002…D-NNN` " +
+            "somewhere (architecture-section summary by convention). Not found.",
+        );
+      } else if (cited !== latest) {
+        errors.push(
+          `README cites decision range up to D-${String(cited).padStart(3, "0")}, ` +
+            `but the highest active D-NNN in MEMORY/core_decisions_ai.md is ` +
+            `D-${String(latest).padStart(3, "0")}. Update the README's ` +
+            `architecture-section summary to D-002…D-${String(latest).padStart(3, "0")}.`,
+        );
+      }
     }
   }
 
