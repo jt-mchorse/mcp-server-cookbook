@@ -8,6 +8,7 @@
 
 import { promises as fs } from "node:fs";
 import path from "node:path";
+import { atomicWriteFile } from "./atomic_write.js";
 import { Sandbox, SandboxEscape } from "./sandbox.js";
 
 export interface ToolDeps {
@@ -93,7 +94,7 @@ export async function writeFile(
   // The file may not exist yet; resolve with `mustExist: false` so
   // the sandbox checks the parent's containment instead.
   const sp = await deps.sandbox.resolve(file, { mustExist: false });
-  await fs.writeFile(sp.resolved, data);
+  await atomicWriteFile(sp.resolved, data);
   return { bytes_written: data.byteLength };
 }
 
