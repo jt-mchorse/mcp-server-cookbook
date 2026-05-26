@@ -292,3 +292,18 @@ README bumped from 36 to 41 tests for github-gists and the error-message contrac
 **Open questions / blockers:** none — PR ready for review.
 
 **Next session:** Continue the loop. `nextjs-streaming-ai-patterns` (build #11) and `ai-app-integration-tests` (build #12) are the remaining TS repos. After those, the validation-sweep arc has comprehensively touched every portfolio repo.
+
+## 2026-05-26 — Issue #36: `atomicWriteFile` closes the cross-language atomicity arc
+**Duration:** ~25 min · **Branch:** `session/2026-05-26-1533-issue-36`
+
+- `servers/filesystem-sandbox/src/tools.ts:97` used `fs.promises.writeFile` directly. Non-atomic: opens with `O_WRONLY | O_CREAT | O_TRUNC` (truncates immediately), commits bytes on completion. Worst shape for an MCP tool: clients re-read what they wrote, so a SIGINT/SIGTERM/OOM mid-write produces a half-written file that corrupts the conversational context. Subsequent `readFile` calls observe truncated text; the LLM keeps editing forward on broken state. File-watching editors reload partial contents. Build steps cascade-fail with unrelated-looking errors.
+- Added `servers/filesystem-sandbox/src/atomic_write.ts` exporting `atomicWriteFile(target, data)`. Sibling temp filename via `path.dirname(target)` + `crypto.randomBytes(6).toString("hex")` + `process.pid`. Open with `O_WRONLY | O_CREAT | O_EXCL` (collision with a concurrent process attempt fails loud), write, `handle.sync()` (fsync), close, `fs.rename` (atomic on POSIX same-filesystem; same-directory placement is load-bearing). Try/finally unlink cleanup on failure.
+- TypeScript cross-language sibling of the four Python helpers landed earlier today (`llm-eval-harness#48`, `llm-cost-optimizer#42`, `prompt-regression-suite#39`, `rag-production-kit#44`). Same shape, same load-bearing constraints, same set of invariants.
+- `tools.ts::writeFile` (line 97) routed through it. Upstream sandbox / read-only / size checks unchanged.
+- 8 new tests in `test/atomic_write.test.ts`: six helper unit invariants (the standard set, with `Buffer.equals` for the bitwise-preservation invariant) plus two integration tests through `tools.ts::writeFile`. The load-bearing integration test is `two awaited writers targeting the same path produce one winner, no corrupt blend`: `Promise.all` of two writers (one writing `"x".repeat(2000)`, the other `"y".repeat(2000)`) to the same path, then assert the on-disk content is exactly one writer's payload in full (2000 bytes, all of "x" or all of "y") — proving the rename atomicity serializes the writes wholesale. Full vitest suite 41 → 49 passing. Typecheck and lint clean.
+
+**Why this work, this session:** Fifth Phase B+C target in today's 180-min DAY session and the first TypeScript implementation in the atomicity arc. The Python arc closed in four repos earlier today established the helper shape; this lands the same shape in a TypeScript MCP tool where the client-facing contract is **more** sensitive to non-atomic writes than a typical CLI artifact — MCP clients re-read what they wrote.
+
+**Open questions / blockers:** none — PR ready for review.
+
+**Next session:** Atomicity arc now spans five repos (four Python, one TypeScript). The helper shape is proven portable across languages. Three TypeScript repos remain that *might* host similar writes — `agent-orchestration-platform` (trace artifacts), `nextjs-streaming-ai-patterns` (no obvious file writes; SSR-only), `ai-app-integration-tests` (cassette file writes during recording). The next natural session could pick the highest-blast-radius of those if continuing the arc, or pivot to a fresh harm class entirely.
