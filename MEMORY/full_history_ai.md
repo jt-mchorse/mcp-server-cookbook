@@ -458,3 +458,20 @@ context_for_next_session:
 decisions_made: []
 followups: []
 ---
+
+---
+session: 2026-05-27T03:25Z
+duration_min: 20
+issue: 40
+focus: internal_tools_bridge_claude_desktop_config_snippet_plus_portfolio_lock
+delta:
+  files_changed: 4   # internal-tools-bridge README, ci.yml, two new tools/*.mjs
+  tests_added: 9     # check-claude-desktop-config.test.mjs node:test cases
+context_for_next_session:
+  - internal_tools_bridge_was_the_only_server_with_claude_desktop_wiring_in_prose_form_other_four_servers_already_had_fenced_json_blocks_the_asymmetry_broke_handoff_section_2_under_five_minute_install_criterion
+  - new_lock_check_claude_desktop_config_mjs_dep_free_node_script_predicate_fenced_json_block_contains_both_mcpservers_and_command_substrings_intentionally_narrow_to_avoid_prescribing_a_specific_header_shape_because_existing_blocks_use_four_different_header_phrasings
+  - lock_verified_to_catch_real_drift_when_section_was_removed_from_internal_tools_bridge_readme_exit_code_1_with_clear_message_when_restored_exit_code_0
+  - mcp_cookbook_lock_inventory_now_three_check_readme_mjs_check_architecture_doc_mjs_check_claude_desktop_config_mjs_all_wired_into_readme_check_or_architecture_doc_check_jobs_no_new_ci_jobs_added_for_this_one
+decisions_made: []
+followups: []
+---

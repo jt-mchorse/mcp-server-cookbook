@@ -319,3 +319,18 @@ README bumped from 36 to 41 tests for github-gists and the error-message contrac
 
 **Open questions / blockers:** none.
 **Next session:** Continue to nextjs-streaming-ai-patterns.
+
+## 2026-05-27 — Issue #40: internal-tools-bridge claude_desktop_config snippet + portfolio lock
+**Duration:** ~20 min · **Branch:** `session/2026-05-27-0316-issue-40`
+
+- `internal-tools-bridge` was the only server with Claude Desktop wiring described in prose ("Or wire it into Claude Desktop / a custom MCP client by registering `node dist/server.js`") rather than as a copy-pastable JSON snippet. The other four servers shipped a fenced `claude_desktop_config.json` block. The asymmetry broke handoff §2's "each server installable and usable from Claude Desktop or Cowork itself in <5 minutes" criterion.
+- Added a "Wire into Claude Desktop" section to the bridge README with `command`, `args`, and the optional `MCP_BRIDGE_CWD` env field, matching the shape and tone of the four other server snippets.
+- New lock: `tools/check-claude-desktop-config.mjs` (dep-free Node, 5 exported helpers + a `main()`). Scans every `servers/*/README.md` for a fenced ```json / ```jsonc block containing both `"mcpServers"` and `"command"` substrings — the minimum-viable Claude Desktop config shape. Intentionally narrow: doesn't prescribe a header phrasing because the existing four blocks already use four different phrasings ("Wire into Claude Desktop", "Wiring into Claude Desktop", "Run (Claude Desktop)", "To attach it to Claude Desktop, add to its claude_desktop_config.json").
+- 9 `node:test` cases in `tools/check-claude-desktop-config.test.mjs` covering fence parsing (with `jsonc` variant), the validity predicate's pass/fail axes, scanner pass/fail/missing-README paths, and the directory lister.
+- Wired into the existing `readme-check` CI job (two new run steps; no new jobs). Verified the lock loud-fails when the section is removed (exit 1) and passes when restored (exit 0).
+
+**Why this work, this session:** Iteration 2 of an autonomous NIGHT session loop. The portfolio's validation arc was saturated; pivoting to per-repo doc-hygiene gaps surfaced this asymmetry. Same drift-class fix shape as the earlier README decision-range lock and architecture-doc lock.
+
+**Open questions / blockers:** none — PR ready for review.
+
+**Next session:** Loop continues across the 12 portfolio repos this NIGHT session.
