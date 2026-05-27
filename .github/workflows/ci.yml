@@ -116,6 +116,10 @@ jobs:
         run: node tools/check-readme.mjs
       - name: Run the README check script's own unit tests
         run: node --test tools/check-readme.test.mjs
+      - name: Verify every server README ships a claude_desktop_config snippet
+        run: node tools/check-claude-desktop-config.mjs
+      - name: Run the claude_desktop_config check script's own unit tests
+        run: node --test tools/check-claude-desktop-config.test.mjs
 
   architecture-doc-check:
     runs-on: ubuntu-latest

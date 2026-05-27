@@ -104,9 +104,25 @@ npm run build
 node dist/server.js < /dev/null  # starts the stdio server
 ```
 
-Or wire it into Claude Desktop / a custom MCP client by registering
-`node dist/server.js` as the command, with optional `MCP_BRIDGE_CWD`
-env to lock the cwd.
+## Wire into Claude Desktop
+
+Add to `claude_desktop_config.json` (path-substitute `$HOME/path/to/...`):
+
+```json
+{
+  "mcpServers": {
+    "internal-tools-bridge": {
+      "command": "node",
+      "args": ["$HOME/path/to/mcp-server-cookbook/servers/internal-tools-bridge/dist/server.js"],
+      "env": {
+        "MCP_BRIDGE_CWD": "$HOME/path/to/mcp-server-cookbook/servers/internal-tools-bridge"
+      }
+    }
+  }
+}
+```
+
+`MCP_BRIDGE_CWD` is optional; when set, it locks the working directory the bundled CLI runs in. Omit it to let the bridge inherit the Claude Desktop launch cwd.
 
 ## End-to-end example
 
