@@ -32,6 +32,47 @@ function parseIntEnv(name: string, fallback: number): number {
 }
 
 /**
+ * Validate a `DbConfig` at the programmatic entry of `withClient` so the
+ * security-relevant numeric fields cannot be silently degenerate when a
+ * caller (test, custom driver, future cross-server import per D-002's
+ * "explicit cross-server import" carve-out) builds one directly rather
+ * than through `readDbConfigFromEnv`.
+ *
+ * Without this guard:
+ *   - `statementTimeoutMs = 0` is interpolated into `SET statement_timeout = 0`
+ *     which in Postgres semantics means **no timeout** — silently
+ *     disabling the security-relevant per-query timeout.
+ *   - `maxRows = 0` produces empty result sets via `rows.slice(0, 0)`
+ *     in tools.ts and `LIMIT 0` via `Math.min(requested, 50, 0)` in
+ *     `sample_rows` — silent degeneracy on a documented row cap.
+ *   - `connectionString = ""` constructs a `pg.Client` whose `.connect()`
+ *     falls back on the libpq env defaults instead of honoring the
+ *     documented contract.
+ *
+ * Mirrors the portfolio's contract-tightening sweep also applied to
+ * this repo's `internal-tools-bridge` `BridgeConfig` (#4, D-009): the
+ * silent-degeneracy shapes documented inline at bridge.ts L96-103 are
+ * the same class of failure being closed here on a sibling `Config`.
+ */
+export function validateDbConfig(cfg: DbConfig): void {
+  if (typeof cfg.connectionString !== "string" || cfg.connectionString.length === 0) {
+    throw new Error(
+      `DbConfig.connectionString must be a non-empty string; got ${JSON.stringify(cfg.connectionString)}`,
+    );
+  }
+  if (!Number.isInteger(cfg.maxRows) || cfg.maxRows < 1) {
+    throw new Error(`DbConfig.maxRows must be an integer >= 1; got ${cfg.maxRows}`);
+  }
+  if (!Number.isInteger(cfg.statementTimeoutMs) || cfg.statementTimeoutMs < 1) {
+    throw new Error(
+      `DbConfig.statementTimeoutMs must be an integer >= 1; got ${cfg.statementTimeoutMs}. ` +
+        `In Postgres semantics, statement_timeout = 0 means no timeout — the per-query timeout ` +
+        `is security-relevant defense in depth and must not be silently disabled by a programmatic 0.`,
+    );
+  }
+}
+
+/**
  * Open a fresh client for one query. We intentionally don't pool. The MCP server
  * lives for the duration of one client conversation; per-call clients keep the
  * blast radius of any leaked state to one statement.
@@ -40,6 +81,10 @@ export async function withClient<T>(
   cfg: DbConfig,
   fn: (c: pg.Client) => Promise<T>,
 ): Promise<T> {
+  // Programmatic-entry validation (#44): a misconstructed `DbConfig`
+  // must fail loud before any connection or SQL is issued. Reasoning
+  // and gap inventory live on `validateDbConfig` above.
+  validateDbConfig(cfg);
   const client = new Client({ connectionString: cfg.connectionString });
   await client.connect();
   try {

@@ -93,6 +93,18 @@ even a single isolated `SET` rejects.
   only see rows for tenant X." This server doesn't add that semantic; use
   Postgres RLS at the DB layer.
 
+### Programmatic-entry config validation (#44)
+
+`withClient(cfg, fn)` calls `validateDbConfig(cfg)` before opening any
+connection or issuing SQL. The gate rejects empty `connectionString`,
+non-positive `maxRows`, and non-positive `statementTimeoutMs`. The last
+one is security-relevant: Postgres treats `statement_timeout = 0` as
+**no timeout**, so a programmatic `0` would silently disable the
+per-query timeout that the server documents as defense in depth.
+Mirrors the `BridgeConfig` validation pattern in
+[`servers/internal-tools-bridge/src/bridge.ts`](../internal-tools-bridge/src/bridge.ts)
+(D-009) — same loud-failure-at-entry posture on a sibling `Config` type.
+
 ## Quickstart
 
 **Sample DB (Docker):**

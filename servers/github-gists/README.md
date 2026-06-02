@@ -61,6 +61,23 @@
 - GitHub itself is fully trusted: the server believes the API's
   response shape.
 
+### Programmatic-entry config validation (#44)
+
+The `GistsClient` constructor calls `validateGistsConfig(cfg)` before
+any request. The gate now covers all four fields (broadens the
+timeoutMs-only check shipped in #34) and rejects:
+- `baseUrl` empty or missing `http(s)://` scheme.
+- `userAgent` empty (GitHub rejects no-UA requests outright).
+- `timeoutMs` non-positive integer (an `AbortSignal.timeout(0)` aborts
+  every request on the next tick — silent client degeneracy).
+- `token = ""` — the truthy `token !== null` path looks like
+  "auth configured" to `hasToken()` but actually sends an empty bearer
+  header. Operators opting out of auth must pass `null` explicitly.
+
+Mirrors the `BridgeConfig` validation pattern in
+[`servers/internal-tools-bridge/src/bridge.ts`](../internal-tools-bridge/src/bridge.ts)
+(D-009) — same loud-failure-at-entry posture on a sibling `Config` type.
+
 ## Configuration
 
 | Env var | Required? | Default | What it does |
