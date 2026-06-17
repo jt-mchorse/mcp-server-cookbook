@@ -1,0 +1,17 @@
+{
+  "name": "mcp-server-cookbook-root",
+  "private": true,
+  "version": "0.0.1",
+  "description": "Root-level tooling for mcp-server-cookbook. Each server under servers/ is its own Node project; this package.json exists only to hold dev-only dependencies that the tools/ scripts use (notably the workflow YAML parseability lock — issue #46).",
+  "type": "module",
+  "scripts": {
+    "check:workflow-yaml": "node tools/check-workflow-yaml.mjs",
+    "test:workflow-yaml": "node --test tools/check-workflow-yaml.test.mjs"
+  },
+  "devDependencies": {
+    "yaml": "^2.5.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

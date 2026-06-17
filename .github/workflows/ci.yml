@@ -142,3 +142,20 @@ jobs:
           node-version: "20"
       - name: Run the 60-second demo capture orchestrator's own unit tests
         run: node --test tools/capture-demo.test.mjs
+
+  workflow-yaml-check:
+    # Inverse safety net for the 21-day silent CI outage closed in
+    # portfolio-ops#27. Parses every .github/workflows/*.yml and asserts
+    # a non-empty `jobs:` mapping. See tools/check-workflow-yaml.mjs.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+      - run: npm ci
+      - name: Verify every workflow YAML parses + has non-empty jobs
+        run: node tools/check-workflow-yaml.mjs
+      - name: Run the workflow-yaml check script's own unit tests
+        run: node --test tools/check-workflow-yaml.test.mjs
