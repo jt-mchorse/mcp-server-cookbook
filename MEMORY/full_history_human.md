@@ -359,3 +359,29 @@ README bumped from 36 to 41 tests for github-gists and the error-message contrac
 **Open questions / blockers:** none — ready for review.
 
 **Next session:** Continue the night-session loop. Remaining untouched-since-2026-05-27 candidates: `nextjs-streaming-ai-patterns`, `ai-app-integration-tests` (both TS).
+
+## 2026-06-17 — Issue #46: Workflow YAML-parseability check
+**Duration:** ~17 min · **Branch:** `session/2026-06-17-1929-issue-46`
+
+Added `tools/check-workflow-yaml.mjs` (parses every workflow file with
+`yaml` from npm, asserts non-empty `jobs:`), `tools/check-workflow-yaml.test.mjs`
+(12 `node --test` cases), a minimal root `package.json` holding just
+`yaml@^2.5.0`, and a new `workflow-yaml-check` job in `ci.yml`.
+
+**Why this work, this session:** Tenth hop of the `portfolio-ops#30`
+propagation arc — second TypeScript hop after
+`agent-orchestration-platform#42`. The lock catches the historical
+`portfolio-ops#27` parse-failure shape (covered by a dedicated test
+fixture) plus three other failure shapes.
+
+The decision to add a root `package.json` was already anticipated by
+`tools/check-spec-version.mjs`: *"If the doc grows a more complex
+structure, swap in `yaml` from npm and update the tests."* The
+workflow lock is exactly that case.
+
+**Open questions / blockers:** none — 12/12 tests pass locally, real
+workflow validates clean, no regression in the other three check
+tools; PR #47 open.
+
+**Next session:** continue propagation to the remaining 2 frontend
+repos (`nextjs-streaming-ai-patterns`, `ai-app-integration-tests`).

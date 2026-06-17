@@ -515,3 +515,28 @@ context_for_next_session:
 decisions_made: []
 followups: []
 ---
+
+---
+session: 2026-06-17T20:20Z
+duration_min: 17
+issue: 46
+focus: workflow_yaml_parseability_check_propagation_root_package_json_plus_dedicated_ci_job
+phase: day_session_phase_b_iteration_10
+delta:
+  files_added: 4   # tools/check-workflow-yaml.mjs, tools/check-workflow-yaml.test.mjs, package.json, package-lock.json
+  files_changed: 1 # .github/workflows/ci.yml (new workflow-yaml-check job)
+  tests_added: 12  # all under tools/check-workflow-yaml.test.mjs
+context_for_next_session:
+  - tenth_hop_in_yaml_parseability_lock_propagation_arc_second_typescript_after_agent_orchestration_platform_42
+  - mcp_server_cookbook_is_multi_package_repo_no_root_package_json_existed_before_this_pr_added_minimal_one_with_yaml_at_two_devdep_only_no_runtime_code_at_root
+  - decision_to_add_root_package_json_matches_codebase_convention_check_spec_version_docstring_explicitly_anticipates_swapping_in_yaml_from_npm_when_complex_structure_needed_workflow_lock_is_exactly_that_case
+  - tool_lives_at_tools_check_workflow_yaml_mjs_matches_existing_dep_free_tools_pattern_with_one_devdep_difference
+  - exit_codes_zero_clean_one_findings_two_bad_input_matches_audit_phase_a_py_convention_in_portfolio_ops_not_one_zero_convention_of_resolve_memory_conflict
+  - finding_codes_parse_shape_no_jobs_empty_jobs_each_with_dedicated_test_case_plus_dedicated_fixture_for_historical_portfolio_ops_27_parse_failure_shape
+  - twelve_unit_tests_via_node_test_stdlib_no_vitest_jest_dep_matches_sibling_tools_tests_via_run_in_passing_options_log_and_err_to_silent_for_clean_test_output
+  - real_workflows_directory_smoke_assertion_inside_test_file_validates_check_runs_clean_against_actual_ci_yml
+  - ci_yml_workflow_yaml_check_job_runs_npm_ci_then_check_script_then_test_file_uses_cache_npm_for_speed
+  - other_three_check_star_mjs_tools_check_readme_check_spec_version_check_architecture_doc_remain_clean_after_root_package_json_addition_no_regression
+decisions_made: []
+followups: []
+---
