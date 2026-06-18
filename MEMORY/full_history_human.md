@@ -415,3 +415,24 @@ file. Dogfooded post-edit against this repo's own workflows: clean.
 
 **Next session:** two repos remain — `ai-app-integration-tests` (TS),
 `portfolio-ops` itself.
+
+## 2026-06-18 — Issue #50: concurrency guard + check tool
+**Duration:** ~14 min · **Branch:** `session/2026-06-18-1535-issue-50`
+
+- Added top-level `concurrency:` to `ci.yml`.
+- Created `tools/check-workflow-concurrency.mjs` (modeled on
+  `check-workflow-timeout.mjs`) and `tools/check-workflow-concurrency.test.mjs`
+  (12 node:test cases covering each failure mode).
+- Added `check:workflow-concurrency` and `test:workflow-concurrency`
+  scripts to `package.json`.
+
+**Why this work, this session:** eleventh per-repo hop in the
+concurrency-lock arc. This repo uses its own check-tool pattern
+(node:test stdlib, not vitest), and the new tool slots into the
+existing trio of workflow checks.
+
+**Open questions / blockers:** none. All three check tools green against
+current ci.yml; all node:test files pass.
+
+**Next session:** final hop in portfolio-ops itself (the audit source
+of truth).

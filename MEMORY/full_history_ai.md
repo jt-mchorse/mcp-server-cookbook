@@ -563,3 +563,23 @@ context_for_next_session:
 decisions_made: []
 followups: []
 ---
+
+---
+session: 2026-06-18T16:15Z
+duration_min: 14
+issue: 50
+focus: workflow_concurrency_guard_plus_check_tool_propagation_node_test_pattern
+phase: day_session_phase_b_iteration_11
+delta:
+  files_added: 2   # tools/check-workflow-concurrency.{mjs,test.mjs}
+  files_changed: 2 # .github/workflows/ci.yml + package.json
+  tests_added: 12
+context_for_next_session:
+  - eleventh_per_repo_hop_of_concurrency_lock_propagation_node_test_pattern_not_vitest_or_pytest
+  - check_tool_produces_structured_findings_keyed_by_code_no_concurrency_concurrency_not_mapping_no_group_group_not_string_group_empty_no_cancel_cancel_not_bool_cancel_not_true
+  - twelve_unit_tests_via_tmp_fs_each_failure_mode_plus_runner_exit_codes_zero_one_two
+  - all_three_check_tools_green_workflow_yaml_workflow_timeout_workflow_concurrency_against_current_ci_yml
+  - portfolio_silent_rot_arc_per_repo_in_this_repo_three_locks_now_three_invariants_per_pattern_yaml_parseable_timeout_minutes_concurrency
+decisions_made: []
+followups: [#50]
+---
