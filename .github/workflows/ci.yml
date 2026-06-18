@@ -9,6 +9,7 @@ on:
 jobs:
   postgres-readonly:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     defaults:
       run:
         working-directory: servers/postgres-readonly
@@ -27,6 +28,7 @@ jobs:
 
   github-gists:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     defaults:
       run:
         working-directory: servers/github-gists
@@ -45,6 +47,7 @@ jobs:
 
   internal-tools-bridge:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     defaults:
       run:
         working-directory: servers/internal-tools-bridge
@@ -63,6 +66,7 @@ jobs:
 
   filesystem-sandbox:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     defaults:
       run:
         working-directory: servers/filesystem-sandbox
@@ -81,6 +85,7 @@ jobs:
 
   memory-check:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - name: Verify MEMORY directory exists and has required files
@@ -95,6 +100,7 @@ jobs:
 
   spec-version:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -107,6 +113,7 @@ jobs:
 
   readme-check:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -123,6 +130,7 @@ jobs:
 
   architecture-doc-check:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -135,6 +143,7 @@ jobs:
 
   capture-demo-test:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -147,7 +156,11 @@ jobs:
     # Inverse safety net for the 21-day silent CI outage closed in
     # portfolio-ops#27. Parses every .github/workflows/*.yml and asserts
     # a non-empty `jobs:` mapping. See tools/check-workflow-yaml.mjs.
+    #
+    # Extended in #48 to also enforce timeout-minutes on every job
+    # (silent-rot propagation from llm-eval-harness#63 / portfolio-ops#36).
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -159,3 +172,7 @@ jobs:
         run: node tools/check-workflow-yaml.mjs
       - name: Run the workflow-yaml check script's own unit tests
         run: node --test tools/check-workflow-yaml.test.mjs
+      - name: Verify every workflow job has a sensible timeout-minutes
+        run: node tools/check-workflow-timeout.mjs
+      - name: Run the workflow-timeout check script's own unit tests
+        run: node --test tools/check-workflow-timeout.test.mjs

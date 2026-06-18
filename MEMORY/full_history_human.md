@@ -385,3 +385,33 @@ tools; PR #47 open.
 
 **Next session:** continue propagation to the remaining 2 frontend
 repos (`nextjs-streaming-ai-patterns`, `ai-app-integration-tests`).
+
+## 2026-06-18 — Issue #48: timeout-minutes guard + check tool
+**Duration:** ~25 min · **Branch:** `session/2026-06-18-0333-issue-48`
+
+- Added `timeout-minutes: 15` to all 10 jobs in `ci.yml` (uniform — each
+  per-server job runs in <3 min today, smaller jobs in <1 min).
+- Created `tools/check-workflow-timeout.mjs` (runtime checker) +
+  `tools/check-workflow-timeout.test.mjs` (13 stdlib `node:test` unit
+  tests via `mkdtemp` fixtures). Same exit-code contract (0/1/2) and
+  file-naming convention as the existing `tools/check-workflow-yaml.mjs`
+  pattern from issue #46.
+- Extended the existing `workflow-yaml-check` job in-place to also run
+  the new check + tests. **Kept the job name** instead of renaming to
+  something more generic like `workflow-checks` — the 21-day silent CI
+  outage that motivated the YAML lock (`portfolio-ops#27`) was caused by
+  orphaned workflow registrations after a rename; preserving the job
+  name avoids re-creating that risk for an aesthetic refactor.
+- `package.json` adds `check:workflow-timeout` + `test:workflow-timeout`.
+
+**Why this work, this session:** ninth hop in the portfolio-wide
+timeout-minutes propagation arc. This repo's pattern of separate
+`tools/check-*.mjs` + `*.test.mjs` for workflow invariants is more
+elaborate than the simple Vitest/pytest parametrized files used in the
+other repos, so the lock-test diff is a sister tool, not a single test
+file. Dogfooded post-edit against this repo's own workflows: clean.
+
+**Open questions / blockers:** none.
+
+**Next session:** two repos remain — `ai-app-integration-tests` (TS),
+`portfolio-ops` itself.

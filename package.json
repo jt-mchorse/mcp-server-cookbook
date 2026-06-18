@@ -6,7 +6,9 @@
   "type": "module",
   "scripts": {
     "check:workflow-yaml": "node tools/check-workflow-yaml.mjs",
-    "test:workflow-yaml": "node --test tools/check-workflow-yaml.test.mjs"
+    "test:workflow-yaml": "node --test tools/check-workflow-yaml.test.mjs",
+    "check:workflow-timeout": "node tools/check-workflow-timeout.mjs",
+    "test:workflow-timeout": "node --test tools/check-workflow-timeout.test.mjs"
   },
   "devDependencies": {
     "yaml": "^2.5.0"
