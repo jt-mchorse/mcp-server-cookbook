@@ -36,6 +36,18 @@ describe("readSandboxConfigFromEnv", () => {
     }
   });
 
+  it("read-only flag tolerates surrounding whitespace (#52)", () => {
+    // A whitespace-padded affirmative (common from .env / compose env blocks)
+    // must still enable read-only — not silently fail open to write mode.
+    for (const v of ["1 ", " true", "yes\n", " 1 ", "\tTRUE "]) {
+      const cfg = readSandboxConfigFromEnv({
+        MCP_FS_SANDBOX_ALLOWLIST: "/tmp/a",
+        MCP_FS_SANDBOX_READ_ONLY: v,
+      });
+      expect(cfg.readOnly).toBe(true);
+    }
+  });
+
   it("read-only defaults to false for unset / `0` / random strings", () => {
     for (const v of [undefined, "", "0", "false", "no", "banana"]) {
       const env: NodeJS.ProcessEnv = { MCP_FS_SANDBOX_ALLOWLIST: "/tmp/a" };

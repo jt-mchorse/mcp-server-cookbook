@@ -41,7 +41,11 @@ export function readSandboxConfigFromEnv(env: NodeJS.ProcessEnv = process.env): 
     );
   }
 
-  const ro = (env.MCP_FS_SANDBOX_READ_ONLY ?? "").toLowerCase();
+  // Trim before comparing, consistent with the allow-list parsing above.
+  // Without the trim a whitespace-padded value (`"1 "` from a .env file or a
+  // docker-compose `environment:` entry) silently failed open to *write*
+  // mode even though the operator set the read-only safety toggle (#52).
+  const ro = (env.MCP_FS_SANDBOX_READ_ONLY ?? "").trim().toLowerCase();
   const readOnly = ro === "1" || ro === "true" || ro === "yes";
 
   const maxBytesRaw = env.MCP_FS_SANDBOX_MAX_BYTES;
