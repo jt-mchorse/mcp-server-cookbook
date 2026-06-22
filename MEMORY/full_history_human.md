@@ -436,3 +436,16 @@ current ci.yml; all node:test files pass.
 
 **Next session:** final hop in portfolio-ops itself (the audit source
 of truth).
+
+## 2026-06-22 — Issue #52: filesystem-sandbox — read-only flag fails open on whitespace
+**Duration:** ~20 min · **Branch:** `session/2026-06-22-1213-issue-52`
+
+- Found during Phase A (Explore subagent flagged the inconsistency; I judged it a genuine fail-open and reproduced it): `readSandboxConfigFromEnv` lowercased but didn't `.trim()` the `MCP_FS_SANDBOX_READ_ONLY` value, so a whitespace-padded affirmative like `"1 "` (common from a `.env` file or compose env block) didn't match `1`/`true`/`yes` and the server silently ran in WRITE mode despite the operator enabling the read-only safety toggle. The same function already trims the allow-list, so the read-only flag was the lone strict-equality victim.
+- Fix: one-line `.trim()` before the comparison.
+- 1 new test covering whitespace-padded affirmatives; verified it fails on the pre-fix code. Server suite 49 → 50, tsc + eslint clean. PR #53 ready.
+
+**Why this work, this session:** the repo had no open priority issues; this was a real fail-open on a defense-in-depth control in a security-relevant server, found by reading the config parser. The atomic-rename and SQL-guard layers reviewed clean, so this was the genuine defect.
+
+**Open questions / blockers:** none.
+
+**Next session:** filesystem-sandbox is fully reviewed. If a future session needs work here, the postgres-readonly SQL guard edge cases and github-gists pagination are the remaining surfaces.
