@@ -449,3 +449,16 @@ of truth).
 **Open questions / blockers:** none.
 
 **Next session:** filesystem-sandbox is fully reviewed. If a future session needs work here, the postgres-readonly SQL guard edge cases and github-gists pagination are the remaining surfaces.
+
+---
+## 2026-06-26 — Issue #56: trim filename at the payload-key site in updateGistFile
+**Duration:** ~15 min · **Branch:** `session/2026-06-26-0003-issue-56`
+
+- `GistsClient.updateGistFile` validated `filename` after trimming (rejecting whitespace-only names) but used the untrimmed value as the PATCH payload's file key — while the sibling `gistId` (and `getGist`) trim consistently in both places. So `filename: "  notes.md  "` passed validation but sent GitHub the key `"  notes.md  "`, targeting a whitespace-named file instead of `notes.md` and silently failing to update the intended file.
+- One-line fix: use `args.filename.trim()` as the key, restoring trim-consistency (same class as the #52/#53 read-only-flag trim fix). Added a test asserting a padded filename is captured in the body as the trimmed key; red-green verified. github-gists suite green (36 passed). (Harness note: full vitest shows 8 pre-existing `tools/*.test.mjs` `node --test` files it can't collect — unrelated; 236 vitest tests pass.)
+
+**Why this work, this session:** sixth issue of a multi-issue DAY session. The postgres-readonly sqlGuard issues (#54/#55) remain decision-blocked on JT, so a strict sweep of the *other* cookbook servers surfaced this validate-trimmed/use-untrimmed asymmetry in github-gists.
+
+**Open questions / blockers:** none. (sqlGuard #54/#55 still need JT's severity/scope call.)
+
+**Next session:** github-gists pagination/cursor handling is the remaining un-swept surface in this server if a future session needs work here.
