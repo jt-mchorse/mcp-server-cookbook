@@ -474,3 +474,16 @@ of truth).
 **Open questions / blockers:** postgres-readonly #54/#55 still need a JT severity call. Runner-up unfiled: a whitespace-only programmatic token passes `validateGistsConfig` (the env path trims, the programmatic path does not).
 
 **Next session:** the portfolio is saturated — this run closed 9 issues across every repo with actionable code; only the blocked sqlGuard items remain. Future runs likely lower-yield until new trending issues land.
+
+## 2026-06-27 — Issue #60: filesystem-sandbox write path didn't reject a leaf symlink escaping the allow-list
+**Duration:** ~25 min · **Branch:** `session/2026-06-27-0358-issue-60`
+
+- `Sandbox.resolve(..., { mustExist: false })` (the `write_file` path) resolved the parent directory's realpath but then naively rejoined the basename (`path.join(parentReal, basename)`), never canonicalizing the leaf. So an *existing* leaf symlink whose target is outside the allow-list slipped through, and `write_file` silently clobbered it (`atomicWriteFile`'s `fs.rename` replaces the link rather than following it — a contract + data-loss bug, not a path-escape). The defined `symlink_outside_allowlist` reason was dead code. This violated the README ("symlinks at any path component pointing outside the allow-list are rejected").
+- Fixed by `lstat`-ing the candidate in the write path: an existing leaf symlink is `realpath`-followed so an escaping target fails the containment check, a dangling leaf symlink is rejected, and a non-existent leaf keeps the parent-resolved path (create-new-file unchanged). Rejection uses `outside_allowlist` for consistency with the existing read-path and parent-symlink cases. Added 4 tests (3 resolve-level + 1 `write_file` rejects-not-clobbers). npm test 50 → 54; build, typecheck, eslint clean.
+- **Explicitly distinct from the JT-deferred #54/#55** postgres SQL-guard revisits: those were deferred for *unverified* exploitability + an availability tradeoff; this is documented-contract enforcement with a deterministic repro that only tightens and regresses no legitimate write.
+
+**Why this work, this session:** ninth issue of a multi-issue NIGHT run; a security-sensitive but clearly-actionable contract-enforcement fix surfaced by a parallel dogfood agent.
+
+**Open questions / blockers:** none.
+
+**Next session:** the write path now canonicalizes the leaf like the read path; wiring the precise `symlink_outside_allowlist` reason (vs the shared `outside_allowlist`) remains a future precision pass.
