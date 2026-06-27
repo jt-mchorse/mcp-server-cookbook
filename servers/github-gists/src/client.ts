@@ -306,22 +306,32 @@ export class GistsClient {
    * the HTTP status text. NEVER includes the request body, the token,
    * or any other secret context.
    */
-  private async reasonFromResponse(res: { status: number; text(): Promise<string>; json(): Promise<unknown> }): Promise<string> {
+  private async reasonFromResponse(res: { status: number; text(): Promise<string> }): Promise<string> {
+    // Read the body exactly once. A real WHATWG `Response` body is a
+    // single-use stream, so the old `await res.json()` then `await res.text()`
+    // sequence threw `TypeError: Body is unusable` on the second read for any
+    // non-JSON error body — swallowing the server's message and returning a
+    // bare `status N`. Read text first, then try to parse it as JSON for
+    // GitHub's `message` convention; fall back to the same text otherwise (#58).
+    let text: string;
     try {
-      const body = (await res.json()) as { message?: unknown };
+      text = await res.text();
+    } catch {
+      return `status ${res.status}`;
+    }
+    try {
+      const body = JSON.parse(text) as { message?: unknown };
       if (typeof body?.message === "string" && body.message.length > 0) {
         return body.message;
       }
     } catch {
-      // body wasn't JSON; fall through to text
+      // body wasn't JSON; fall through to the raw text
     }
-    try {
-      const text = await res.text();
-      // Some API error pages can be huge HTML; cap the length so a
-      // misconfigured endpoint can't dump megabytes through our errors.
-      return text.length > 200 ? text.slice(0, 200) + "…" : text;
-    } catch {
+    if (text.length === 0) {
       return `status ${res.status}`;
     }
+    // Some API error pages can be huge HTML; cap the length so a
+    // misconfigured endpoint can't dump megabytes through our errors.
+    return text.length > 200 ? text.slice(0, 200) + "…" : text;
   }
 }
