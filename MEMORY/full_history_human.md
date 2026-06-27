@@ -462,3 +462,15 @@ of truth).
 **Open questions / blockers:** none. (sqlGuard #54/#55 still need JT's severity/scope call.)
 
 **Next session:** github-gists pagination/cursor handling is the remaining un-swept surface in this server if a future session needs work here.
+
+## 2026-06-27 — Issue #58: github-gists loses error text on a real Response (double body read)
+**Duration:** ~20 min · **Branch:** `session/2026-06-27-0034-issue-58`
+
+- `reasonFromResponse` read the response body twice — `await res.json()` then, on failure, `await res.text()`. A real WHATWG `Response` body is single-use, so `.json()` consumed the stream and the subsequent `.text()` threw "Body is unusable", which was caught and returned a bare `status N` — discarding the server's error message. Reproduced against a real `Response` (a 502 with a non-JSON body surfaced only as "status 502"). The existing test passed only because the `recordingFetch` fake exposed independently-readable `text()`/`json()`, which real fetch does not.
+- Fixed by reading the body once as text, then `JSON.parse`-ing it for GitHub's `message` field and falling back to the same truncated text. Added two regression tests that use a real single-read `Response` (non-JSON body + JSON message paths). Server suite 80 → 82; typecheck + eslint clean.
+
+**Why this work, this session:** ninth issue of a multi-issue DAY run. I dogfooded the non-blocked mcp-server-cookbook servers — filesystem-sandbox path containment and internal-tools-bridge allow-listing verified clean/robust — and found this in github-gists. postgres-readonly #54/#55 remain JT-decision-blocked (D-007) and were left untouched.
+
+**Open questions / blockers:** postgres-readonly #54/#55 still need a JT severity call. Runner-up unfiled: a whitespace-only programmatic token passes `validateGistsConfig` (the env path trims, the programmatic path does not).
+
+**Next session:** the portfolio is saturated — this run closed 9 issues across every repo with actionable code; only the blocked sqlGuard items remain. Future runs likely lower-yield until new trending issues land.
