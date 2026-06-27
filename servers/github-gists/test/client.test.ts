@@ -158,6 +158,41 @@ describe("GistsClient.getGist", () => {
       expect((e as Error).message.length).toBeLessThan(280);
     }
   });
+
+  // #58: the recordingFetch fake exposes independently-readable text()/json(),
+  // which hid a production bug — reasonFromResponse read the body twice
+  // (json() then text()), and a real WHATWG Response body is single-use, so the
+  // second read threw and the server's error text was lost. Use a REAL Response
+  // here so the single-read contract is exercised.
+  it("surfaces a non-JSON error body from a real (single-read) Response (#58)", async () => {
+    const fetch: FetchLike = async () =>
+      new Response("Server Error: upstream timeout", { status: 502 }) as unknown as Awaited<
+        ReturnType<FetchLike>
+      >;
+    const client = new GistsClient({ cfg: baseCfg(), fetch });
+    try {
+      await client.getGist("abc");
+      expect.unreachable();
+    } catch (e) {
+      expect(e).toBeInstanceOf(GithubApiError);
+      // The body text must survive — not be swallowed into a bare "status 502".
+      expect((e as Error).message).toContain("Server Error: upstream timeout");
+    }
+  });
+
+  it("reads the JSON message from a real (single-read) Response (#58)", async () => {
+    const fetch: FetchLike = async () =>
+      new Response(JSON.stringify({ message: "Not Found" }), { status: 404 }) as unknown as Awaited<
+        ReturnType<FetchLike>
+      >;
+    const client = new GistsClient({ cfg: baseCfg(), fetch });
+    try {
+      await client.getGist("abc");
+      expect.unreachable();
+    } catch (e) {
+      expect((e as Error).message).toContain("Not Found");
+    }
+  });
 });
 
 // ---------------- updateGistFile ----------------
