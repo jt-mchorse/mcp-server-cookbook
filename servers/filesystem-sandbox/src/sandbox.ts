@@ -128,7 +128,32 @@ export class Sandbox {
       } catch {
         throw new SandboxEscape("outside_allowlist", input);
       }
-      real = path.join(parentReal, path.basename(input));
+      const candidate = path.join(parentReal, path.basename(input));
+      // The leaf itself must be canonicalized too. If it's an *existing*
+      // symlink, follow it so a target outside the allow-list fails the
+      // containment check below — the README promises "symlinks at any path
+      // component pointing outside the allow-list are rejected", and the leaf
+      // is a path component (the mustExist=true branch already does this via
+      // realpath). Without this, a leaf symlink-to-outside slipped through and
+      // `write_file` silently clobbered it. A non-existent leaf is the normal
+      // create-new-file case and keeps the parent-resolved path. See #60.
+      let leafIsSymlink = false;
+      try {
+        leafIsSymlink = (await fs.lstat(candidate)).isSymbolicLink();
+      } catch {
+        // Leaf doesn't exist yet — create-new-file; parent containment holds.
+      }
+      if (leafIsSymlink) {
+        try {
+          real = await fs.realpath(candidate);
+        } catch {
+          // Dangling symlink: its target can't be proven inside the
+          // allow-list, so reject rather than clobber it.
+          throw new SandboxEscape("outside_allowlist", input);
+        }
+      } else {
+        real = candidate;
+      }
     }
 
     for (const root of this.roots) {
