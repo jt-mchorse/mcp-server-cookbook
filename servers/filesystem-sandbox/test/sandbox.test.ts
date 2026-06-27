@@ -162,6 +162,43 @@ describe("resolve()", () => {
       reason: "outside_allowlist",
     });
   });
+
+  it("rejects a leaf symlink pointing outside under mustExist=false (#60)", async () => {
+    // The write path (mustExist=false) used to resolve only the parent and
+    // rejoin the basename, so an *existing leaf* symlink to outside the
+    // allow-list slipped through and write_file silently clobbered it. The leaf
+    // is a path component; per the README it must be rejected.
+    const sandbox = await mkSandbox();
+    const victim = path.join(outsideRoot, "victim.txt");
+    await fs.writeFile(victim, "secret");
+    const link = path.join(allowedRoot, "note.txt");
+    await fs.symlink(victim, link);
+    await expect(sandbox.resolve(link, { mustExist: false })).rejects.toMatchObject({
+      reason: "outside_allowlist",
+    });
+  });
+
+  it("rejects a dangling leaf symlink under mustExist=false (#60)", async () => {
+    // A broken symlink's target can't be proven inside the allow-list, so the
+    // write path rejects rather than clobbering it.
+    const sandbox = await mkSandbox();
+    const link = path.join(allowedRoot, "dangling.txt");
+    await fs.symlink(path.join(outsideRoot, "does-not-exist.txt"), link);
+    await expect(sandbox.resolve(link, { mustExist: false })).rejects.toMatchObject({
+      reason: "outside_allowlist",
+    });
+  });
+
+  it("accepts a leaf symlink pointing inside the allow-list under mustExist=false (#60)", async () => {
+    // The tightening must not reject a legitimate in-allow-list symlink leaf.
+    const sandbox = await mkSandbox();
+    const realTarget = path.join(allowedRoot, "real.txt");
+    await fs.writeFile(realTarget, "hi");
+    const link = path.join(allowedRoot, "alias.txt");
+    await fs.symlink(realTarget, link);
+    const sp = await sandbox.resolve(link, { mustExist: false });
+    expect(sp.resolved).toBe(await fs.realpath(realTarget));
+  });
 });
 
 // ---------------------------------------------------------------------

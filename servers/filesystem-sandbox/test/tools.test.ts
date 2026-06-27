@@ -98,4 +98,23 @@ describe("writeFile", () => {
     const outside = path.join("/tmp", "definitely-outside-" + Math.random().toString(36).slice(2), "x");
     await expect(writeFile(await deps(), outside, "x")).rejects.toThrow(/outside_allowlist/);
   });
+
+  it("refuses to write through an in-allow-list leaf symlink pointing outside (#60)", async () => {
+    // The leaf symlink must be rejected, not silently followed/clobbered.
+    const outsideDir = await fs.mkdtemp(path.join(os.tmpdir(), "mcp-fs-tools-outside-"));
+    try {
+      const victim = path.join(outsideDir, "victim.txt");
+      await fs.writeFile(victim, "secret");
+      const link = path.join(allowedRoot, "note.txt");
+      await fs.symlink(victim, link);
+
+      await expect(writeFile(await deps(), link, "OVERWRITE")).rejects.toThrow(/outside_allowlist/);
+
+      // The symlink must be untouched and the victim's contents intact.
+      expect((await fs.lstat(link)).isSymbolicLink()).toBe(true);
+      expect(await fs.readFile(victim, "utf-8")).toBe("secret");
+    } finally {
+      await fs.rm(outsideDir, { recursive: true, force: true });
+    }
+  });
 });
