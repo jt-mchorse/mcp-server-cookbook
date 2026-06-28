@@ -47,6 +47,18 @@ def test_read_only_truthy_values(value: str):
     assert cfg.read_only is True
 
 
+@pytest.mark.parametrize("value", ["1 ", " true", "yes\n", " 1 ", "\tTRUE "])
+def test_read_only_tolerates_surrounding_whitespace(value: str):
+    # #68: without a .strip() a whitespace-padded affirmative (common from a
+    # .env file or docker-compose env block) failed OPEN to write mode. Mirrors
+    # the TS sibling's whitespace test (#52); padded affirmatives must enable
+    # read-only (fail closed).
+    cfg = read_sandbox_config_from_env(
+        {"MCP_FS_SANDBOX_ALLOWLIST": "/tmp", "MCP_FS_SANDBOX_READ_ONLY": value}
+    )
+    assert cfg.read_only is True
+
+
 @pytest.mark.parametrize("value", ["0", "false", "no", "", "off"])
 def test_read_only_falsy_values(value: str):
     cfg = read_sandbox_config_from_env(
