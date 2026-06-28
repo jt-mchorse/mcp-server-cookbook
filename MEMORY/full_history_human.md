@@ -508,6 +508,15 @@ of truth).
 
 **Why this work, this session:** sibling to #54 — together PRs #62/#63 close the SQL-guard string-literal hardening pair surfaced by the #73-session dogfood.
 
+## 2026-06-28 — Issue #66: internal-tools-bridge timeout didn't bound wall-clock on a leaked grandchild pipe
+**Duration:** ~30 min · **Branch:** `session/2026-06-28-0402-issue-66`
+
+- `runBridged` settled only on `child.on("close")`, which waits for all stdio streams to end. The timeout/cap handlers SIGKILLed the child but never settled the Promise, so a `detached` grandchild inheriting fd 1/2 and surviving the kill held the pipe open and hung the call for its whole lifetime — defeating D-009's timeout+cap wall-clock guarantee (a DoS).
+- Fixed with a `settled`-guarded `settle()` helper: timeout and both output-cap handlers reject directly after SIGKILL; `'close'`/`'error'` route through it so the first event wins. Removes the data listeners so a leaked grandchild can't keep accumulating. Strictly safer — only settles sooner. +1 regression test (grandchild outlives timeout → rejects in ~300ms, was ~3s+). Full suite 43 green; lint + typecheck clean.
+- Found via the third Phase A dogfood wave (HIGH severity).
+
+**Why this work, this session:** a HIGH-severity DoS that defeated the bridge's core resource-exhaustion guarantee.
+
 **Open questions / blockers:** none.
 
 **Next session:** —
