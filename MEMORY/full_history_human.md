@@ -529,3 +529,15 @@ of truth).
 **Open questions / blockers:** none.
 
 **Next session:** —
+
+## 2026-06-28 — Issue #68: filesystem-sandbox-py read-only flag failed open on whitespace-padded values
+**Duration:** ~20 min · **Branch:** `session/2026-06-28-2335-issue-68`
+
+- `read_sandbox_config_from_env` lowercased `MCP_FS_SANDBOX_READ_ONLY` without stripping, so a whitespace-padded affirmative (`"1 "` from a .env file, `"yes\n"`, `" true"`) matched no token and `read_only` silently fell back to `False` — **failing open to write mode** and disabling the operator's read-only safety toggle (`write_file` gates on the flag). The allowlist parse one line up already stripped each part, and the mirrored TS sibling was explicitly fixed for this in #52 with `.trim().toLowerCase()` — the Python port omitted the strip.
+- Fixed with `.strip().lower()` (matching the TS sibling and the adjacent allowlist parse). Added a 5-case parametrized whitespace regression test mirroring the TS #52 test, and bumped the root README per-server test count for `filesystem-sandbox-py` 60 → 65 (the `readme-check` CI counts parametrize cases). Server suite 60 → 65, ruff clean, readme-check exit 0.
+
+**Why this work, this session:** third issue of a multi-issue DAY run. Priority-tier autonomous work was exhausted (llm-eval-harness and chunking clean after heavy fuzzing; rag-production-kit and llm-cost-optimizer already done this run; nextjs has no Python work), so I rotated to non-tier repos. A second dogfood round found agent-orchestration-platform and vector-search-at-scale clean; mcp-server-cookbook surfaced this fail-open parity gap.
+
+**Open questions / blockers:** none.
+
+**Next session:** continue the loop if time remains. Deferred lower-severity note: `max_bytes` `int()` tolerates whitespace/`+-` where the TS `Number(...)` path is stricter — not fail-open, file separately if worth it.
