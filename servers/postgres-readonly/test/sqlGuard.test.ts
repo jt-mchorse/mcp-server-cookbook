@@ -194,3 +194,67 @@ describe("guardQuery — keyword scanning ignores string-literal contents", () =
     expect(guardQuery("SELECT 'INSERT INTO foo' || $$bar$$ AS msg").ok).toBe(true);
   });
 });
+
+describe("guardQuery — comment markers inside string literals (#54)", () => {
+  // stripComments must treat `--` and `/* */` INSIDE a string literal as literal
+  // data, not as comment starts. The dangerous case is a comment marker inside a
+  // string whose closing quote is followed by a real forbidden call: stripping
+  // the "comment" to EOL/EOF deletes the call before the keyword scan ever sees
+  // it, so the guard wrongly passes a query Postgres would actually execute.
+
+  it("rejects a forbidden call hidden after a `--` inside a single-quoted string (was a bypass)", () => {
+    // `SELECT 'a -- b', pg_sleep(1)` is valid SQL: 'a -- b' is a string literal,
+    // then `, pg_sleep(1)`. The `--` is data, not a comment. Pre-fix, stripComments
+    // ate `-- b', pg_sleep(1)` and the guard returned ok:true while the query runs
+    // pg_sleep.
+    const r = guardQuery("SELECT 'a -- b', pg_sleep(1)");
+    expect(r.ok).toBe(false);
+    expect(r.reason).toMatch(/PG_SLEEP/);
+  });
+
+  it("rejects a forbidden call hidden after a `/* */` opener inside a single-quoted string", () => {
+    const r = guardQuery("SELECT 'x /* y', pg_terminate_backend(1)");
+    expect(r.ok).toBe(false);
+    expect(r.reason).toMatch(/PG_TERMINATE_BACKEND/);
+  });
+
+  it("allows a legitimate query with `--` inside a string and nothing dangerous after", () => {
+    expect(guardQuery("SELECT 'a -- b' AS note").ok).toBe(true);
+  });
+
+  it("allows a legitimate query with `/* */` inside a string", () => {
+    expect(guardQuery("SELECT 'a /* not a comment */ b' AS note").ok).toBe(true);
+  });
+
+  it("treats `--` inside a string with NO trailing newline as data, not a comment", () => {
+    // No newline after the in-string `--`: pre-fix the line-comment strip ran to
+    // EOF and deleted the closing quote plus the forbidden call that followed.
+    const r = guardQuery("SELECT 'note -- x', pg_terminate_backend(7)");
+    expect(r.ok).toBe(false);
+    expect(r.reason).toMatch(/PG_TERMINATE_BACKEND/);
+  });
+
+  it("treats `--` inside a dollar-quoted string as data, not a comment", () => {
+    // The dollar literal carries a `--`; a real DROP follows the closing $tag$.
+    const r = guardQuery("SELECT $t$a -- b$t$, pg_sleep(1)");
+    expect(r.ok).toBe(false);
+    expect(r.reason).toMatch(/PG_SLEEP/);
+  });
+
+  it("treats `--` inside a double-quoted identifier as data, not a comment", () => {
+    // "weird -- name" is a quoted identifier; pg_sleep after it must still trip.
+    const r = guardQuery('SELECT "weird -- name", pg_sleep(1) FROM t');
+    expect(r.ok).toBe(false);
+    expect(r.reason).toMatch(/PG_SLEEP/);
+  });
+
+  it("still strips a genuine line comment that hides a second statement", () => {
+    // Regression guard: the fix must not stop recognising real comments outside
+    // strings. `-- safe\nDROP` splits into two statements after stripping.
+    expect(guardQuery("SELECT 1 -- safe\n; DROP TABLE x").ok).toBe(false);
+  });
+
+  it("still allows a genuine block comment that really contains a forbidden keyword", () => {
+    expect(guardQuery("SELECT 1 /* DROP TABLE x */").ok).toBe(true);
+  });
+});
