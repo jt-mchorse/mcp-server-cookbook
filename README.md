@@ -108,7 +108,7 @@ Test suites are hermetic (no Docker / no network needed):
 ```bash
 cd servers/postgres-readonly      && npm install && npm test    # 67 SQL-guard + public-surface + cfg-validation tests
 cd servers/filesystem-sandbox     && npm install && npm test    # 54 sandbox (+ leaf-symlink write-path guard) + tool + config + public-surface + atomic-write tests
-cd servers/github-gists           && npm install && npm test    # 61 config + client (redaction + rate-limit diag + cfg validation + filename-trim + single-read-Response error body) + error-message-format + tool + public-surface tests
+cd servers/github-gists           && npm install && npm test    # 63 config + client (redaction + rate-limit diag + cfg validation + filename-trim + single-read-Response error body + capped JSON error message) + error-message-format + tool + public-surface tests
 cd servers/internal-tools-bridge  && npm install && npm test    # 33 bridge + tool + public-surface tests (no shell, env scrub, output cap, wall-clock-bound timeout, validateConfig)
 cd servers/filesystem-sandbox-py  && pip install -e '.[dev]' && pytest  # 60 sandbox + tool + config + public-surface tests
 ```

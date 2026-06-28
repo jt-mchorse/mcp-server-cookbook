@@ -319,19 +319,26 @@ export class GistsClient {
     } catch {
       return `status ${res.status}`;
     }
+    // Pick the reason — GitHub's `message` field when present, else the raw text
+    // — then cap ONCE below. The cap must cover BOTH branches (#64): a
+    // misconfigured (or hostile) upstream can return a multi-megabyte JSON
+    // `message` just as easily as a huge HTML body, and an uncapped `message`
+    // would flow verbatim into the GithubApiError, the tool result, and logs —
+    // exactly the "unredacted response chunk" D-007 says errors must not carry.
+    let reason = text;
     try {
       const body = JSON.parse(text) as { message?: unknown };
       if (typeof body?.message === "string" && body.message.length > 0) {
-        return body.message;
+        reason = body.message;
       }
     } catch {
-      // body wasn't JSON; fall through to the raw text
+      // body wasn't JSON; keep the raw text as the reason
     }
-    if (text.length === 0) {
+    if (reason.length === 0) {
       return `status ${res.status}`;
     }
-    // Some API error pages can be huge HTML; cap the length so a
-    // misconfigured endpoint can't dump megabytes through our errors.
-    return text.length > 200 ? text.slice(0, 200) + "…" : text;
+    // Cap the length so a misconfigured endpoint can't dump megabytes through
+    // our errors — applied to the JSON `message` and the raw-text fallback alike.
+    return reason.length > 200 ? reason.slice(0, 200) + "…" : reason;
   }
 }

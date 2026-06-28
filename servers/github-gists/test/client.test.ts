@@ -193,6 +193,41 @@ describe("GistsClient.getGist", () => {
       expect((e as Error).message).toContain("Not Found");
     }
   });
+
+  it("caps a multi-megabyte JSON message, like the non-JSON branch (#64)", async () => {
+    // The JSON `message` branch used to return verbatim while only the raw-text
+    // fallback was capped, so a huge upstream message flowed unbounded into the
+    // error (and tool result / logs). Both branches must cap.
+    const huge = "A".repeat(5_000_000);
+    const fetch: FetchLike = async () =>
+      new Response(JSON.stringify({ message: huge }), { status: 422 }) as unknown as Awaited<
+        ReturnType<FetchLike>
+      >;
+    const client = new GistsClient({ cfg: baseCfg(), fetch });
+    try {
+      await client.getGist("abc");
+      expect.unreachable();
+    } catch (e) {
+      // The prefix (`github_api_error (422 ...): `) plus the 200-char cap and
+      // ellipsis is well under 280; without the fix it would be ~5,000,000.
+      expect((e as Error).message.length).toBeLessThan(280);
+      expect((e as Error).message).toContain("AAAA"); // the (capped) message survived
+    }
+  });
+
+  it("still returns a short JSON message verbatim after the cap consolidation (#64)", async () => {
+    const fetch: FetchLike = async () =>
+      new Response(JSON.stringify({ message: "Validation Failed" }), {
+        status: 422,
+      }) as unknown as Awaited<ReturnType<FetchLike>>;
+    const client = new GistsClient({ cfg: baseCfg(), fetch });
+    try {
+      await client.getGist("abc");
+      expect.unreachable();
+    } catch (e) {
+      expect((e as Error).message).toContain("Validation Failed");
+    }
+  });
 });
 
 // ---------------- updateGistFile ----------------
