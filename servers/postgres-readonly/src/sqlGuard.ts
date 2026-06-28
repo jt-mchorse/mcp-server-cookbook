@@ -223,9 +223,17 @@ function splitStatements(sql: string): string[] {
  * The string-content is replaced with a single space (never the empty string)
  * so adjacent identifiers don't merge into a forbidden keyword by accident
  * (e.g., `'pg_'||'sleep'` musn't become `pg_sleep` after stripping).
+ *
+ * Returns `unterminated: true` when an opener (dollar-quoted, single-quoted, or
+ * double-quoted) has no matching closer (#55). Such input is malformed SQL that
+ * Postgres rejects anyway, but more importantly the swallow-to-EOF that closing
+ * an open literal requires would hide any forbidden keyword appearing AFTER the
+ * opener (e.g. `SELECT 1, $x$DROP TABLE users` — the `$x$...` runs to EOF and
+ * the keyword scan never sees DROP). `guardQuery` fails closed on this flag.
  */
-function stripStringLiterals(sql: string): string {
+function stripStringLiterals(sql: string): { text: string; unterminated: boolean } {
   let out = "";
+  let unterminated = false;
   let i = 0;
   while (i < sql.length) {
     const c = sql[i];
@@ -238,7 +246,9 @@ function stripStringLiterals(sql: string): string {
         const start = i + tag.length;
         const end = sql.indexOf(tag, start);
         if (end === -1) {
-          // Unterminated — bail to original behavior on the rest of the input.
+          // Unterminated dollar literal — fail closed (#55). Swallowing the rest
+          // would hide any forbidden keyword after the opener.
+          unterminated = true;
           out += " ";
           i = sql.length;
           continue;
@@ -252,6 +262,7 @@ function stripStringLiterals(sql: string): string {
     if (c === "'") {
       out += " ";
       i++;
+      let closed = false;
       while (i < sql.length) {
         if (sql[i] === "'" && sql[i + 1] === "'") {
           // Escaped single quote inside the string.
@@ -260,10 +271,13 @@ function stripStringLiterals(sql: string): string {
         }
         if (sql[i] === "'") {
           i++;
+          closed = true;
           break;
         }
         i++;
       }
+      // Unterminated single-quoted literal — fail closed (#55).
+      if (!closed) unterminated = true;
       continue;
     }
 
@@ -273,6 +287,7 @@ function stripStringLiterals(sql: string): string {
       // identifier — `"DROP" TABLE x` should still trip the DROP scan.
       out += '"';
       i++;
+      let closed = false;
       while (i < sql.length) {
         if (sql[i] === '"' && sql[i + 1] === '"') {
           out += '""';
@@ -282,17 +297,22 @@ function stripStringLiterals(sql: string): string {
         out += sql[i];
         if (sql[i] === '"') {
           i++;
+          closed = true;
           break;
         }
         i++;
       }
+      // Unterminated quoted identifier — fail closed (#55). Contents stay visible
+      // here so this is belt-and-suspenders, but malformed SQL is rejected
+      // consistently with the guard's "ambiguous → reject" stance.
+      if (!closed) unterminated = true;
       continue;
     }
 
     out += c;
     i++;
   }
-  return out;
+  return { text: out, unterminated };
 }
 
 /** True iff `text` contains `kw` as a whole word (case-insensitive). */
@@ -333,7 +353,14 @@ export function guardQuery(sqlInput: string): GuardResult {
   // Strip string literals before keyword scanning so a SELECT containing the
   // literal 'INSERT INTO foo' doesn't false-positive. Double-quoted identifiers
   // are NOT stripped (they're identifiers, not string contents in Postgres).
-  const scanText = stripStringLiterals(stmt);
+  const { text: scanText, unterminated } = stripStringLiterals(stmt);
+
+  // Fail closed on a malformed (unterminated) literal (#55). Otherwise the
+  // swallow-to-EOF needed to consume the open literal would hide any forbidden
+  // keyword that follows the opener, e.g. `SELECT 1, $x$DROP TABLE users`.
+  if (unterminated) {
+    return { ok: false, reason: "unterminated string literal" };
+  }
 
   for (const kw of FORBIDDEN_KEYWORDS_ANYWHERE) {
     if (containsKeyword(scanText, kw)) {
