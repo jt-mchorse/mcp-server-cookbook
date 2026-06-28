@@ -258,3 +258,63 @@ describe("guardQuery — comment markers inside string literals (#54)", () => {
     expect(guardQuery("SELECT 1 /* DROP TABLE x */").ok).toBe(true);
   });
 });
+
+describe("guardQuery — unterminated string literals fail closed (#55)", () => {
+  // An unterminated literal forces stripStringLiterals to swallow the rest of the
+  // input, which hid any forbidden keyword after the opener and let the guard
+  // return ok:true on a query it should reject. The fix fails closed: an
+  // unterminated literal is malformed SQL Postgres rejects anyway.
+
+  it("rejects an unterminated $tag$ literal that hides INSERT (reproduced)", () => {
+    const r = guardQuery("SELECT 1, $x$INSERT INTO users VALUES (1)");
+    expect(r.ok).toBe(false);
+    expect(r.reason).toMatch(/unterminated string literal/);
+  });
+
+  it("rejects an unterminated $tag$ literal that hides DROP (reproduced)", () => {
+    const r = guardQuery("SELECT 1, $x$DROP TABLE users");
+    expect(r.ok).toBe(false);
+    expect(r.reason).toMatch(/unterminated string literal/);
+  });
+
+  it("rejects an unterminated $$ literal that hides a forbidden keyword", () => {
+    const r = guardQuery("SELECT 1, $$DELETE FROM users");
+    expect(r.ok).toBe(false);
+    expect(r.reason).toMatch(/unterminated string literal/);
+  });
+
+  it("rejects an unterminated single-quoted literal that hides a forbidden keyword", () => {
+    const r = guardQuery("SELECT 1, 'DROP TABLE users");
+    expect(r.ok).toBe(false);
+    expect(r.reason).toMatch(/unterminated string literal/);
+  });
+
+  it("rejects an unterminated single-quoted literal whose tail is otherwise innocuous", () => {
+    // Even with no forbidden keyword after it, an unterminated literal is
+    // malformed and must fail closed rather than be silently swallowed.
+    const r = guardQuery("SELECT 'oops");
+    expect(r.ok).toBe(false);
+    expect(r.reason).toMatch(/unterminated string literal/);
+  });
+
+  it("rejects an unterminated double-quoted identifier", () => {
+    const r = guardQuery('SELECT "oops');
+    expect(r.ok).toBe(false);
+    expect(r.reason).toMatch(/unterminated string literal/);
+  });
+
+  it("rejects an odd-quote-count tail (open quote after an escaped pair)", () => {
+    // `'a''b` => escaped quote then an unterminated opener.
+    const r = guardQuery("SELECT 'a''b");
+    expect(r.ok).toBe(false);
+    expect(r.reason).toMatch(/unterminated string literal/);
+  });
+
+  it("still allows properly-terminated literals (no false rejection)", () => {
+    expect(guardQuery("SELECT 1, $x$ok$x$").ok).toBe(true);
+    expect(guardQuery("SELECT 1, $$ok$$").ok).toBe(true);
+    expect(guardQuery("SELECT 'ok'").ok).toBe(true);
+    expect(guardQuery("SELECT 'it''s fine'").ok).toBe(true);
+    expect(guardQuery('SELECT * FROM "tbl"').ok).toBe(true);
+  });
+});

@@ -499,4 +499,15 @@ of truth).
 
 **Open questions / blockers:** none for #54. Sibling #55 (unterminated-literal swallow) handled separately this run.
 
+## 2026-06-28 — Issue #55: postgres-readonly stripStringLiterals swallowed unterminated literals
+**Duration:** ~20 min · **Branch:** `session/2026-06-28-0314-issue-55`
+
+- `stripStringLiterals` closed an unterminated dollar- or single-quoted literal by blanking the rest of the input to EOF, hiding any forbidden keyword after the opener — `SELECT 1, $x$INSERT INTO users VALUES (1)` and `SELECT 1, $x$DROP TABLE users` both returned `ok:true`.
+- Fixed by returning `{ text, unterminated }` and failing closed in `guardQuery` (`reason: "unterminated string literal"`) for dollar/single/double-quoted openers with no closer. Strictly more restrictive — only rejects malformed SQL Postgres rejects anyway. Added 8 tests; suite 64 → 72, typecheck/lint/test clean.
+- **Decision-revisit posture:** upholds D-004 and the guard's documented "ambiguous → reject" stance; changes no recorded decision; PR opened ready for JT review.
+
+**Why this work, this session:** sibling to #54 — together PRs #62/#63 close the SQL-guard string-literal hardening pair surfaced by the #73-session dogfood.
+
+**Open questions / blockers:** none.
+
 **Next session:** —
