@@ -517,6 +517,15 @@ of truth).
 
 **Why this work, this session:** a HIGH-severity DoS that defeated the bridge's core resource-exhaustion guarantee.
 
+## 2026-06-28 — Issue #64: github-gists error reason didn't cap the JSON message branch
+**Duration:** ~15 min · **Branch:** `session/2026-06-28-0359-issue-64`
+
+- `reasonFromResponse` returned a JSON error body's `message` verbatim while only the raw-text fallback was length-capped — contradicting its docstring and letting a multi-MB upstream `message` flow into the error, tool result, and logs (the unredacted response chunk D-007 forbids).
+- Fixed by consolidating into a single capped path (derive `reason`, then cap once). Strictly safer — only shortens output; short messages and the #58 single-read behavior unchanged. +2 tests; typecheck/lint/84 tests green.
+- Found via the third Phase A dogfood wave.
+
+**Why this work, this session:** a real response-size/D-007 gap in a token-bearing API-wrapper server.
+
 **Open questions / blockers:** none.
 
 **Next session:** —
