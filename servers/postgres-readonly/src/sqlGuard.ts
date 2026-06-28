@@ -49,26 +49,99 @@ export interface GuardResult {
  * this BEFORE keyword detection so an attacker can't hide writes inside comments
  * (which would be safe at execution time but dangerous if the guard relied on
  * keyword-after-comment heuristics).
+ *
+ * Comment markers are recognised ONLY outside string literals (#54). A `--` or
+ * `/* *\/` that appears *inside* a single-quoted string, a double-quoted
+ * identifier, or a dollar-quoted string is literal data, not a comment — so the
+ * literal is copied through verbatim (delimiters included). Without this, a `--`
+ * inside a string truncated the input to end-of-line/EOF and could delete a real
+ * forbidden call that followed the closing quote, e.g.
+ * `SELECT 'a -- b', pg_sleep(1)` — valid SQL Postgres runs — was reduced to
+ * `SELECT 'a ` before the keyword scan and wrongly passed the guard.
  */
 function stripComments(sql: string): string {
   let out = "";
   let i = 0;
   while (i < sql.length) {
-    // Line comment
-    if (sql[i] === "-" && sql[i + 1] === "-") {
+    const c = sql[i];
+
+    // Dollar-quoted string ($tag$ ... $tag$ or $$ ... $$): copy verbatim so its
+    // contents can't be mistaken for comment markers.
+    if (c === "$") {
+      const m = sql.slice(i).match(/^\$([A-Za-z_][A-Za-z0-9_]*)?\$/);
+      if (m) {
+        const tag = m[0];
+        const end = sql.indexOf(tag, i + tag.length);
+        if (end === -1) {
+          // Unterminated dollar literal: copy the remainder verbatim and stop.
+          // What to DO about an unterminated literal is the keyword scan's call
+          // (guardQuery, see #55); stripComments must not silently eat it here.
+          out += sql.slice(i);
+          break;
+        }
+        out += sql.slice(i, end + tag.length);
+        i = end + tag.length;
+        continue;
+      }
+    }
+
+    // Single-quoted string literal ('...' with '' escape): copy verbatim.
+    if (c === "'") {
+      out += c;
+      i++;
+      while (i < sql.length) {
+        if (sql[i] === "'" && sql[i + 1] === "'") {
+          out += "''"; // doubled-quote escape stays inside the string
+          i += 2;
+          continue;
+        }
+        out += sql[i];
+        if (sql[i] === "'") {
+          i++;
+          break;
+        }
+        i++;
+      }
+      continue;
+    }
+
+    // Double-quoted identifier ("..." with "" escape): not a string, but comment
+    // markers inside a quoted identifier are still literal — copy verbatim.
+    if (c === '"') {
+      out += c;
+      i++;
+      while (i < sql.length) {
+        if (sql[i] === '"' && sql[i + 1] === '"') {
+          out += '""';
+          i += 2;
+          continue;
+        }
+        out += sql[i];
+        if (sql[i] === '"') {
+          i++;
+          break;
+        }
+        i++;
+      }
+      continue;
+    }
+
+    // Line comment (outside any string literal).
+    if (c === "-" && sql[i + 1] === "-") {
       while (i < sql.length && sql[i] !== "\n") i++;
       continue;
     }
     // Block comment (note: we don't support nested blocks because Postgres does
     // and we're erring on the side of strictness — if the comment looks weird
     // the consumer would have rejected it anyway).
-    if (sql[i] === "/" && sql[i + 1] === "*") {
+    if (c === "/" && sql[i + 1] === "*") {
       i += 2;
       while (i < sql.length && !(sql[i] === "*" && sql[i + 1] === "/")) i++;
       i += 2;
       continue;
     }
-    out += sql[i];
+
+    out += c;
     i++;
   }
   return out;
