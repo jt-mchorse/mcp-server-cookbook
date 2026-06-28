@@ -172,13 +172,31 @@ export async function runBridged(
     const stdoutChunks: Buffer[] = [];
     const stderrChunks: Buffer[] = [];
     let killed = false;
-    let timedOut = false;
     let outputCapped: "stdout" | "stderr" | null = null;
 
+    // Settle EXACTLY once, from whichever event fires first. The timeout and
+    // output-cap paths must settle directly rather than waiting for `'close'`:
+    // `'close'` fires only after the child exits AND all its stdio streams end,
+    // so a grandchild that inherited the stdout/stderr pipe and survives the
+    // SIGKILL keeps the pipe open and delays `'close'` far past `timeoutMs`,
+    // making the call hang — the exact runaway D-009's timeout+cap must bound.
+    // Settling here only ever makes the call return SOONER; `settled` guards the
+    // later `'close'`/`'error'` so they no-op.
+    let settled = false;
+    const settle = (action: () => void): void => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      // Stop accumulating output from a leaked grandchild still holding the pipe.
+      child.stdout.removeAllListeners("data");
+      child.stderr.removeAllListeners("data");
+      action();
+    };
+
     const timer = setTimeout(() => {
-      timedOut = true;
       killed = true;
       child.kill("SIGKILL");
+      settle(() => reject(new TimeoutError(`${binary} exceeded ${timeoutMs}ms timeout`)));
     }, timeoutMs);
 
     child.stdout.on("data", (chunk: Buffer) => {
@@ -188,6 +206,9 @@ export async function runBridged(
           killed = true;
           outputCapped = "stdout";
           child.kill("SIGKILL");
+          settle(() =>
+            reject(new OutputCapError(`${binary} stdout exceeded ${maxOutputBytes} bytes`)),
+          );
         }
         return;
       }
@@ -200,6 +221,9 @@ export async function runBridged(
           killed = true;
           outputCapped = "stderr";
           child.kill("SIGKILL");
+          settle(() =>
+            reject(new OutputCapError(`${binary} stderr exceeded ${maxOutputBytes} bytes`)),
+          );
         }
         return;
       }
@@ -207,37 +231,34 @@ export async function runBridged(
     });
 
     child.on("error", (err) => {
-      clearTimeout(timer);
-      reject(new BridgeError(`spawn failed: ${err.message}`));
+      settle(() => reject(new BridgeError(`spawn failed: ${err.message}`)));
     });
 
     child.on("close", (code, signal) => {
-      clearTimeout(timer);
-      const stdout = Buffer.concat(stdoutChunks).toString("utf-8");
-      const stderr = Buffer.concat(stderrChunks).toString("utf-8");
-      if (timedOut) {
-        reject(new TimeoutError(`${binary} exceeded ${timeoutMs}ms timeout`));
-        return;
-      }
-      if (outputCapped) {
+      // Normal completion path. If a timeout or output-cap already settled the
+      // call, `settle` no-ops here. `outputCapped` is still honored for the rare
+      // ordering where `'close'` wins the race with a cap kill.
+      settle(() => {
+        const stdout = Buffer.concat(stdoutChunks).toString("utf-8");
+        const stderr = Buffer.concat(stderrChunks).toString("utf-8");
+        if (outputCapped) {
+          reject(
+            new OutputCapError(`${binary} ${outputCapped} exceeded ${maxOutputBytes} bytes`),
+          );
+          return;
+        }
+        if (code === 0) {
+          resolve({ stdout, stderr });
+          return;
+        }
         reject(
-          new OutputCapError(
-            `${binary} ${outputCapped} exceeded ${maxOutputBytes} bytes`,
+          new NonZeroExitError(
+            `${binary} exited with code=${code} signal=${signal ?? "null"}`,
+            code,
+            stderr,
           ),
         );
-        return;
-      }
-      if (code === 0) {
-        resolve({ stdout, stderr });
-        return;
-      }
-      reject(
-        new NonZeroExitError(
-          `${binary} exited with code=${code} signal=${signal ?? "null"}`,
-          code,
-          stderr,
-        ),
-      );
+      });
     });
   });
 }

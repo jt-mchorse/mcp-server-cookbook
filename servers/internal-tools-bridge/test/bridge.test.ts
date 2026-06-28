@@ -122,6 +122,28 @@ describe("runBridged — timeout", () => {
     );
     await expect(r).rejects.toBeInstanceOf(TimeoutError);
   });
+
+  it("bounds wall-clock even when the child leaks the stdout pipe to a surviving grandchild (#66)", async () => {
+    // The child spawns a DETACHED grandchild that inherits the stdout pipe (fd 1)
+    // and outlives the timeout. Pre-fix, the bridge settled only on `'close'`,
+    // which waits for all stdio streams to end — the grandchild kept the pipe
+    // open, so the call hung for the grandchild's full lifetime instead of
+    // rejecting at `timeoutMs`. The fix must reject ~`timeoutMs`.
+    const grandchildLifeMs = 3000;
+    const script =
+      "const { spawn } = require('node:child_process');" +
+      // detached + inherit fd 1: survives the parent's SIGKILL, holds the pipe
+      `spawn(process.execPath, ['-e', 'setTimeout(() => {}, ${grandchildLifeMs})'], ` +
+      "{ detached: true, stdio: ['ignore', 1, 'ignore'] });" +
+      // keep the direct child alive so the timeout SIGKILL actually hits it
+      `setTimeout(() => {}, ${grandchildLifeMs});`;
+    const start = Date.now();
+    const r = runBridged(cfg({ timeoutMs: 300 }), NODE, ["-e", script]);
+    await expect(r).rejects.toBeInstanceOf(TimeoutError);
+    const elapsed = Date.now() - start;
+    // Must reject near the 300ms timeout, NOT wait ~3s for the grandchild.
+    expect(elapsed).toBeLessThan(1500);
+  });
 });
 
 describe("runBridged — output cap", () => {
