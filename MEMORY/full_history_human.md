@@ -487,3 +487,16 @@ of truth).
 **Open questions / blockers:** none.
 
 **Next session:** the write path now canonicalizes the leaf like the read path; wiring the precise `symlink_outside_allowlist` reason (vs the shared `outside_allowlist`) remains a future precision pass.
+
+## 2026-06-28 — Issue #54: postgres-readonly stripComments ignored string-literal boundaries
+**Duration:** ~25 min · **Branch:** `session/2026-06-28-0311-issue-54`
+
+- `stripComments` removed `--` and `/* */` markers without tracking whether they were *inside* a string literal. A marker inside a single-quoted string, double-quoted identifier, or dollar-quoted string was stripped to end-of-line/EOF, deleting whatever followed the orphaned closing quote before the forbidden-keyword scan. Demonstrated a concrete, **syntactically valid** bypass — `SELECT 'a -- b', pg_sleep(1)` returned `ok:true` while Postgres would run `pg_sleep`. This removes the "exploitability unverified" basis on which prior sessions deferred #54.
+- Fixed by copying string/identifier literals through verbatim and only recognising comment markers outside them; unterminated literals pass through unchanged (their handling is #55's job). Added 9 regression tests; suite 64 → 73, typecheck/lint/test all clean.
+- **Decision-revisit posture:** the fix upholds D-004 (server-side SQL parsing is a deliberate defense-in-depth layer), changes no recorded decision, and is cheap/reversible. PR opened ready for JT review rather than relying on Phase-A auto-merge.
+
+**Why this work, this session:** highest-priority actionable issue in the repo with the most open `priority:high` issues; the demonstrated valid-SQL bypass turned a deferred revisit into a clear, fixable security bug.
+
+**Open questions / blockers:** none for #54. Sibling #55 (unterminated-literal swallow) handled separately this run.
+
+**Next session:** —
