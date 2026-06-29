@@ -143,7 +143,25 @@ class Sandbox:
             if not os.path.isdir(parent):
                 raise SandboxEscape("outside_allowlist", input_value)
             parent_real = os.path.realpath(parent)
-            real = os.path.join(parent_real, os.path.basename(input_value))
+            candidate = os.path.join(parent_real, os.path.basename(input_value))
+            # The leaf itself must be canonicalized too. If it's an *existing*
+            # symlink, follow it so a target outside the allow-list fails the
+            # containment check below — the module docstring promises "symlinks
+            # pointing outside ... surface as SandboxEscape before any IO", and
+            # the leaf is a path component (the must_exist=True branch already
+            # does this via realpath). Without this, a leaf symlink-to-outside
+            # slipped through and write_file silently clobbered the target. A
+            # *dangling* leaf symlink can't be proven inside the allow-list, so
+            # reject it rather than clobber what it points at. A non-symlink
+            # leaf that doesn't exist yet is the normal create-new-file case and
+            # keeps the parent-resolved path. Parity with the TS sibling
+            # (../filesystem-sandbox/src/sandbox.ts, #60).
+            if os.path.islink(candidate):
+                if not os.path.exists(candidate):
+                    raise SandboxEscape("outside_allowlist", input_value)
+                real = os.path.realpath(candidate)
+            else:
+                real = candidate
 
         for root in self._roots:
             if _under_root(real, root):
