@@ -541,3 +541,15 @@ of truth).
 **Open questions / blockers:** none.
 
 **Next session:** continue the loop if time remains. Deferred lower-severity note: `max_bytes` `int()` tolerates whitespace/`+-` where the TS `Number(...)` path is stricter — not fail-open, file separately if worth it.
+
+## 2026-06-29 — Issue #70: filesystem-sandbox-py leaf symlink escaped the allow-list on writes
+**Duration:** ~26 min · **Branch:** `session/2026-06-29-0337-fs-sandbox-escape`
+
+- Security bug: `Sandbox.resolve(must_exist=False)` (the write path) canonicalized only the parent directory and rejoined the basename without canonicalizing the leaf. A leaf symlink inside an allow-list root pointing outside passed the containment check, so `write_file` followed it and clobbered the outside target — confirmed with a concrete repro (a victim file outside the allow-list was overwritten). The read path (`must_exist=True`) was safe via `realpath`; only writes were exposed.
+- Ported the TypeScript sibling's #60 fix: `lstat`/`islink` the leaf, follow it via `realpath` when it's a symlink (so an outside target fails containment), and reject dangling leaf symlinks rather than clobber. Added 3 parity tests and bumped the root README count 65 → 68 (readme-check gate).
+
+**Why this work, this session:** fourth and highest-severity issue of the night run. A parallel audit subagent swept mcp-server-cookbook and surfaced the escape; I independently reproduced it before fixing. The first three night-run issues were doc-contract fixes — this was the first real logic/security bug.
+
+**Open questions / blockers:** none. The TS server was already fixed in #60; this brings the Python port to parity.
+
+**Next session:** Python and TS sandbox ports are now behaviorally parity-tested on the write-path leaf-symlink case.
