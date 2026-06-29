@@ -181,6 +181,51 @@ def test_resolve_must_exist_false_rejects_nonexistent_parent(sandbox: Sandbox, t
     assert ei.value.reason == "outside_allowlist"
 
 
+def test_resolve_must_exist_false_rejects_leaf_symlink_outside_allowlist(
+    sandbox: Sandbox, tmp_path: Path
+):
+    # Regression for the write-path sandbox escape (#70): a leaf symlink that
+    # lives *inside* a root but points *outside* must be rejected before any
+    # IO — otherwise write_file follows it and clobbers the outside target.
+    # Parity with the TS sibling's must-exist=false leaf-symlink test (#60).
+    outsider = tmp_path / "elsewhere"
+    outsider.mkdir()
+    victim = outsider / "victim.txt"
+    victim.write_text("ORIGINAL SECRET", encoding="utf-8")
+    link = tmp_path / "root_a" / "evil_link"
+    link.symlink_to(victim)
+    with pytest.raises(SandboxEscape) as ei:
+        sandbox.resolve(str(link), must_exist=False)
+    assert ei.value.reason == "outside_allowlist"
+    # The escape must be caught *before any IO*: the victim is untouched.
+    assert victim.read_text(encoding="utf-8") == "ORIGINAL SECRET"
+
+
+def test_resolve_must_exist_false_rejects_dangling_leaf_symlink(sandbox: Sandbox, tmp_path: Path):
+    # A dangling leaf symlink (target doesn't exist) can't be proven inside the
+    # allow-list, so it's rejected rather than followed — parity with the TS
+    # sibling, whose `fs.realpath` throws on a broken link (#60).
+    link = tmp_path / "root_a" / "dangling_link"
+    link.symlink_to(tmp_path / "elsewhere" / "nope.txt")  # target never created
+    with pytest.raises(SandboxEscape) as ei:
+        sandbox.resolve(str(link), must_exist=False)
+    assert ei.value.reason == "outside_allowlist"
+
+
+def test_resolve_must_exist_false_follows_leaf_symlink_inside_allowlist(
+    sandbox: Sandbox, tmp_path: Path
+):
+    # A leaf symlink that resolves to a path *inside* the allow-list is followed
+    # and accepted — the write lands on the canonical in-sandbox target, not the
+    # symlink's literal path.
+    target = tmp_path / "root_a" / "real_target.txt"
+    target.write_text("inside", encoding="utf-8")
+    link = tmp_path / "root_b" / "inward_link"
+    link.symlink_to(target)
+    sp = sandbox.resolve(str(link), must_exist=False)
+    assert sp.resolved == os.path.realpath(str(target))
+
+
 # --- resolve_dir / resolve_file convenience ---
 
 
