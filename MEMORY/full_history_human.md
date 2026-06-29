@@ -553,3 +553,15 @@ of truth).
 **Open questions / blockers:** none. The TS server was already fixed in #60; this brings the Python port to parity.
 
 **Next session:** Python and TS sandbox ports are now behaviorally parity-tested on the write-path leaf-symlink case.
+
+## 2026-06-29 — Issue #72: filesystem-sandbox-py `..`-basename sandbox escape (TS-parity gap)
+**Duration:** ~25 min · **Branch:** `session/2026-06-29-2347-issue-72`
+
+- `Sandbox.resolve(must_exist=False)` (`sandbox.py:146`) joined the leaf basename onto the realpath'd parent with `os.path.join`, which — unlike Node's `path.join` in the TS sibling — does **not** collapse `..`. A basename of `..` left a literal `<parent_real>/..` that the lexical `_under_root` `startswith` check accepted, even though its real target is the parent of the root, outside the allow-list. `resolve()` then returned a `SandboxedPath` for an out-of-allow-list path and `write_file` attempted IO, leaking a raw `[Errno 21] Is a directory` instead of the structured `sandbox_escape (outside_allowlist)` — violating the documented "traversal surfaces as `SandboxEscape` before any IO" invariant. (Blast radius bounded: a `..` basename targets a directory, so `open(...,'wb')` fails rather than clobbering a file — but the containment + structured-error contracts are both broken.)
+- Reproduced firsthand, then fixed with `os.path.normpath` around the join (mirrors Node `path.join`). This *complements* the realpath dereferencing required by D-006 — the parent is still realpath'd and symlink leaves still followed via realpath; normpath only collapses the lexical `..`-in-the-leaf. Verified the escape is now rejected and every legit/inside case still resolves. Regression test confirmed failing pre-fix; suite 68 → 69; bumped the README test-count (readme-check CI) 68 → 69; ruff + readme-check green.
+
+**Why this work, this session:** fourth substantive issue of a multi-issue DAY run (after #122/#102/#77). Priority tier exhausted, so rotated to non-tier `mcp-server-cookbook`; a dogfood hunter surfaced this security-relevant containment gap, verified firsthand before acting.
+
+**Open questions / blockers:** none.
+
+**Next session:** continue the loop; this run's dogfood sweep also surfaced an `ai-app-integration-tests` null-body-status (204/205/304) recorder/replayer crash, a candidate for the next iteration/session.
