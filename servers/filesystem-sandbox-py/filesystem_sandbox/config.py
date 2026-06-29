@@ -40,7 +40,13 @@ def read_sandbox_config_from_env(env: dict[str, str] | None = None) -> SandboxCo
             "config bug, not a useful default."
         )
 
-    ro = e.get("MCP_FS_SANDBOX_READ_ONLY", "").lower()
+    # Strip before lowercasing: without it a whitespace-padded value ("1 " from
+    # a .env file or a docker-compose `environment:` block, "yes\n", " true")
+    # matches no affirmative token and read_only fails OPEN to write mode —
+    # silently disabling the operator's read-only safety toggle. Mirrors the
+    # allowlist parse above and the TS sibling's `.trim().toLowerCase()`
+    # (../filesystem-sandbox/src/config.ts, fixed in #52).
+    ro = e.get("MCP_FS_SANDBOX_READ_ONLY", "").strip().lower()
     read_only = ro in ("1", "true", "yes")
 
     max_bytes_raw = e.get("MCP_FS_SANDBOX_MAX_BYTES", "")
