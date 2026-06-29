@@ -181,6 +181,19 @@ def test_resolve_must_exist_false_rejects_nonexistent_parent(sandbox: Sandbox, t
     assert ei.value.reason == "outside_allowlist"
 
 
+def test_resolve_must_exist_false_rejects_dotdot_basename(sandbox: Sandbox, tmp_path: Path):
+    # Regression for the TS-parity gap (#72): a `..` basename joined onto the
+    # realpath'd parent left a literal `<root>/..` that the lexical `_under_root`
+    # check accepted via startswith, even though its real target is the parent of
+    # the root, outside the allow-list. `os.path.join` (unlike Node's `path.join`
+    # in the TS sibling) doesn't collapse `..`; the fix normalizes the joined leaf.
+    # Must surface as SandboxEscape("outside_allowlist") before any IO.
+    root_a = str(tmp_path / "root_a")
+    with pytest.raises(SandboxEscape) as ei:
+        sandbox.resolve(root_a + os.sep + "..", must_exist=False)
+    assert ei.value.reason == "outside_allowlist"
+
+
 def test_resolve_must_exist_false_rejects_leaf_symlink_outside_allowlist(
     sandbox: Sandbox, tmp_path: Path
 ):
