@@ -143,7 +143,18 @@ class Sandbox:
             if not os.path.isdir(parent):
                 raise SandboxEscape("outside_allowlist", input_value)
             parent_real = os.path.realpath(parent)
-            candidate = os.path.join(parent_real, os.path.basename(input_value))
+            # Normalize the joined leaf. `os.path.join` does NOT collapse `..`/`.`
+            # (unlike Node's `path.join` in the TS sibling), so a basename of `..`
+            # left a literal `<parent_real>/..` that the lexical `_under_root`
+            # check trivially accepts via startswith — even though its real target
+            # is the parent of the root, outside the allow-list. `normpath` mirrors
+            # the TS `path.join` semantics and collapses it before the containment
+            # check. This complements (does not replace) the realpath dereferencing
+            # required by D-006: the parent is still realpath'd and a symlink leaf
+            # is still followed via realpath below — normpath only closes the
+            # lexical `..`-in-the-leaf gap. No-op for normal create-new-file
+            # basenames (a basename is one component; only `.`/`..` normalize).
+            candidate = os.path.normpath(os.path.join(parent_real, os.path.basename(input_value)))
             # The leaf itself must be canonicalized too. If it's an *existing*
             # symlink, follow it so a target outside the allow-list fails the
             # containment check below — the module docstring promises "symlinks
