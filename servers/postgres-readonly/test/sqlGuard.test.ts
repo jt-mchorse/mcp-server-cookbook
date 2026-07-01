@@ -158,6 +158,47 @@ describe("guardQuery — rejected (multi-statement and bypass attempts)", () => 
   });
 });
 
+describe("guardQuery — SELECT INTO and comment-merged keyword bypasses (#74)", () => {
+  it("rejects SELECT ... INTO newtbl (equivalent to CREATE TABLE AS)", () => {
+    // `SELECT ... INTO t` creates a table — a DDL write — but the leading
+    // keyword is SELECT (allowed) and it never emits the CREATE token, so it
+    // was passing the guard before INTO joined the forbidden list.
+    const r = guardQuery("SELECT * INTO newtbl FROM users");
+    expect(r.ok).toBe(false);
+    expect(r.reason).toMatch(/INTO/);
+  });
+
+  it("rejects SELECT id INTO TEMP t (temp-table write form too)", () => {
+    expect(guardQuery("SELECT id INTO TEMP t FROM users").ok).toBe(false);
+  });
+
+  it("rejects an INSERT-writing CTE smuggled with a block comment between INSERT and INTO", () => {
+    // `INSERT/**/INTO` is valid SQL (== `INSERT INTO`). Before #74, stripComments
+    // elided the comment to the empty string, merging the tokens into
+    // `INSERTINTO`, which the whole-word INSERT scan no longer matched.
+    const r = guardQuery("WITH x AS (INSERT/**/INTO t VALUES (1) RETURNING 1) SELECT * FROM x");
+    expect(r.ok).toBe(false);
+    expect(r.reason).toMatch(/INSERT/);
+  });
+
+  it("rejects a DELETE-writing CTE smuggled with a block comment", () => {
+    const r = guardQuery("WITH x AS (DELETE/**/FROM t WHERE id = 1 RETURNING 1) SELECT * FROM x");
+    expect(r.ok).toBe(false);
+    expect(r.reason).toMatch(/DELETE/);
+  });
+
+  it("rejects a FOR UPDATE row lock split by a block comment (FOR/**/UPDATE)", () => {
+    expect(guardQuery("SELECT * FROM users FOR/**/UPDATE").ok).toBe(false);
+  });
+
+  it("still allows a block comment that legitimately separates two real tokens", () => {
+    // The fix replaces a comment with a single space, not the empty string, so a
+    // comment used as a token separator (`a/**/b` == `a b` == `a AS b`) must
+    // remain a valid read — the fix must not over-reject legitimate SQL.
+    expect(guardQuery("SELECT a/**/b FROM t").ok).toBe(true);
+  });
+});
+
 describe("guardQuery — semicolons inside string literals", () => {
   it("does NOT split on semicolons inside single-quoted strings", () => {
     expect(guardQuery("SELECT 'a;b;c'").ok).toBe(true);

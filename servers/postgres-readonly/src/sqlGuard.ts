@@ -24,6 +24,11 @@ const FORBIDDEN_KEYWORDS_ANYWHERE = [
   // Write/DDL
   "INSERT", "UPDATE", "DELETE", "MERGE", "COPY",
   "CREATE", "ALTER", "DROP", "TRUNCATE", "RENAME",
+  // `SELECT ... INTO newtbl` is equivalent to `CREATE TABLE newtbl AS SELECT`
+  // (a DDL write) but never emits the CREATE token, so it must be caught here.
+  // Safe: literals are stripped before the scan, `INSERT INTO` is already
+  // blocked via INSERT, and no read-only top-level query uses a bare INTO (#74).
+  "INTO",
   "GRANT", "REVOKE",
   // Locking and admin
   "LOCK", "REINDEX", "VACUUM", "CLUSTER", "ANALYZE",
@@ -126,18 +131,27 @@ function stripComments(sql: string): string {
       continue;
     }
 
-    // Line comment (outside any string literal).
+    // Line comment (outside any string literal). Emit a single space, NOT the
+    // empty string: a SQL comment is a token separator, so eliding it can merge
+    // the tokens on either side into one word and hide a forbidden keyword from
+    // the whole-word scan (e.g. `INSERT/**/INTO` -> `INSERTINTO`, which
+    // `(^|\W)INSERT(\W|$)` no longer matches). A space matches Postgres
+    // tokenization exactly — a comment can separate tokens but never split one
+    // (#74).
     if (c === "-" && sql[i + 1] === "-") {
       while (i < sql.length && sql[i] !== "\n") i++;
+      out += " ";
       continue;
     }
     // Block comment (note: we don't support nested blocks because Postgres does
     // and we're erring on the side of strictness — if the comment looks weird
-    // the consumer would have rejected it anyway).
+    // the consumer would have rejected it anyway). Same space-not-empty rule as
+    // the line comment above (#74).
     if (c === "/" && sql[i + 1] === "*") {
       i += 2;
       while (i < sql.length && !(sql[i] === "*" && sql[i + 1] === "/")) i++;
       i += 2;
+      out += " ";
       continue;
     }
 

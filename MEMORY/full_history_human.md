@@ -565,3 +565,15 @@ of truth).
 **Open questions / blockers:** none.
 
 **Next session:** continue the loop; this run's dogfood sweep also surfaced an `ai-app-integration-tests` null-body-status (204/205/304) recorder/replayer crash, a candidate for the next iteration/session.
+
+## 2026-07-01 — Issue #74: two write-smuggling bypasses of the postgres-readonly SQL guard
+**Duration:** ~30 min · **Branch:** `session/2026-07-01-1515-issue-74`
+
+- The `postgres-readonly` SQL guard is the layer-(b) defense that must refuse to *attempt* a write even when the DB role is already read-only. Two independent blind spots in its keyword scan let a write through, both reproduced firsthand against the built code before fixing: (1) `SELECT ... INTO newtbl` — equivalent to `CREATE TABLE AS`, a DDL write — passed because the leading keyword is `SELECT` and `INTO` wasn't forbidden; (2) `stripComments` deleted a comment entirely instead of replacing it with whitespace, so `INSERT/**/INTO` (valid SQL == `INSERT INTO`) merged into `INSERTINTO` and the whole-word forbidden-keyword scan missed it — smuggling a data-modifying CTE or `FOR/**/UPDATE` row lock past the guard.
+- Fixed by adding `INTO` to the forbidden list and making `stripComments` emit a single space (matching Postgres tokenization — a comment separates tokens but never splits one). Both are strictly-more-strict; legitimate reads (line/block comments as separators, string literals containing write keywords) still pass. +6 lock tests; postgres suite 81 → 87, README count 67 → 73, lint/typecheck/build clean.
+
+**Why this work, this session:** `mcp-server-cookbook` was the stalest repo (36h) and earliest in the build sequence among the two at that floor, with zero open issues — so a dogfood hunter sweep drove the work. Bypass 1 came from a hunter subagent; bypass 2 from my own review of `stripComments`. The other two servers hunted (github-gists, internal-tools-bridge) both came back NO_BUG after thorough probing, confirming deep saturation.
+
+**Open questions / blockers:** none — ready for review.
+
+**Next session:** continue the loop. A lead noted in prior memory: an `ai-app-integration-tests` null-body-status (204/205/304) recorder/replayer crash candidate.
