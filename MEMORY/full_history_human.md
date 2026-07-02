@@ -577,3 +577,15 @@ of truth).
 **Open questions / blockers:** none — ready for review.
 
 **Next session:** continue the loop. A lead noted in prior memory: an `ai-app-integration-tests` null-body-status (204/205/304) recorder/replayer crash candidate.
+
+## 2026-07-02 — Issue #76: splitStatements used backslash quote-escaping, bypassing the multi-statement guard
+**Duration:** ~30 min · **Branch:** `session/2026-07-02-0331-issue-76`
+
+- `postgres-readonly`'s `splitStatements` decided whether a quote closed a string literal with a backslash check (`sql[i-1] !== "\\"`). PostgreSQL under `standard_conforming_strings` (the default) treats backslash as literal and escapes quotes by doubling (`''`), so a string ending in a backslash (`'a\'`) kept the scanner "inside" the string, swallowed the following `;`, and a genuine two-statement input parsed as one — silently bypassing the `statements.length > 1` guard. The sibling scanners `stripComments` and `stripStringLiterals` already used the correct quote-doubling logic; `splitStatements` was the lone inconsistent one.
+- Rewrote both quote branches to consume a `''`/`""` pair as an escaped quote and toggle on a lone quote. Reproduced firsthand (char-code-built inputs to avoid escaping confusion). Impact is bounded by defense-in-depth (D-004): a **write** in the smuggled statement is still caught by the keyword scan (verified) — the residual is smuggling a second read-only statement past a stated control. +4 tests; inverse safety net confirmed the two bypass tests fail pre-fix. sqlGuard 61→65, full server suite 91 green, typecheck/lint/readme-check clean, README count 73→77.
+
+**Why this work, this session:** second shipped issue of the NIGHT run. Surfaced by a Phase-A parallel dogfood hunt over the least-recently-worked repos; verified firsthand before filing #76. Extends the #74 guard-hardening arc.
+
+**Open questions / blockers:** none — PR ready for review.
+
+**Next session:** continue the loop.
