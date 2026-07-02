@@ -200,14 +200,36 @@ function splitStatements(sql: string): string[] {
       }
     }
 
-    if (!inDouble && c === "'" && sql[i - 1] !== "\\") {
+    // Postgres escapes a quote inside a string literal by DOUBLING it (''),
+    // not with a backslash — backslash is a literal character under
+    // standard_conforming_strings (the default since 9.1). The pre-fix
+    // `sql[i-1] !== "\\"` check treated a backslash-then-quote as an escaped
+    // (non-closing) quote, so a string ending in a backslash (`'a\'`) kept
+    // `inSingle` set, a following `;` was mistaken for string content, and a
+    // genuine multi-statement input parsed as one — silently bypassing the
+    // multi-statement guard (#76). This mirrors the quote-doubling logic that
+    // `stripComments` and `stripStringLiterals` already use; `splitStatements`
+    // was the lone inconsistent scanner.
+    if (!inDouble && c === "'") {
+      if (inSingle && sql[i + 1] === "'") {
+        // Doubled-quote escape inside the string — consume both, stay inside.
+        buf += "''";
+        i += 2;
+        continue;
+      }
       inSingle = !inSingle;
       buf += c;
       i++;
       continue;
     }
 
-    if (!inSingle && c === '"' && sql[i - 1] !== "\\") {
+    if (!inSingle && c === '"') {
+      if (inDouble && sql[i + 1] === '"') {
+        // Doubled double-quote inside a quoted identifier — consume both.
+        buf += '""';
+        i += 2;
+        continue;
+      }
       inDouble = !inDouble;
       buf += c;
       i++;

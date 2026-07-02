@@ -92,6 +92,33 @@ describe("guardQuery — rejected (multi-statement and bypass attempts)", () => 
     expect(guardQuery("SELECT 1; DROP TABLE x").ok).toBe(false);
   });
 
+  it("rejects a multi-statement input whose first string ends in a backslash (#76)", () => {
+    // Postgres escapes quotes by doubling ('') — a backslash is a literal under
+    // standard_conforming_strings. Pre-#76, splitStatements treated the closing
+    // quote of `'a\'` (one backslash) as escaped, kept the string "open", and
+    // swallowed the `;`, so this genuine two-statement input passed as one.
+    // SQL seen by the guard: SELECT 'a\'; SELECT 1;
+    const r = guardQuery("SELECT 'a\\'; SELECT 1;");
+    expect(r.ok).toBe(false);
+    expect(r.reason).toMatch(/multi-statement/);
+  });
+
+  it("rejects the same bypass with two trailing backslashes (#76)", () => {
+    // SQL seen by the guard: SELECT 'a\\'; SELECT 1;  (value is a + two backslashes)
+    const r = guardQuery("SELECT 'a\\\\'; SELECT 1;");
+    expect(r.ok).toBe(false);
+    expect(r.reason).toMatch(/multi-statement/);
+  });
+
+  it("still catches a WRITE smuggled after the backslash trick (#76, defense-in-depth)", () => {
+    // Even before #76 the keyword scan caught this (stripStringLiterals closes
+    // the string correctly), but lock it so the two layers stay in agreement.
+    // SQL: SELECT 'a\'; DROP TABLE users;
+    const r = guardQuery("SELECT 'a\\'; DROP TABLE users;");
+    expect(r.ok).toBe(false);
+    expect(r.reason).toMatch(/DROP|multi-statement/);
+  });
+
   it("rejects a write hidden after a line comment", () => {
     const r = guardQuery("SELECT 1; -- this looks safe\nDROP TABLE x");
     expect(r.ok).toBe(false);
@@ -216,6 +243,13 @@ describe("guardQuery — keyword scanning ignores string-literal contents", () =
 
   it("allows escaped single quotes in a string literal", () => {
     expect(guardQuery("SELECT 'it''s fine' AS msg").ok).toBe(true);
+  });
+
+  it("does NOT falsely reject a single statement whose string value ends in a backslash (#76)", () => {
+    // The #76 fix must not over-correct: `'path\'` is one valid statement whose
+    // value ends in a backslash; the trailing quote genuinely closes the string.
+    // SQL: SELECT 'path\' AS p
+    expect(guardQuery("SELECT 'path\\' AS p").ok).toBe(true);
   });
 
   it("does NOT ignore double-quoted IDENTIFIER contents (those are identifiers, not strings)", () => {
