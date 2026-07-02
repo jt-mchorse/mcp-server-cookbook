@@ -14,6 +14,7 @@ import {
   readmeServerRefs,
   readmeTestCountClaims,
   topLevelCommasInList,
+  stripStringLiterals,
 } from "./check-readme.mjs";
 
 test("readmeServerRefs collects unique servers/<name> references", () => {
@@ -124,6 +125,42 @@ test("countTestsInFile ignores identifiers that contain 'test'", () => {
 test("countTestsInFile ignores // comments", () => {
   const src = ["// it('fake', () => {});", "it('real', () => {});"].join("\n");
   assert.equal(countTestsInFile("foo.test.ts", src), 1);
+});
+
+test("countTestsInFile does not double-count `it(`/`test(` inside a description string (#78)", () => {
+  // Pre-fix, the count regex matched the `it(` / `test(` embedded in the
+  // description (a space precedes it, satisfying the boundary class), so each
+  // of these single `it(...)` blocks counted as 2.
+  assert.equal(
+    countTestsInFile("foo.test.ts", `it("wraps it() call", () => {});`),
+    1,
+  );
+  assert.equal(
+    countTestsInFile("foo.test.ts", `it("does test( stuff", () => {});`),
+    1,
+  );
+  // Two genuine tests whose names contain parenthesized prose still count as 2.
+  const src = [
+    `it("rejects when it() has no args", () => {});`,
+    `it("does not run test( ) twice", () => {});`,
+  ].join("\n");
+  assert.equal(countTestsInFile("foo.test.ts", src), 2);
+});
+
+test("countTestsInFile ignores a trailing // comment and `//` inside a string (#78)", () => {
+  // The trailing comment mentions it(), and the description holds a `//` (URL);
+  // neither should be counted. Strings are stripped before the `//` split, so
+  // the URL's `//` doesn't prematurely truncate the real call either.
+  const src = `it("GET https://x//y", () => {}); // it("fake") here`;
+  assert.equal(countTestsInFile("foo.test.ts", src), 1);
+});
+
+test("stripStringLiterals removes quoted contents but keeps surrounding code (#78)", () => {
+  assert.equal(stripStringLiterals(`it("a b c", x)`), "it(, x)");
+  assert.equal(stripStringLiterals(`f('a\\'b', 'c')`), "f(, )");
+  assert.equal(stripStringLiterals("g(`t ${1} u`)"), "g()");
+  // Unterminated quote is stripped to end-of-line.
+  assert.equal(stripStringLiterals(`h("open`), "h(");
 });
 
 test("countTestsInFile counts python def test_* with no decorators as 1 each", () => {
