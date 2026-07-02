@@ -589,3 +589,17 @@ of truth).
 **Open questions / blockers:** none — PR ready for review.
 
 **Next session:** continue the loop.
+
+## 2026-07-02 — Issue #78: check-readme.mjs test-counter double-counts `it(`/`test(` inside a description string
+**Duration:** ~25 min · **Branch:** `session/2026-07-02-2332-mcp-readme-counter`
+
+- `countTestsInFile` (the JS/TS path in `tools/check-readme.mjs`) applied the `it(`/`test(` count regex to raw line text. The boundary class `[\s;\{(]` includes a space and `(`, so an `it(`/`test(` inside a test's *description string* (e.g. `it("wraps it() call", ...)`) satisfied the boundary and matched a second time — one `it(...)` block counted as **2**. This is the counter the `readme-check` CI job enforces against the root README's per-server counts, so a test named this way would fail `readme-check` with spurious drift. Latent today: the live counts (77/54/63/33/69) are correct because no current test is phrased this way. Reproduced firsthand (pre-fix: `it("wraps it() call", ...)` → 2; two real tests with embedded parens → 4).
+- **Fix:** added an exported `stripStringLiterals(line)` helper (single/double/backtick, `\`-escape aware; unterminated → strip to EOL), mirroring `topLevelCommasInList`'s quote-skipping and the sibling `sqlGuard.ts::stripStringLiterals` (#76). Apply it before the count regex, then drop trailing `//` comments — real `//` inside a string (URL) is stripped first, so this also subsumes the old whole-line-comment skip. The real checker still exits 0 with counts unchanged (5/5/5), so no legitimate count moved; `tools/` is not a server dir so no README count bump is needed. Tool self-test 26 → 29, all green.
+
+**Why this work, this session:** second issue of a DAY run. After shipping llm-cost-optimizer #120, the priority tier was exhausted of actionable unblocked work, so per D-009 I rotated to non-tier repos and ran three parallel dogfood hunts (ai-app-integration-tests, embedding-model-shootout — both clean; mcp-server-cookbook surfaced this). Verified firsthand before filing per the saturation guidance.
+
+**Note:** filed a separate priority:low issue for a sibling latent false-positive — `check-claude-desktop-config.mjs`'s fenced-block regex misses CRLF-line-ending READMEs — rather than bundling it here.
+
+**Open questions / blockers:** none — ready for review.
+
+**Next session:** continue the loop.
