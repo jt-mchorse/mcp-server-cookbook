@@ -603,3 +603,15 @@ of truth).
 **Open questions / blockers:** none — ready for review.
 
 **Next session:** continue the loop.
+
+## 2026-07-03 — Issue #79: check-claude-desktop-config.mjs fenced-block regex was CRLF-intolerant
+**Duration:** ~20 min · **Branch:** `session/2026-07-03-0310-issue-79`
+
+- `fencedJsonBlocks` (tools/check-claude-desktop-config.mjs) required a bare `\n` after the opening fence and before the closing fence. A README with CRLF line endings (Windows author, or a `core.autocrlf=true` checkout) has `\r\n`, so **zero** JSON blocks matched and the checker falsely reported the server was missing its `claude_desktop_config.json` snippet (exit 1, CI fail) even when present. Reproduced firsthand: LF → 1 block, CRLF → 0.
+- **Fix:** the regex is now `/```jsonc?[ \t]*\r?\n([\s\S]*?)\r?\n```/g` — CRLF-tolerant on both fences, plus optional trailing horizontal whitespace after the `json`/`jsonc` tag, bounded to `[ \t]*` so it can't spill into another language tag (` ```jsonx ` is still rejected). +4 regression tests (CRLF parses like its LF twin; trailing-whitespace tolerated; no over-broaden; `scanServerReadme` passes on a CRLF README). Node test suite 8 → 12, all green; real checker still exits 0 on the 5 LF server READMEs; readme-check still 5/5/5 (tools/ is not a server dir, so no count bump).
+
+**Why this work, this session:** first issue of a NIGHT run. #79 was the only concrete, autonomous, unblocked issue left in the portfolio — every other open issue is either a JT-blocked `decision-revisit` (llm-cost #97, vector-search #71) or an operator-visual-verification demo (nextjs #16, ai-app-integration-tests #16). It was filed by the prior DAY run as a verified sibling of #78; I reproduced it firsthand before fixing.
+
+**Open questions / blockers:** none — ready for review.
+
+**Next session:** continue the loop. Portfolio is deeply saturated; the remaining defects live in peripheral tooling and the two decision-revisits need JT's call.
