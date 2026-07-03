@@ -179,12 +179,45 @@ export function parametrizeCases(parametrizeLine) {
 }
 
 /**
+ * Remove the *contents* of single-quoted, double-quoted, and template-literal
+ * strings from a line, leaving the surrounding code intact. Honors `\` escapes;
+ * an unterminated quote (a multi-line string) is stripped to end-of-line.
+ *
+ * Used by the JS/TS test counter so an `it(` / `test(` that appears inside a
+ * test's *description* string (e.g. `it("wraps it() call", ...)`) — or a `//`
+ * inside a URL string — isn't mistaken for a real call site. Mirrors the
+ * quote-skipping already in `topLevelCommasInList`.
+ */
+export function stripStringLiterals(line) {
+  let out = "";
+  let i = 0;
+  const n = line.length;
+  while (i < n) {
+    const ch = line[i];
+    if (ch === '"' || ch === "'" || ch === "`") {
+      const quote = ch;
+      i += 1;
+      while (i < n && line[i] !== quote) {
+        if (line[i] === "\\" && i + 1 < n) i += 2;
+        else i += 1;
+      }
+      i += 1; // consume the closing quote (or run past EOL if unterminated)
+      continue;
+    }
+    out += ch;
+    i += 1;
+  }
+  return out;
+}
+
+/**
  * Count test cases in a single file. Strategy:
  *   - .ts / .tsx / .js / .mjs → count `it(`, `it.skip(`, `it.only(`,
  *     `test(`, `test.skip(`, `test.only(`, with `.each(...)` chains — only at
  *     column boundaries (preceded by whitespace, `(`, `;`, `{`, or
  *     start-of-line) to avoid matching identifiers that happen to contain
- *     `test`.
+ *     `test`. String literals are stripped first (via `stripStringLiterals`)
+ *     so an `it(`/`test(` inside a description string isn't double-counted.
  *   - .py → count `def test_*(` at line start (possibly indented), multiplied
  *     by the product of immediately-preceding `@pytest.mark.parametrize(...)`
  *     decorators' case counts.
@@ -220,8 +253,11 @@ export function countTestsInFile(filePath, source) {
   }
   // JS/TS family
   for (const raw of lines) {
-    const line = raw.trim();
-    if (line.startsWith("//")) continue;
+    // Strip string literals first so an `it(`/`test(` inside a description
+    // (`it("wraps it() call", ...)`) isn't counted, then drop any trailing
+    // `//` line comment — real `//` inside a string is already gone, so this
+    // also subsumes the old whole-line-comment skip.
+    const line = stripStringLiterals(raw.trim()).split("//")[0];
     const re =
       /(^|[\s;\{(])(it|test)(\.skip|\.only|\.each\([^)]*\)|\.failing)?\s*\(/g;
     let m;
