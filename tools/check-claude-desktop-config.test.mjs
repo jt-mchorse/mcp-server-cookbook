@@ -42,6 +42,52 @@ test("fencedJsonBlocks returns empty for markdown with no json fences", () => {
   assert.deepEqual(fencedJsonBlocks(md), []);
 });
 
+test("fencedJsonBlocks is CRLF-tolerant — a `\\r\\n` README parses like its LF twin (#79)", () => {
+  // A Windows-authored / `core.autocrlf=true` README has `\r\n` line endings.
+  // Pre-fix the bare-`\n` regex matched zero blocks on CRLF input, so the
+  // checker falsely reported a missing config snippet (exit 1, CI fail).
+  const lf = [
+    "intro",
+    "```json",
+    `{"mcpServers": {"x": {"command": "node"}}}`,
+    "```",
+  ].join("\n");
+  const crlf = lf.replace(/\n/g, "\r\n");
+
+  const lfBlocks = fencedJsonBlocks(lf);
+  const crlfBlocks = fencedJsonBlocks(crlf);
+  assert.equal(lfBlocks.length, 1);
+  assert.equal(crlfBlocks.length, 1);
+  // The captured body carries the source line endings but the config-shape
+  // check is `.includes`-based, so both still resolve as valid config blocks.
+  assert.match(crlfBlocks[0], /"mcpServers"/);
+  assert.equal(isClaudeDesktopConfigBlock(crlfBlocks[0]), true);
+});
+
+test("fencedJsonBlocks tolerates trailing whitespace after the language tag (#79)", () => {
+  const md = ["```json  ", `{"mcpServers": {"x": {"command": "node"}}}`, "```"].join(
+    "\n",
+  );
+  assert.equal(fencedJsonBlocks(md).length, 1);
+  // The bound `[ \t]*` must not turn ```json into a match for other langs.
+  const other = ["```jsonx", `{"mcpServers": 1}`, "```"].join("\n");
+  assert.deepEqual(fencedJsonBlocks(other), []);
+});
+
+test("scanServerReadme passes on a CRLF README with a valid config block (#79)", () => {
+  const dir = mkdtempSync(path.join(tmpdir(), "crlf-readme-"));
+  const readme = path.join(dir, "README.md");
+  const md = [
+    "# server",
+    "```json",
+    `{"mcpServers": {"x": {"command": "node", "args": []}}}`,
+    "```",
+  ].join("\r\n");
+  writeFileSync(readme, md);
+  const result = scanServerReadme(readme);
+  assert.equal(result.ok, true);
+});
+
 test("isClaudeDesktopConfigBlock requires both mcpServers and command", () => {
   assert.equal(
     isClaudeDesktopConfigBlock(`{"mcpServers": {"x": {"command": "node"}}}`),

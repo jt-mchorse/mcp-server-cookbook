@@ -43,7 +43,13 @@ const SERVERS_DIR = path.join(REPO_ROOT, "servers");
  */
 export function fencedJsonBlocks(md) {
   const blocks = [];
-  const re = /```jsonc?\n([\s\S]*?)\n```/g;
+  // CRLF-tolerant (`\r?\n`): a README authored on Windows or checked out with
+  // `core.autocrlf=true` uses `\r\n`, which the old bare-`\n` regex missed
+  // entirely — reporting zero blocks and a false "missing config snippet" CI
+  // failure even when the snippet is present (#79). `[ \t]*` also tolerates
+  // trailing horizontal whitespace after the language tag (```json ), bounded
+  // so it can't spill into another language tag.
+  const re = /```jsonc?[ \t]*\r?\n([\s\S]*?)\r?\n```/g;
   let m;
   while ((m = re.exec(md)) !== null) {
     blocks.push(m[1]);
