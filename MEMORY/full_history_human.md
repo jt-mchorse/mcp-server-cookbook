@@ -615,3 +615,15 @@ of truth).
 **Open questions / blockers:** none — ready for review.
 
 **Next session:** continue the loop. Portfolio is deeply saturated; the remaining defects live in peripheral tooling and the two decision-revisits need JT's call.
+
+## 2026-07-04 — Issue #82: architecture-doc tool-name resolution lock (TS side of portfolio-ops #55)
+**Duration:** ~40 min · **Branch:** `session/2026-07-04-0319-issue-82` · **PR:** #83
+
+- `tools/check-architecture-doc.mjs` locked server-dir refs/coverage, stale phrases, active decisions, and shipped-issue coverage — but never checked that the MCP tool names the doc claims each server exposes actually exist. Added a 6th invariant. This doc's "symbols" are snake_case tool names (not the camelCase identifiers the Python/nextjs resolvers target), so the adaptation reads tool names from the doc's own `N tools (…)` declaration syntax and resolves each against the tools registered as `name: "…"` (TS) / `"name": "…"` (Python) in the servers' `server.<ext>` entry points. Scoping ground truth to entry points was load-bearing: a full source scan returned 98 incidental `name:` strings (shell-binary allow-lists, crypto constants, pytest markers), while the entry-point scope gives exactly the 9 real tools. Inverse-drift + live-resolution tests guard against a vacuously-green resolver; also negative-controlled by renaming a doc tool and watching the checker exit 1.
+- All eight doc-claimed tools resolve — no live drift, so this is a preventive lock like the Python siblings. Checker exits 0; full `node --test tools/*.test.mjs` 130 passed.
+
+**Why this work, this session:** second issue of the NIGHT loop. Portfolio has zero `priority:high` issues; the only actionable, non-blocked backlog is portfolio-ops #55's TS-side propagation (three repos). Worked in build-sequence order after nextjs #76 — mcp-server-cookbook is #10, before ai-app-integration-tests (#12).
+
+**Open questions / blockers:** none — ready for review. Genuinely a per-repo adaptation (tool-name, not CamelCase), as #55 anticipated.
+
+**Next session:** last #55 TS gap repo — `ai-app-integration-tests` (TS vitest). Inspect its architecture-doc citation style first; likely another per-repo adaptation.
