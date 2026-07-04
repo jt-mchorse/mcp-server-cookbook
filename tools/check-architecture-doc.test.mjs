@@ -15,6 +15,10 @@ import {
   findUnreferencedShippedIssues,
   MIN_ACTIVE_DECISION_ID,
   KNOWN_SHIPPED_ISSUES,
+  archToolClaims,
+  extractRegisteredNames,
+  collectRegisteredToolNames,
+  findUnresolvedTools,
 } from "./check-architecture-doc.mjs";
 
 test("archServerRefs collects unique servers/<name> references in path form", () => {
@@ -200,4 +204,88 @@ test("checker integration: docs/architecture.md is currently clean", async () =>
     `check-architecture-doc.mjs failed:\nstdout=${result.stdout}\nstderr=${result.stderr}`,
   );
   assert.match(result.stdout, /check ok:/);
+});
+
+// --- Invariant 6: tool-name resolution (portfolio-ops #55, TS side) --------
+
+test("archToolClaims reads tool names out of `N tools (...)` declarations", () => {
+  const md = [
+    "- **`servers/postgres-readonly/`** — three tools (`describe_schema`,",
+    "  `run_select`, `sample_rows`), defense in depth.",
+    "- **`servers/github-gists/`** — two tools (`get_gist`, `update_gist_file`).",
+  ].join("\n");
+  assert.deepEqual(archToolClaims(md), [
+    "describe_schema",
+    "get_gist",
+    "run_select",
+    "sample_rows",
+    "update_gist_file",
+  ]);
+});
+
+test("archToolClaims ignores backticked non-tool tokens outside tool-list parens", () => {
+  // The doc names `mcp_reader` (a DB role), `pg_sleep` (a Postgres builtin),
+  // and `default_transaction_read_only` (a session setting) — none are
+  // cookbook tools, and none sit inside an `N tools (...)` list. Anchoring on
+  // the declaration syntax is what keeps them out of the candidate set.
+  const md = [
+    "the role `mcp_reader` runs with `default_transaction_read_only = on`",
+    "and the guard rejects `pg_sleep` / `pg_terminate_backend`.",
+    "one tool (`run_select`) is the query path.",
+  ].join("\n");
+  assert.deepEqual(archToolClaims(md), ["run_select"]);
+});
+
+test("extractRegisteredNames handles TS `name:` and Python `\"name\":` shapes", () => {
+  const ts = 'const tools = [{ name: "run_select", description: "..." }];';
+  const py = '        {\n            "name": "list_directory",\n        }';
+  assert.deepEqual([...extractRegisteredNames(ts)], ["run_select"]);
+  assert.deepEqual([...extractRegisteredNames(py)], ["list_directory"]);
+});
+
+test("extractRegisteredNames does not treat schema fields or server names as tools", () => {
+  // `table_name:` is a schema field (no word boundary before "name"); the
+  // hyphenated server name breaks the snake_case capture; `name: f.name` has
+  // no quoted value. None should be picked up.
+  const src = [
+    'name: "postgres-readonly",', // server name, hyphenated
+    "table_name: string;", // schema field
+    "column_name: string;",
+    "return { name: f.name };", // non-string value
+    'name: "run_select",', // the one real tool
+  ].join("\n");
+  assert.deepEqual([...extractRegisteredNames(src)], ["run_select"]);
+});
+
+test("findUnresolvedTools flags a drifted claim while a real one resolves (inverse safety net)", () => {
+  // Prove the resolver actually rejects a nonexistent tool — otherwise the
+  // green integration run could be vacuous. Same code path as main().
+  const registered = new Set(["run_select", "sample_rows"]);
+  const claims = archToolClaims("two tools (`run_select`, `sample_taable`)");
+  assert.deepEqual(findUnresolvedTools(claims, registered), ["sample_taable"]);
+  assert.deepEqual(findUnresolvedTools(["run_select"], registered), []);
+});
+
+test("live: every tool the architecture doc claims resolves to a real registration", async () => {
+  // Integration check against the real tree, complementing the subprocess
+  // run of main(): asserts the concrete drift class #55 targets is absent and
+  // that the ground-truth scan is non-empty (guards a broken walker/regex
+  // from making the resolution vacuous).
+  const { fileURLToPath } = await import("node:url");
+  const path = (await import("node:path")).default;
+  const { readFileSync } = await import("node:fs");
+  const __dirname = path.dirname(fileURLToPath(import.meta.url));
+  const repoRoot = path.resolve(__dirname, "..");
+  const md = readFileSync(path.join(repoRoot, "docs/architecture.md"), "utf8");
+  const serversDir = path.join(repoRoot, "servers");
+
+  const claims = archToolClaims(md);
+  const registered = collectRegisteredToolNames(serversDir);
+  assert.ok(claims.length >= 5, `expected the doc to claim several tools, got ${claims.length}`);
+  assert.ok(registered.size >= claims.length, "registered-tool scan came back suspiciously small");
+  assert.deepEqual(
+    findUnresolvedTools(claims, registered),
+    [],
+    "architecture.md names tools no server registers",
+  );
 });

@@ -27,6 +27,13 @@
 //      `KNOWN_SHIPPED_ISSUES` is referenced at least once. So if a
 //      sixth server ships under #N, this lock fails until the
 //      architecture doc grows a section that names it.
+//   6. Tool-name resolution (portfolio-ops #55): every MCP tool the doc
+//      claims a server exposes (in an `N tools (...)` list) resolves to a
+//      real `name: "..."` registration in some server's source. The
+//      TS-side adaptation of the portfolio-wide symbol-resolution lock —
+//      this doc's "symbols" are snake_case tool names, not the camelCase
+//      identifiers the Python/nextjs resolvers target. Catches the doc
+//      drifting away from a renamed or removed tool.
 //
 // Static-only: this script reads files, doesn't run them. Runs in CI on
 // every PR alongside the `readme-check` job.
@@ -169,6 +176,133 @@ export function findUnreferencedShippedIssues(archMd) {
 }
 
 /**
+ * Extract the MCP tool names the architecture doc *claims* the servers
+ * expose. The doc introduces tools in the "Shipped entries" bullets with
+ * its own declaration syntax — `N tools (`a`, `b`, `c`)`, e.g. "Three
+ * tools (`describe_schema`, `run_select`, `sample_rows`)". We read the
+ * backticked snake_case tokens out of every such parenthesized list.
+ *
+ * This is the per-repo adaptation of portfolio-ops #55's symbol-resolution
+ * lock: this doc names almost no camelCase identifiers (the Python/nextjs
+ * resolver's target), so its "symbols" are the tool names. We deliberately
+ * do NOT sweep every backticked snake_case token in the doc — that would
+ * pull in `mcp_reader` (a DB role), `pg_sleep` / `pg_terminate_backend`
+ * (Postgres builtins), and `default_transaction_read_only` (a session
+ * setting), none of which are cookbook tools. The `N tools (...)` frame is
+ * the doc's own explicit tool-declaration shape, so anchoring on it keeps
+ * the candidate set precise.
+ *
+ * Exported so tests can exercise it against synthetic input.
+ */
+export function archToolClaims(markdown) {
+  const claims = new Set();
+  for (const list of markdown.matchAll(/\btools?\s*\(([^)]*)\)/g)) {
+    for (const t of list[1].matchAll(/`([a-z][a-z0-9_]*)`/g)) {
+      claims.add(t[1]);
+    }
+  }
+  return [...claims].sort();
+}
+
+/**
+ * Pull every registered tool name out of one source file's text. Handles
+ * both citation shapes present in the cookbook:
+ *   - TS servers register `name: "run_select"` (bare object key).
+ *   - The Python server's `_build_tool_specs()` uses `"name": "list_directory"`
+ *     (quoted dict key).
+ * The `\bname` word boundary stops `table_name: string` / `column_name`
+ * schema-field keys from matching, and requiring a quoted snake_case value
+ * stops `name: f.name` (a non-string value) and the hyphenated *server*
+ * names (`name: "postgres-readonly"` — the `-` breaks the capture) from
+ * being mistaken for tools.
+ *
+ * Exported so tests can exercise it against synthetic input.
+ */
+export function extractRegisteredNames(source) {
+  const names = new Set();
+  for (const m of source.matchAll(/(?:"name"|\bname)\s*[:=]\s*"([a-z][a-z0-9_]*)"/g)) {
+    names.add(m[1]);
+  }
+  return names;
+}
+
+/**
+ * True for a server's MCP entry-point file — where tool registrations live.
+ * By the cookbook's own per-server convention (documented in the architecture
+ * doc's "Per-server invariants": `src/server.ts` is the MCP entry point),
+ * every server registers its tools in exactly one `server.<ext>`, and nowhere
+ * else. Scoping the ground-truth scan to these files keeps it precise: it
+ * excludes the many unrelated `name: "..."` strings elsewhere in each server
+ * (a shell-binary allow-list's `bash`/`zsh`, a crypto module's `sha256`,
+ * pytest markers, inputSchema property names) that would otherwise bloat the
+ * set and weaken the lock into "the tool matches *some* string somewhere".
+ * `server.test.ts` / `test_server.py` don't match, so test fixtures are
+ * excluded for free. If a future server splits registration out of its
+ * entry point, this predicate is the intentional-widening point.
+ */
+function isServerEntryPoint(name) {
+  return /^server\.(ts|mjs|js|py)$/.test(name);
+}
+
+/**
+ * Recursively collect server entry-point files under `dir`, skipping
+ * vendored / build / test directories.
+ */
+function walkToolSources(dir) {
+  const out = [];
+  let entries;
+  try {
+    entries = readdirSync(dir, { withFileTypes: true });
+  } catch {
+    return out;
+  }
+  const SKIP_DIRS = new Set([
+    "node_modules",
+    "dist",
+    "build",
+    ".git",
+    "test",
+    "tests",
+    "__pycache__",
+  ]);
+  for (const entry of entries) {
+    if (entry.isDirectory()) {
+      if (SKIP_DIRS.has(entry.name)) continue;
+      out.push(...walkToolSources(path.join(dir, entry.name)));
+    } else if (isServerEntryPoint(entry.name)) {
+      out.push(path.join(dir, entry.name));
+    }
+  }
+  return out;
+}
+
+/**
+ * The ground-truth set of every tool name registered across all servers.
+ * This is the TS/Python analogue of the Python siblings' importlib surface:
+ * a doc tool-claim must resolve to a real registration here, or it's drift.
+ */
+export function collectRegisteredToolNames(serversDir) {
+  const names = new Set();
+  for (const file of walkToolSources(serversDir)) {
+    for (const n of extractRegisteredNames(readFileSync(file, "utf8"))) {
+      names.add(n);
+    }
+  }
+  return names;
+}
+
+/**
+ * Return the subset of `toolClaims` that resolve to no registered tool name.
+ * Shared by main() and the inverse-drift test so a resolver that silently
+ * resolves everything can't go vacuously green.
+ *
+ * Exported so tests can exercise it against synthetic input.
+ */
+export function findUnresolvedTools(toolClaims, registeredNames) {
+  return toolClaims.filter((name) => !registeredNames.has(name));
+}
+
+/**
  * List immediate subdirectories of `servers/` — the set of shipped
  * server packages. Sorted for stable diffs.
  */
@@ -272,10 +406,27 @@ function main() {
     );
   }
 
+  // Invariant 6: every tool name the doc claims a server exposes is a real
+  // registered tool (portfolio-ops #55, TS-side symbol-resolution lock).
+  const toolClaims = archToolClaims(markdown);
+  const registeredTools = collectRegisteredToolNames(SERVERS_DIR);
+  const unresolvedTools = findUnresolvedTools(toolClaims, registeredTools);
+  if (unresolvedTools.length > 0) {
+    const which = unresolvedTools.map((t) => `\`${t}\``).join(", ");
+    fail(
+      `docs/architecture.md claims tools that no server registers: ${which}. ` +
+        `Every tool named in an "N tools (...)" list must appear as a registered ` +
+        `tool (name: "...") in some servers/<name>/ source file. Either fix the ` +
+        `doc's tool name or the registration — this catches the doc drifting away ` +
+        `from a renamed/removed tool (portfolio-ops #55).`,
+    );
+  }
+
   console.log(
     `docs/architecture.md check ok: ${refs.length} server references, ` +
       `${dirs.length} server directories, ${STALE_PHRASES.length} stale phrases banned, ` +
-      `${active.length} active decisions cited, ${KNOWN_SHIPPED_ISSUES.length} shipped issues cited.`,
+      `${active.length} active decisions cited, ${KNOWN_SHIPPED_ISSUES.length} shipped issues cited, ` +
+      `${toolClaims.length} doc tool-claims resolved against ${registeredTools.size} registered tools.`,
   );
 }
 
