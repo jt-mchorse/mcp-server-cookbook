@@ -15,6 +15,7 @@ import os
 from dataclasses import dataclass
 from typing import Literal
 
+from .atomic_write import atomic_write_bytes
 from .sandbox import Sandbox
 
 DirEntryKind = Literal["file", "directory", "symlink", "other"]
@@ -112,6 +113,7 @@ def write_file(deps: ToolDeps, file_path: str, content: str) -> dict[str, int]:
     if len(data) > deps.max_bytes:
         raise FileTooLargeError(len(data), deps.max_bytes)
     sp = deps.sandbox.resolve(file_path, must_exist=False)
-    with open(sp.resolved, "wb") as fh:
-        fh.write(data)
+    # Atomic write (temp + fsync + os.replace) so a mid-write crash can't leave a
+    # partial/truncated file — parity with the TS twin's `atomicWriteFile`.
+    atomic_write_bytes(sp.resolved, data)
     return {"bytes_written": len(data)}

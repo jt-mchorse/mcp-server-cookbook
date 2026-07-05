@@ -137,6 +137,45 @@ def test_write_file_propagates_sandbox_escape(deps: ToolDeps, tmp_path: Path):
         write_file(deps, str(outsider / "new.txt"), "nope")
 
 
+# --- write_file atomicity (#84, parity with TS atomic_write) ---
+
+
+def test_write_file_leaves_no_temp_sibling(deps: ToolDeps, tmp_path: Path):
+    # The atomic write goes through a sibling `.<name>.*.tmp` in the destination
+    # dir, then `os.replace`. A successful write must leave no debris behind.
+    root = tmp_path / "root"
+    target = root / "new.txt"
+    write_file(deps, str(target), "hello")
+    leftovers = [p.name for p in root.iterdir() if p.name != "new.txt"]
+    assert leftovers == [], f"stray temp files remained: {leftovers}"
+
+
+def test_write_file_overwrite_preserves_original_when_replace_fails(
+    deps: ToolDeps, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    # The core atomicity guarantee: if the process dies at the rename step, the
+    # destination is still the *complete original*, never a truncated/partial
+    # file. Simulate the crash by making `os.replace` raise, then assert the
+    # existing file is untouched and no temp debris is left behind.
+    from filesystem_sandbox import atomic_write
+
+    target = tmp_path / "root" / "x.txt"
+    target.write_text("original-content", encoding="utf-8")
+
+    def boom(*_args, **_kwargs):
+        raise OSError("simulated crash at rename")
+
+    monkeypatch.setattr(atomic_write.os, "replace", boom)
+    with pytest.raises(OSError, match="simulated crash at rename"):
+        write_file(deps, str(target), "replacement")
+
+    # Original content intact (not truncated by an in-place open("wb")).
+    assert target.read_text(encoding="utf-8") == "original-content"
+    # The temp file was cleaned up in the `finally` despite the failure.
+    leftovers = [p.name for p in target.parent.iterdir() if p.name != "x.txt"]
+    assert leftovers == [], f"stray temp files remained: {leftovers}"
+
+
 # --- config integration sanity ---
 
 
