@@ -627,3 +627,11 @@ of truth).
 **Open questions / blockers:** none — ready for review. Genuinely a per-repo adaptation (tool-name, not CamelCase), as #55 anticipated.
 
 **Next session:** last #55 TS gap repo — `ai-app-integration-tests` (TS vitest). Inspect its architecture-doc citation style first; likely another per-repo adaptation.
+
+## 2026-07-05 — Issue #84: atomic write_file in filesystem-sandbox-py (TS parity) (~20 min)
+
+**What got done.** The Python parity server's `write_file` wrote non-atomically — `open(sp.resolved, "wb")` truncates the destination immediately, so a mid-write crash (SIGINT from a Claude Desktop quit, SIGTERM, OOM, disk-full) left it zero-length/partial, and on a rewrite the prior content was already gone. Added `filesystem_sandbox/atomic_write.py::atomic_write_bytes` — the bytes-variant mirror of the TS `atomic_write.ts` and the portfolio's Python `atomic_write_text` helpers (#39/#42/#44/#48): sibling temp file in the destination's parent dir, `flush` + `os.fsync`, then `os.replace`, unlinking the temp on any failure. `write_file` routes through it; successful-write behavior unchanged (byte cap still enforced first). Two tests: a successful write leaves no `.tmp` debris, and a simulated crash at `os.replace` leaves the original file's complete content intact with no debris. Bumped the root README test-count 69→71 (`+ atomic-write`). Full pytest green (71), ruff clean, check-readme / architecture-doc / config-snippet checks all green.
+
+**Why prioritized.** Fourth issue of the night run, from a parallel dogfood bug-hunt across the not-yet-saturated repos. Verified it's a genuine parity gap, not gold-plating: the TS twin has a dedicated atomic-write module referencing five sibling Python repos, and the Python sandbox README claims it "pins every invariant the TS suite pins" and is "byte-identical modulo a tool-id rename". The new module isn't exported from `__init__`, so the public-surface snapshot test is unaffected.
+
+**Open questions / blockers.** None — ready for review.
