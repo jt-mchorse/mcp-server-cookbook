@@ -655,3 +655,13 @@ of truth).
 **Open questions / blockers.** None — ready for review.
 
 **Next session:** the internal-tools-bridge README fresh-clone numbers finding (also wave 5) is next, worked serially after #89 merges (both touch the root README).
+
+## 2026-07-06 — Issue #91: internal-tools-bridge README fabricated repo_stats numbers (~30 min)
+
+**What got done.** The `repo_stats` "End-to-end example" published `total_files: 14`, `.ts: 5`, and a `"<none>": 3` bucket for a fresh clone of the server — but there are zero extensionless tracked files, so `<none>: 3` was fabricated (a §10 violation) and the other counts were stale (`total_bytes` off ~7×). Reproduced firsthand via `git archive HEAD` → `repo-stats` and via `git ls-files`: the real fresh clone is 14 files (with the new lock test), `.ts: 8`, no `<none>`. Corrected the documented numbers and added `test/repo-stats-readme.test.ts`, which asserts the documented `total_files` + `by_ext` match the tracked file set (content-insensitive fields, so the lock is stable; `total_bytes` is a snapshot, not asserted). Bumped the root README count 33→35 and corrected the server README's own tally 42→45. `npm test` 45 passed, lint/typecheck clean.
+
+**Why prioritized.** Fifth real find of the NIGHT loop, from the wave-5 live-run lens (ran the shipped example against a real fresh clone). Static hunts had all gone empty; running the documented examples/artifacts is what kept yielding.
+
+**Open questions / blockers.** None — ready for review.
+
+**Next session:** the "run the shipped example / regenerate the committed artifact and diff" lens is exhausted across the portfolio for now (this run swept all 12 code repos; healthy repos have regenerate-from-source locks, the weak ones — chunking, this one — got fixed + locked). Remaining open items are JT-gated (vsas #71/#78, lco #97) or the low-pri CI-gap #90.
