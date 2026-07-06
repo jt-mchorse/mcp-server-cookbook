@@ -635,3 +635,13 @@ of truth).
 **Why prioritized.** Fourth issue of the night run, from a parallel dogfood bug-hunt across the not-yet-saturated repos. Verified it's a genuine parity gap, not gold-plating: the TS twin has a dedicated atomic-write module referencing five sibling Python repos, and the Python sandbox README claims it "pins every invariant the TS suite pins" and is "byte-identical modulo a tool-id rename". The new module isn't exported from `__init__`, so the public-surface snapshot test is unaffected.
 
 **Open questions / blockers.** None — ready for review.
+
+## 2026-07-06 — Issue #86: describe_schema type-name resolution (~40 min)
+
+**What got done.** `describe_schema` (postgres-readonly) reported `USER-DEFINED` for the sample-db's `orders.status` enum column instead of `order_status`. Root cause: Postgres's `information_schema.columns.data_type` is the literal string `USER-DEFINED` for every user-defined type (enum/domain/composite) and `ARRAY` for arrays — the real type name lives only in `udt_name`, which the columns query never selected. Since `sample-db/init.sql` deliberately uses an `order_status` enum, the very first `describe_schema` call against the sample DB showed the wrong type. Fix: added `udt_name` to the query and a pure `formatColumnType(dataType, udtName)` helper — prefer `udt_name` for `USER-DEFINED`, render `ARRAY` as `<element>[]` (stripping pg's leading `_`), pass built-in scalar `data_type` through unchanged. Reproduced both the bug and the fix end-to-end against an ephemeral Postgres 16 loaded with the real `sample-db/init.sql` (`status: USER-DEFINED` → `status: order_status`, built-ins and the view unchanged). Six hermetic unit tests, full suite green (97), `tsc`/eslint clean, README test count bumped 77→83.
+
+**Why prioritized.** First (and only real) issue of the NIGHT loop. The portfolio is deeply saturated — 11 fresh-lens dogfood hunts across all 12 code repos this run, every other one empty or a false positive. This was the one genuine, reproducible, reachable-in-the-shipped-example bug, surfaced by the mcp postgres schema-introspection lens.
+
+**Open questions / blockers.** None — ready for review.
+
+**Next session:** portfolio remains saturated; the nextjs partial-json "number-truncation" finding is a verified FALSE POSITIVE (surfacing a valid trailing number in an open array is intended, tested at partial-json.test.ts line 63) — do not re-file. All open issues are JT-gated decision-revisits (lco #97/#124, vsas #71) or headless-unfriendly demo captures.

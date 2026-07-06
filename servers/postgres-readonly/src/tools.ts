@@ -26,6 +26,32 @@ export interface DescribeSchemaArgs {
 
 const IDENT_RE = /^[A-Za-z_][A-Za-z0-9_]*$/;
 
+/**
+ * Resolve the display type name for a column from its
+ * `information_schema.columns` row.
+ *
+ * `data_type` is the SQL-standard type name for built-in scalars
+ * (`integer`, `timestamp with time zone`) — friendly and worth keeping.
+ * But for a user-defined type (enum, domain, composite) it is the
+ * literal string `USER-DEFINED`, and for an array it is `ARRAY`; in
+ * both cases the real type name lives only in `udt_name` (pg's internal
+ * type name). Selecting `data_type` alone therefore loses the type for
+ * every enum/domain/composite/array column — e.g. the sample-db's
+ * `orders.status order_status` renders as `USER-DEFINED` (#86).
+ *
+ * So: prefer `udt_name` when `data_type` is uninformative, and render an
+ * array as `<element>[]`. pg names an array type as its element type
+ * with a leading underscore (`_int4` for `int4[]`), so strip that.
+ */
+export function formatColumnType(dataType: string, udtName: string): string {
+  if (dataType === "USER-DEFINED") return udtName;
+  if (dataType === "ARRAY") {
+    const elem = udtName.startsWith("_") ? udtName.slice(1) : udtName;
+    return `${elem}[]`;
+  }
+  return dataType;
+}
+
 export async function describeSchema(args: DescribeSchemaArgs, cfg: DbConfig): Promise<ToolResult> {
   const schema = args.schema ?? "public";
   if (!IDENT_RE.test(schema)) {
@@ -50,10 +76,11 @@ export async function describeSchema(args: DescribeSchemaArgs, cfg: DbConfig): P
       table_name: string;
       column_name: string;
       data_type: string;
+      udt_name: string;
       is_nullable: string;
       column_default: string | null;
     }>(
-      `SELECT table_name, column_name, data_type, is_nullable, column_default
+      `SELECT table_name, column_name, data_type, udt_name, is_nullable, column_default
          FROM information_schema.columns
         WHERE table_schema = $1
         ORDER BY table_name, ordinal_position`,
@@ -74,7 +101,8 @@ export async function describeSchema(args: DescribeSchemaArgs, cfg: DbConfig): P
       for (const col of cols) {
         const nullable = col.is_nullable === "YES" ? "" : " NOT NULL";
         const dflt = col.column_default ? ` DEFAULT ${col.column_default}` : "";
-        lines.push(`    - ${col.column_name}: ${col.data_type}${nullable}${dflt}`);
+        const type = formatColumnType(col.data_type, col.udt_name);
+        lines.push(`    - ${col.column_name}: ${type}${nullable}${dflt}`);
       }
     }
     return ok(lines.join("\n"));
