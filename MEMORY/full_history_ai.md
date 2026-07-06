@@ -1040,3 +1040,22 @@ context_for_next_session:
 decisions_made: []
 followups: []
 ---
+
+---
+session: 2026-07-06T15:07Z
+issue: 90
+focus: ci_gap_add_filesystem_sandbox_py_pytest_ruff_job
+phase: day_session_phase_b
+duration_min: 20
+delta:
+  files_changed: 1   # .github/workflows/ci.yml
+  tests_added: 0     # CI-only; no test changes
+context_for_next_session:
+  - closed_90_the_python_parity_server_filesystem_sandbox_py_had_no_ci_job_only_4_ts_servers_ran_pytest_lint_readme_check_counted_its_def_test_but_nothing_exercised_its_behavior_so_a_regression_like_the_88_isError_parity_break_could_land_green
+  - fix_added_filesystem_sandbox_py_job_mirroring_ts_jobs_shape_setup_python_matrix_3_11_3_12_matches_requires_python_ge_3_11_pip_install_e_server_dev_ruff_check_ruff_format_check_pytest_server_extra_pulls_mcp_sdk_so_isError_round_trip_tests_run_fully
+  - verified_locally_pre_push_ruff_check_clean_ruff_format_12_files_clean_pytest_74_passed_plus_repo_own_gates_check_workflow_yaml_check_workflow_timeout_new_job_has_timeout_minutes_15_check_readme_test_count_unchanged
+  - ci_confirmed_green_on_github_all_12_jobs_pass_incl_both_new_filesystem_sandbox_py_3_11_and_3_12_matrix_legs_pr_93_ready_squash_merged_this_run
+  - this_was_the_last_directly_actionable_non_gated_non_demo_issue_in_the_portfolio_90_was_a_followup_filed_during_the_88_parity_fix_night_session
+decisions_made: []
+followups: []
+---
