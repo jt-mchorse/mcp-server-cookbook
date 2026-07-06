@@ -145,6 +145,30 @@ def _dispatch_tool(name: str, arguments: dict[str, Any], deps: ToolDeps) -> tupl
         return f"unexpected error: {err}", True
 
 
+def _wrap_dispatch_result(text: str, is_error: bool) -> Any:
+    """Wrap a ``(text, is_error)`` dispatch result in the SDK's
+    ``CallToolResult`` so the MCP ``isError`` flag actually reflects tool
+    failures.
+
+    This is the parity guarantee the module docstring and README claim: the
+    TS sibling returns ``isError: true`` on every refusal (sandbox escape,
+    read-only write, oversize/binary read, unknown tool), and an MCP client
+    keys off that flag. Returning a bare content list — as this adapter did
+    before — always reported ``isError: false``, so a client saw *success*
+    for denied/failed operations. The low-level SDK returns a
+    ``CallToolResult`` verbatim when the handler produces one, so this is how
+    the flag propagates.
+
+    Imported lazily to keep the security primitive's tests dependency-free.
+    """
+    from mcp import types
+
+    return types.CallToolResult(
+        content=[types.TextContent(type="text", text=text)],
+        isError=is_error,
+    )
+
+
 async def _serve(deps: ToolDeps) -> None:
     """Wire the tool dispatcher into the official Python MCP SDK.
 
@@ -164,13 +188,12 @@ async def _serve(deps: ToolDeps) -> None:
         return [types.Tool(**t) for t in _build_tool_specs()]
 
     @server.call_tool()
-    async def _call_tool(name: str, arguments: dict[str, Any]) -> list[types.TextContent]:
+    async def _call_tool(name: str, arguments: dict[str, Any]) -> types.CallToolResult:
         text, is_error = _dispatch_tool(name, arguments or {}, deps)
-        # The SDK's CallToolResult is shaped via the return type;
-        # `is_error=True` propagates by raising or by adding to the
-        # response. Returning text content with the typed error
-        # message gives the caller the same surface as the TS server.
-        return [types.TextContent(type="text", text=text)]
+        # Return a CallToolResult so `is_error` reaches the client's MCP
+        # `isError` flag — matching the TS server (which flags every
+        # refusal). A bare content list always reported isError:false.
+        return _wrap_dispatch_result(text, is_error)
 
     async with stdio_server() as (read, write):
         await server.run(read, write, server.create_initialization_options())
