@@ -143,22 +143,25 @@ Returns (paths and counts are real on a fresh clone):
 {
   "root": "/.../servers/internal-tools-bridge",
   "total_files": 14,
-  "total_bytes": 28471,
+  "total_bytes": 206614,
   "by_ext": {
     ".js": 1,
     ".json": 3,
     ".md": 1,
     ".mjs": 1,
-    ".ts": 5,
-    "<none>": 3
+    ".ts": 8
   }
 }
 ```
 
+`total_files` and `by_ext` are locked to the tracked files by
+`test/repo-stats-readme.test.ts`; `total_bytes` is the tracked-content total
+at the time of writing (it shifts as files change).
+
 ## Tests
 
 ```bash
-npm test          # 42 tests (29 bridge, 10 tools, 3 public-surface) — ~1s
+npm test          # 45 tests (30 bridge, 10 tools, 3 public-surface, 2 repo-stats-readme) — ~1s
 npm run lint
 npm run typecheck
 ```
