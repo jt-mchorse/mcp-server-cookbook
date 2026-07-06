@@ -645,3 +645,13 @@ of truth).
 **Open questions / blockers.** None — ready for review.
 
 **Next session:** portfolio remains saturated; the nextjs partial-json "number-truncation" finding is a verified FALSE POSITIVE (surfacing a valid trailing number in an open array is intended, tested at partial-json.test.ts line 63) — do not re-file. All open issues are JT-gated decision-revisits (lco #97/#124, vsas #71) or headless-unfriendly demo captures.
+
+## 2026-07-06 — Issue #88: filesystem-sandbox-py MCP adapter dropped isError (~30 min)
+
+**What got done.** The Python parity server's MCP adapter reported `isError: false` for every tool outcome: `_dispatch_tool` returned `(text, is_error)`, but `_call_tool` discarded `is_error` and returned a bare content list, so a client keying off the standard MCP flag saw *success* for sandbox escapes, read-only refusals, oversize/binary reads, and unknown tools — breaking the documented byte-identical parity with the TS sibling (which flags every refusal). Added `_wrap_dispatch_result` to carry the decision into a `CallToolResult` (returned verbatim by the low-level SDK); `_call_tool` uses it. Verified end-to-end over a real MCP stdio round-trip: escapes/refusals/unknown-tool now return `isError:true`, a valid in-sandbox read/list returns `isError:false`. Added `tests/test_server_iserror.py` (dep-free dispatch test + two wrapper tests that skip without the `[server]` extra); pytest 74, ruff clean, README count 71→74.
+
+**Why prioritized.** Fourth real bug of the NIGHT loop, from the wave-5 live-run lens (drove both servers over stdio — the same lens as mcp #86). Also surfaced a CI gap: `filesystem-sandbox-py` has no job in `ci.yml`, so its pytest never runs in CI (filed as a separate low-priority follow-up).
+
+**Open questions / blockers.** None — ready for review.
+
+**Next session:** the internal-tools-bridge README fresh-clone numbers finding (also wave 5) is next, worked serially after #89 merges (both touch the root README).
