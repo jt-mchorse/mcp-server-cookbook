@@ -665,3 +665,16 @@ of truth).
 **Open questions / blockers.** None — ready for review.
 
 **Next session:** the "run the shipped example / regenerate the committed artifact and diff" lens is exhausted across the portfolio for now (this run swept all 12 code repos; healthy repos have regenerate-from-source locks, the weak ones — chunking, this one — got fixed + locked). Remaining open items are JT-gated (vsas #71/#78, lco #97) or the low-pri CI-gap #90.
+
+## 2026-07-06 — Issue #90: CI gap for the Python parity server
+**Duration:** ~20 min · **Branch:** `session/2026-07-06-1507-issue-90`
+
+- The Python parity server (`servers/filesystem-sandbox-py`) had no job in `ci.yml` — only the four TS servers ran pytest/lint gates. `readme-check` counted its `def test_` for the test-count claim, but nothing actually exercised the Python server's behavior in CI, so a regression like the `isError` parity break in #88 could land green.
+- Added a `filesystem-sandbox-py` job mirroring the TS jobs: `setup-python` on a 3.11/3.12 matrix (matches `requires-python >=3.11`), `pip install -e '.[server,dev]'`, `ruff check`, `ruff format --check`, `pytest`. The `[server]` extra pulls the MCP SDK so the `isError`/round-trip tests run fully rather than skipping.
+- Verified locally (ruff clean, 74 tests pass) and confirmed all 12 CI jobs green on GitHub including both new matrix legs before merging.
+
+**Why this work, this session:** #90 was the only directly-actionable, non-gated, non-demo issue open across the 12-repo portfolio; it closes a real CI-enforcement gap flagged during the #88 parity fix.
+
+**Open questions / blockers:** none.
+
+**Next session:** Remaining open issues are all JT-gated decision-revisits (lco #97/D-013 draft #124, vsas #71/#78) or headless-unfriendly demo GIF captures. Portfolio remains saturated.
