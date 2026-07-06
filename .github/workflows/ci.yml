@@ -89,6 +89,33 @@ jobs:
       - run: npm test
       - run: npm run build
 
+  filesystem-sandbox-py:
+    # Python parity server (servers/filesystem-sandbox-py). The four jobs
+    # above cover the TS servers; without this job the Python port's pytest
+    # suite and ruff checks never run in CI — readme-check only counts its
+    # `def test_` for the test-count claim, so a behavioral regression like
+    # the isError parity break in #88 could land green. See #90.
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.12"]
+    defaults:
+      run:
+        working-directory: servers/filesystem-sandbox-py
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      # The [server] extra pulls the official MCP Python SDK so the
+      # isError/round-trip tests exercise the real server wiring rather
+      # than skipping; [dev] pulls pytest + ruff.
+      - run: pip install -e '.[server,dev]'
+      - run: ruff check .
+      - run: ruff format --check .
+      - run: pytest
+
   memory-check:
     runs-on: ubuntu-latest
     timeout-minutes: 15
