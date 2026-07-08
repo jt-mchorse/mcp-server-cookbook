@@ -393,3 +393,113 @@ describe("guardQuery — unterminated string literals fail closed (#55)", () => 
     expect(guardQuery('SELECT * FROM "tbl"').ok).toBe(true);
   });
 });
+
+describe("guardQuery — rejected (side-effecting functions the read-only backstop misses, #94)", () => {
+  // Postgres EXEMPTS sequence functions from `default_transaction_read_only`,
+  // so db.ts's session backstop never catches these — the guard is the only
+  // defense. `setval` persistently rewrites a live sequence; `nextval` burns it.
+  it("rejects setval (persistently rewrites a sequence)", () => {
+    const r = guardQuery("SELECT setval('users_id_seq', 1, false)");
+    expect(r.ok).toBe(false);
+    expect(r.reason).toMatch(/SETVAL/);
+  });
+
+  it("rejects nextval (advances/burns a sequence)", () => {
+    expect(guardQuery("SELECT nextval('users_id_seq')").ok).toBe(false);
+  });
+
+  it("rejects currval", () => {
+    expect(guardQuery("SELECT currval('users_id_seq')").ok).toBe(false);
+  });
+
+  it("rejects sequence functions case-insensitively", () => {
+    expect(guardQuery("select SetVal('s', 100)").ok).toBe(false);
+  });
+
+  // Server-side file I/O: filesystem, not the transaction, so read-only txns
+  // don't gate them. Arbitrary reads are exfiltration; lo_export writes a file.
+  it("rejects pg_read_file (arbitrary server-file exfiltration)", () => {
+    expect(guardQuery("SELECT pg_read_file('/etc/passwd', 0, 100)").ok).toBe(false);
+  });
+
+  it("rejects pg_read_binary_file", () => {
+    expect(guardQuery("SELECT pg_read_binary_file('/etc/passwd')").ok).toBe(false);
+  });
+
+  it("rejects pg_stat_file", () => {
+    expect(guardQuery("SELECT pg_stat_file('/etc/passwd')").ok).toBe(false);
+  });
+
+  it("rejects pg_ls_dir (server directory listing)", () => {
+    expect(guardQuery("SELECT pg_ls_dir('/var/lib/postgresql/data')").ok).toBe(false);
+  });
+
+  it("rejects other pg_ls_* directory-listing variants", () => {
+    expect(guardQuery("SELECT pg_ls_waldir()").ok).toBe(false);
+    expect(guardQuery("SELECT pg_ls_logdir()").ok).toBe(false);
+  });
+
+  it("rejects lo_export (writes a file on the server host)", () => {
+    expect(guardQuery("SELECT lo_export(1234, '/tmp/exfil')").ok).toBe(false);
+  });
+
+  it("rejects lo_import and other large-object functions", () => {
+    expect(guardQuery("SELECT lo_import('/etc/passwd')").ok).toBe(false);
+    expect(guardQuery("SELECT lo_put(1, 0, 'x')").ok).toBe(false);
+  });
+
+  // dblink_* runs on a SEPARATE libpq connection the session setting can't
+  // reach; the pre-#94 whole-word `DBLINK` entry missed these variants.
+  it("rejects dblink_connect (whole-word DBLINK entry missed this)", () => {
+    expect(guardQuery("SELECT dblink_connect('host=evil user=x')").ok).toBe(false);
+  });
+
+  it("rejects dblink_send_query (remote write on a fresh connection)", () => {
+    expect(guardQuery("SELECT dblink_send_query('c', 'DELETE FROM users')").ok).toBe(false);
+  });
+
+  it("rejects dblink_exec", () => {
+    expect(guardQuery("SELECT dblink_exec('c', 'DELETE FROM users')").ok).toBe(false);
+  });
+
+  it("still rejects the original whole-word dblink(...) form", () => {
+    expect(guardQuery("SELECT * FROM dblink('db', 'SELECT 1') AS t(x int)").ok).toBe(false);
+  });
+
+  // Advisory locks are session-scoped side effects. pg_try_advisory_lock does
+  // NOT start with PG_ADVISORY — the PG_TRY_ADVISORY prefix covers it.
+  it("rejects pg_advisory_lock", () => {
+    expect(guardQuery("SELECT pg_advisory_lock(42)").ok).toBe(false);
+  });
+
+  it("rejects pg_advisory_xact_lock", () => {
+    expect(guardQuery("SELECT pg_advisory_xact_lock(42)").ok).toBe(false);
+  });
+
+  it("rejects pg_try_advisory_lock (distinct prefix)", () => {
+    expect(guardQuery("SELECT pg_try_advisory_lock(42)").ok).toBe(false);
+  });
+
+  it("rejects pg_try_advisory_xact_lock", () => {
+    expect(guardQuery("SELECT pg_try_advisory_xact_lock(42)").ok).toBe(false);
+  });
+
+  // Regression: legit reads whose identifiers coincidentally share letters with
+  // a forbidden family must STILL pass. `low_stock` is not `lo_*` (the prefix is
+  // `lo_`, and `low` breaks at the `w`); `setup_id`/`settings` are not SET/SETVAL.
+  it("still allows a read with a low_stock column (not the lo_ family)", () => {
+    expect(guardQuery("SELECT location, low_stock FROM inventory")).toEqual({ ok: true });
+  });
+
+  it("still allows a read with setup_id / settings columns (not SET/SETVAL)", () => {
+    expect(guardQuery("SELECT setup_id, settings FROM configs")).toEqual({ ok: true });
+  });
+
+  it("still allows a benign pg_ function like pg_typeof", () => {
+    expect(guardQuery("SELECT pg_typeof(id) FROM users")).toEqual({ ok: true });
+  });
+
+  it("still allows an ordinary aggregate read", () => {
+    expect(guardQuery("SELECT count(*) FROM orders")).toEqual({ ok: true });
+  });
+});
