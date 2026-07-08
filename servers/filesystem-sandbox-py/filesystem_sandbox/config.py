@@ -14,6 +14,7 @@ Mirrors ``../filesystem-sandbox/src/config.ts``:
 from __future__ import annotations
 
 import os
+import re
 import sys
 from dataclasses import dataclass
 
@@ -49,15 +50,23 @@ def read_sandbox_config_from_env(env: dict[str, str] | None = None) -> SandboxCo
     ro = e.get("MCP_FS_SANDBOX_READ_ONLY", "").strip().lower()
     read_only = ro in ("1", "true", "yes")
 
-    max_bytes_raw = e.get("MCP_FS_SANDBOX_MAX_BYTES", "")
+    # Canonical grammar for the byte cap: a plain base-10 integer, optional
+    # surrounding whitespace, optional leading sign. `int()` alone would also
+    # accept underscore-grouped digits (`1_000_000`) and reject scientific/
+    # hex/octal/binary — the exact mirror-image of the TS port's `Number()`,
+    # which accepts `1e6`/`0x10`/`0o17` but rejects `1_000_000`. That divergence
+    # means the same `.env` / docker-compose value starts one port and hard-
+    # fails the other (#98). Both ports now gate on the same explicit regex so
+    # they accept/reject an identical grammar; the trailing `int()` parse then
+    # only ever sees plain digits.
+    max_bytes_raw = e.get("MCP_FS_SANDBOX_MAX_BYTES", "").strip()
     max_bytes = DEFAULT_MAX_BYTES
     if max_bytes_raw:
-        try:
-            parsed = int(max_bytes_raw)
-        except ValueError as exc:
+        if not re.fullmatch(r"[+-]?\d+", max_bytes_raw):
             raise ValueError(
                 f"MCP_FS_SANDBOX_MAX_BYTES must be a positive integer; got {max_bytes_raw!r}"
-            ) from exc
+            )
+        parsed = int(max_bytes_raw)
         if parsed <= 0:
             raise ValueError(f"MCP_FS_SANDBOX_MAX_BYTES must be a positive integer; got {parsed!r}")
         max_bytes = parsed

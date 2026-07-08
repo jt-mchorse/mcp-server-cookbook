@@ -48,10 +48,20 @@ export function readSandboxConfigFromEnv(env: NodeJS.ProcessEnv = process.env): 
   const ro = (env.MCP_FS_SANDBOX_READ_ONLY ?? "").trim().toLowerCase();
   const readOnly = ro === "1" || ro === "true" || ro === "yes";
 
+  // Canonical grammar for the byte cap: a plain base-10 integer, optional
+  // surrounding whitespace, optional leading sign. `Number()` alone would also
+  // accept scientific/hex/octal/binary literals (`1e6`→1000000, `0x10`→16,
+  // `0o17`→15) — but the Python parity port's `int()` rejects all of those
+  // while accepting underscore-grouped digits (`1_000_000`), which `Number()`
+  // in turn rejects. That divergence means the same `.env` / docker-compose
+  // value starts one port and hard-fails the other (#98). Both ports now gate
+  // on the same explicit regex so they accept/reject an identical grammar; the
+  // trailing `Number` parse then only ever sees plain digits.
   const maxBytesRaw = env.MCP_FS_SANDBOX_MAX_BYTES;
   let maxBytes = DEFAULT_MAX_BYTES;
-  if (maxBytesRaw !== undefined && maxBytesRaw !== "") {
-    const parsed = Number(maxBytesRaw);
+  if (maxBytesRaw !== undefined && maxBytesRaw.trim() !== "") {
+    const trimmed = maxBytesRaw.trim();
+    const parsed = /^[+-]?\d+$/.test(trimmed) ? Number(trimmed) : Number.NaN;
     if (!Number.isFinite(parsed) || parsed <= 0 || !Number.isInteger(parsed)) {
       throw new Error(
         `MCP_FS_SANDBOX_MAX_BYTES must be a positive integer; got ${JSON.stringify(maxBytesRaw)}`,

@@ -703,3 +703,15 @@ of truth).
 **Open questions / blockers:** none — ready for review. Note: this PR and the #94 PR (postgres-readonly guard) both touch the root README test-count block + MEMORY, so they're sibling PRs — next Phase A should merge one then rebase the other.
 
 **Next session:** the Python sibling (`rag io_utils.py`, operator-controlled path, far less reachable) is filed as rag#128 priority:low and deferred; leh/lco/prs helpers share the shape but are all operator-controlled. Parent-dir fsync (crash durability) is a separate decision-revisit candidate, not filed.
+
+## 2026-07-08 (day) — Issue #98: filesystem-sandbox TS↔Python MAX_BYTES parse-parity
+**Duration:** ~40 min · **Branch:** `session/2026-07-08-1919-issue-98`
+
+- The filesystem-sandbox server ships two "parity" ports — TS (`Number()`) and Python (`int()`, whose docstring says it "Mirrors" the TS config). They parsed `MCP_FS_SANDBOX_MAX_BYTES` with **different string grammars**, so the same `.env`/docker-compose value was accepted by one port and rejected by the other, in **both** directions: TS accepted `1e6`/`0x10`/`0o17`/`0b10` (which `int()` rejects) while Python accepted `1_000_000` (underscore digit groups, which `Number()` rejects). Reproduced firsthand on clean `main`. An operator migrating between the ports hit a hard startup failure; the silent-accept cases (`0x10` → 16 bytes on TS only) are worse — the "same" config yields two different byte caps. Neither test suite covered any divergent input, so CI was blind.
+- Fixed by gating both loaders on the same explicit `/^[+-]?\d+$/` grammar (plain base-10 integer, optional surrounding whitespace, optional leading sign) before parsing, keeping the existing `<= 0` and error-message contract. Verified firsthand that both ports now accept/reject an identical set. Added 2 TS + 2 Python parity-fixture tests; bumped root README counts (fs-sandbox 56→58, fs-sandbox-py 74→83); `readme-check` and full CI-equiv green. Not a D-NNN — this restores the documented parity contract, a bug fix in the spirit of the #52 whitespace-trim parity fix.
+
+**Why this work, this session:** the static `priority:high` queue is globally exhausted, so work came from fresh-lens dogfood hunts. This DAY run's wave-2 config/env-precedence hunt found it — the same lens family that came back empty on *atomicity* in the night wave-5 sweep still had untouched depth on the **TS-vs-Python parity** axis.
+
+**Open questions / blockers:** none — ready for review.
+
+**Next session:** the "TS-vs-Python parity-port env-var parse-grammar divergence" lens is now swept on fs-sandbox's `MAX_BYTES` (its `READ_ONLY` and `ALLOWLIST` knobs are already parity). fs-sandbox is the only dual-port server — github-gists and internal-tools-bridge have no Python port — so this specific lens is exhausted repo-wide. Checker gotcha for next time: `check-readme.mjs`'s parametrize counter counts top-level commas but does **not** skip nested `()` — parametrize on a single value, not `(value, want)` tuples, or the count overshoots.

@@ -75,4 +75,34 @@ describe("readSandboxConfigFromEnv", () => {
       ).toThrow(/MCP_FS_SANDBOX_MAX_BYTES/);
     }
   });
+
+  // Parity with the Python port (#98). Bare `Number()` also accepts
+  // scientific/hex/octal/binary literals, which Python's `int()` rejects —
+  // so without the canonical-grammar gate the two "parity" ports would
+  // accept/reject the same env value differently. These must all be rejected
+  // here to match `int()`.
+  it("rejects non-decimal numeric literals for parity with the Python int() port (#98)", () => {
+    for (const v of ["1e6", "0x10", "0o17", "0b10", "1_000_000", "0xFF", "1e3"]) {
+      expect(() =>
+        readSandboxConfigFromEnv({
+          MCP_FS_SANDBOX_ALLOWLIST: "/tmp/a",
+          MCP_FS_SANDBOX_MAX_BYTES: v,
+        }),
+      ).toThrow(/MCP_FS_SANDBOX_MAX_BYTES/);
+    }
+  });
+
+  it("accepts a plain decimal with optional sign / surrounding whitespace (#98)", () => {
+    for (const [v, want] of [
+      ["100", 100],
+      ["+100", 100],
+      ["  524288  ", 524288],
+    ] as const) {
+      const cfg = readSandboxConfigFromEnv({
+        MCP_FS_SANDBOX_ALLOWLIST: "/tmp/a",
+        MCP_FS_SANDBOX_MAX_BYTES: v,
+      });
+      expect(cfg.maxBytes).toBe(want);
+    }
+  });
 });
