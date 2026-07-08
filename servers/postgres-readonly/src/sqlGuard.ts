@@ -35,13 +35,48 @@ const FORBIDDEN_KEYWORDS_ANYWHERE = [
   // Function-call escape hatches we never want a read-only client invoking
   "PG_TERMINATE_BACKEND", "PG_CANCEL_BACKEND",
   "PG_RELOAD_CONF", "PG_SLEEP", "PG_NOTIFY",
-  "DBLINK", "DBLINK_EXEC",
+  // Sequence functions. Postgres EXEMPTS nextval/setval/currval from
+  // `default_transaction_read_only`, so the db.ts session backstop does NOT
+  // catch them — the guard is the only defense. `setval` persistently rewrites
+  // a live sequence and `nextval` burns values; both are "modification" under
+  // the README threat model even on a role that only has sequence USAGE (#94).
+  "NEXTVAL", "SETVAL", "CURRVAL",
+  // Server-side FILE I/O. These read (or, for lo_export, write) files on the
+  // database host — filesystem, not the transaction — so read-only txns don't
+  // gate them. Arbitrary server-file reads are data exfiltration beyond the
+  // schema surface (#94). The `lo_*`/dblink/advisory FAMILIES live in
+  // FORBIDDEN_FUNCTION_PREFIXES below since whole-word matching misses variants.
+  "PG_READ_FILE", "PG_READ_BINARY_FILE", "PG_STAT_FILE",
   // Session changes
   "SET", "RESET",
   // Meta / out-of-band
   "DO", "CALL", "PREPARE", "EXECUTE", "DEALLOCATE", "DISCARD",
   "LISTEN", "UNLISTEN",
   "FOR UPDATE", "FOR SHARE", "FOR NO KEY UPDATE", "FOR KEY SHARE",
+];
+
+// Function FAMILIES a read-only client has no business invoking, where a plain
+// whole-word entry would miss the variants (the pre-#94 `DBLINK` entry blocked
+// `dblink(...)` but not `dblink_connect`/`dblink_send_query`, which are distinct
+// tokens). Matched as a name PREFIX at a word boundary so every member is caught.
+// Like the sequence/file functions above, these bypass BOTH the keyword list and
+// the `default_transaction_read_only` backstop:
+//   DBLINK*          — runs on a SEPARATE libpq connection the session setting
+//                      never reaches, so a remote INSERT/DELETE runs for real.
+//   LO_*             — large-object API; lo_export writes a server file, lo_import
+//                      reads one, others read/write large-object data.
+//   PG_ADVISORY* /   — advisory locks are session-scoped side effects (note
+//   PG_TRY_ADVISORY*   pg_try_advisory_lock does NOT start with PG_ADVISORY).
+//   PG_LS_*          — pg_ls_dir/pg_ls_waldir/pg_ls_logdir/... list server dirs.
+// The guard's stated stance (sqlGuard.ts header) accepts over-blocking a query a
+// security analyst would call safe; only UNDER-blocking is unacceptable — so
+// prefix breadth is deliberate and aligned.
+const FORBIDDEN_FUNCTION_PREFIXES = [
+  "DBLINK",
+  "LO_",
+  "PG_ADVISORY",
+  "PG_TRY_ADVISORY",
+  "PG_LS_",
 ];
 
 export interface GuardResult {
@@ -357,6 +392,17 @@ function containsKeyword(text: string, kw: string): boolean {
   return re.test(text);
 }
 
+/**
+ * True iff `text` contains a token that STARTS with `prefix` at a word boundary
+ * (case-insensitive) — e.g. prefix `DBLINK` matches `dblink_connect`. Used for
+ * forbidden function families (#94). Prefixes are `[A-Za-z_]`-only, so no regex
+ * metacharacters need escaping.
+ */
+function containsFunctionPrefix(text: string, prefix: string): boolean {
+  const re = new RegExp(`(^|\\W)${prefix}[A-Za-z0-9_]*`, "i");
+  return re.test(text);
+}
+
 export function guardQuery(sqlInput: string): GuardResult {
   if (typeof sqlInput !== "string" || sqlInput.trim().length === 0) {
     return { ok: false, reason: "empty query" };
@@ -401,6 +447,12 @@ export function guardQuery(sqlInput: string): GuardResult {
   for (const kw of FORBIDDEN_KEYWORDS_ANYWHERE) {
     if (containsKeyword(scanText, kw)) {
       return { ok: false, reason: `forbidden keyword present: ${kw}` };
+    }
+  }
+
+  for (const pfx of FORBIDDEN_FUNCTION_PREFIXES) {
+    if (containsFunctionPrefix(scanText, pfx)) {
+      return { ok: false, reason: `forbidden function family: ${pfx}*` };
     }
   }
 
