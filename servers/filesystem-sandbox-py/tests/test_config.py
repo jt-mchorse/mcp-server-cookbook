@@ -80,3 +80,24 @@ def test_max_bytes_rejects_invalid_values(value: str):
         read_sandbox_config_from_env(
             {"MCP_FS_SANDBOX_ALLOWLIST": "/tmp", "MCP_FS_SANDBOX_MAX_BYTES": value}
         )
+
+
+# Parity with the TS port (#98). Bare `int()` accepts underscore-grouped digits
+# (`1_000_000`) that the TS `Number()` rejects; conversely `int()` rejects the
+# scientific/hex/octal/binary literals `Number()` accepts. Without the canonical
+# grammar gate the two "parity" ports would accept/reject the same env value
+# differently. `1_000_000` in particular must now be rejected here to match TS.
+@pytest.mark.parametrize("value", ["1_000_000", "1e6", "0x10", "0o17", "0b10", "1e3"])
+def test_max_bytes_rejects_non_decimal_literals_for_ts_parity(value: str):
+    with pytest.raises(ValueError, match="positive integer"):
+        read_sandbox_config_from_env(
+            {"MCP_FS_SANDBOX_ALLOWLIST": "/tmp", "MCP_FS_SANDBOX_MAX_BYTES": value}
+        )
+
+
+@pytest.mark.parametrize("value", ["100", "+100", "  524288  "])
+def test_max_bytes_accepts_plain_decimal_with_sign_or_whitespace(value: str):
+    cfg = read_sandbox_config_from_env(
+        {"MCP_FS_SANDBOX_ALLOWLIST": "/tmp", "MCP_FS_SANDBOX_MAX_BYTES": value}
+    )
+    assert cfg.max_bytes == int(value.strip())
