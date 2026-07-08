@@ -691,3 +691,15 @@ of truth).
 **Open questions / blockers:** none — ready for review.
 
 **Next session:** the "read-only-guard completeness — denylist vs. what the txn read-only backstop actually gates" lens is now swept on `postgres-readonly`; the other three TS servers have no SQL-guard surface, so don't re-sweep there. Gotcha for this repo: `check-readme.mjs` only counts `it(`/`test(` call sites and can't expand multi-line `it.each` arrays that contain `)` — use plain `it()` here.
+
+## 2026-07-08 — Issue #96: filesystem-sandbox atomic-write temp name overflows NAME_MAX
+**Duration:** ~25 min · **Branch:** `session/2026-07-08-0404-issue-96`
+
+- `atomicWriteFile` built its temp name as `.<base>.<pid>.<12hex>.tmp`, prepending the full target basename. For a target whose basename is near the 255-byte NAME_MAX limit — a name the filesystem itself accepts — the temp name overflowed and the write failed `ENAMETOOLONG`, even though a plain `fs.writeFile` of the same target succeeds. The `write_file` MCP tool takes a **client-supplied** path, so the spurious failure is reachable, and it contradicts the helper's drop-in-atomic-write contract. Reproduced firsthand (255-char basename: plain write OK, atomic write ENAMETOOLONG).
+- Fixed by capping the basename's contribution to the temp name at a 200-byte budget (trimmed on a char boundary); the random token + pid + `O_EXCL` already guarantee uniqueness, so truncating the cosmetic basename prefix is safe. Added a 255-char-basename test (fails pre-fix) + a short-basename regression guard. Root README filesystem-sandbox count 54 → 56.
+
+**Why this work, this session:** the NIGHT run's wave-5 orthogonal sweep (atomicity / display-precision / config-precedence / backend-SSE-framing — lenses not touched earlier this run) surfaced it; the other three came back empty. Low severity, but a real client-reachable robustness bug in a security-adjacent server with a clean fix.
+
+**Open questions / blockers:** none — ready for review. Note: this PR and the #94 PR (postgres-readonly guard) both touch the root README test-count block + MEMORY, so they're sibling PRs — next Phase A should merge one then rebase the other.
+
+**Next session:** the Python sibling (`rag io_utils.py`, operator-controlled path, far less reachable) is filed as rag#128 priority:low and deferred; leh/lco/prs helpers share the shape but are all operator-controlled. Parent-dir fsync (crash durability) is a separate decision-revisit candidate, not filed.

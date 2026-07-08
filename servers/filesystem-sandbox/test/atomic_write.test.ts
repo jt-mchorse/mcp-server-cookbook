@@ -117,6 +117,34 @@ describe("atomicWriteFile (helper)", () => {
     const onDisk = await fs.readFile(target);
     expect(onDisk.equals(original)).toBe(true);
   });
+
+  it("writes a target whose basename is at NAME_MAX (temp name must not overflow) (#96)", async () => {
+    // A basename the filesystem itself accepts must be writable atomically.
+    // Pre-fix, the temp name prepended the full basename (`.<base>.<pid>.<tok>.tmp`)
+    // and overflowed NAME_MAX, so a name a plain fs.writeFile accepts failed
+    // ENAMETOOLONG through the atomic helper.
+    const base = `${"a".repeat(250)}.json`; // 255-char basename
+    const target = path.join(workDir, base);
+
+    // Control: the filesystem accepts this exact basename via a plain write.
+    const plainTarget = path.join(workDir, base.replace(/^a/, "b"));
+    await fs.writeFile(plainTarget, Buffer.from("plain"));
+    await fs.rm(plainTarget);
+
+    const data = Buffer.from("atomic-payload", "utf-8");
+    await atomicWriteFile(target, data);
+    expect((await fs.readFile(target)).equals(data)).toBe(true);
+    // No temp sibling left behind.
+    const leftovers = (await fs.readdir(workDir)).filter((n) => n.endsWith(".tmp"));
+    expect(leftovers).toEqual([]);
+  });
+
+  it("still round-trips an ordinary (short) basename after the cap (#96)", async () => {
+    const target = path.join(workDir, "short.json");
+    const data = Buffer.from("ok", "utf-8");
+    await atomicWriteFile(target, data);
+    expect((await fs.readFile(target)).toString()).toBe("ok");
+  });
 });
 
 // ---------------------------------------------------------------------------

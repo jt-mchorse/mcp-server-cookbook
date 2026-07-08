@@ -27,13 +27,34 @@ import { randomBytes } from "node:crypto";
 import { promises as fs, constants as fsc } from "node:fs";
 import path from "node:path";
 
+// Cap the target basename's contribution to the temp filename. The temp name
+// is `.<base>.<pid>.<12-hex>.tmp`; the affixes add ~25 bytes, so prepending a
+// full basename that is itself near NAME_MAX (255 on ext4/APFS) overflows the
+// limit and the write fails with ENAMETOOLONG — even though a plain
+// `fs.writeFile` of that same target succeeds. Since `write_file` takes a
+// client-supplied path, that spurious failure is reachable; the atomic helper
+// must accept every name the filesystem does (#96). The base in the temp name
+// is cosmetic (`ls`-ability) — uniqueness is guaranteed by the random token +
+// pid + O_EXCL — so truncating it is safe. Budget is in BYTES (NAME_MAX is a
+// byte limit) and we trim on a char boundary.
+const MAX_TEMP_BASE_BYTES = 200;
+
+function capBaseForTemp(base: string): string {
+  if (Buffer.byteLength(base, "utf8") <= MAX_TEMP_BASE_BYTES) return base;
+  let out = base;
+  while (out.length > 0 && Buffer.byteLength(out, "utf8") > MAX_TEMP_BASE_BYTES) {
+    out = out.slice(0, -1);
+  }
+  return out;
+}
+
 export async function atomicWriteFile(target: string, data: Buffer): Promise<void> {
   const dir = path.dirname(target);
   const base = path.basename(target);
   await fs.mkdir(dir, { recursive: true });
 
   const token = randomBytes(6).toString("hex");
-  const tmp = path.join(dir, `.${base}.${process.pid}.${token}.tmp`);
+  const tmp = path.join(dir, `.${capBaseForTemp(base)}.${process.pid}.${token}.tmp`);
 
   // O_WRONLY | O_CREAT | O_EXCL — fail loudly if the temp name
   // already exists (collision with a concurrent attempt by another
