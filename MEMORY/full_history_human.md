@@ -678,3 +678,16 @@ of truth).
 **Open questions / blockers:** none.
 
 **Next session:** Remaining open issues are all JT-gated decision-revisits (lco #97/D-013 draft #124, vsas #71/#78) or headless-unfriendly demo GIF captures. Portfolio remains saturated.
+
+## 2026-07-08 — Issue #94: postgres-readonly guard bypass (write-smuggling)
+**Duration:** ~30 min · **Branch:** `session/2026-07-08-0317-issue-94`
+
+- The `postgres-readonly` SQL guard is a whole-word denylist, and it omitted a whole class of side-effecting functions that PostgreSQL does **not** gate under `default_transaction_read_only` — so they slipped past **both** the guard and the `db.ts` session backstop. The sharpest case needs no extension and no elevated role: Postgres exempts sequence functions from read-only transactions, so `SELECT setval('seq', 1, false)` persistently rewrites a live sequence on any read-only role with sequence USAGE. Also reproduced: server-file I/O (`pg_read_file`/`pg_ls_dir`/`pg_stat_file`/`lo_export`), `dblink_connect`/`dblink_send_query` (which the whole-word `DBLINK` entry missed), and `pg_advisory*` session locks.
+- Fixed by extending the denylist: exact keywords (`NEXTVAL`/`SETVAL`/`CURRVAL`/`PG_READ_FILE`/`PG_READ_BINARY_FILE`/`PG_STAT_FILE`) plus a new `FORBIDDEN_FUNCTION_PREFIXES` mechanism (`DBLINK`, `LO_`, `PG_ADVISORY`, `PG_TRY_ADVISORY`, `PG_LS_`) that matches a function-name prefix at a word boundary so every family variant is caught. This completes the existing denylist design (D-004) rather than redesigning it; converting to a read-only-function allowlist would be a larger decision and was deferred.
+- 23 new guard tests pin every reproduced bypass as blocked, plus controls that legit reads with lookalike identifiers (`low_stock`, `setup_id`, `pg_typeof`) still pass. All green (120 runtime tests, eslint/tsc clean, readme-check + its own 29 unit tests green). Root README test-count bumped 83 → 106.
+
+**Why this work, this session:** static issue queue is globally exhausted; this NIGHT run's fresh-lens dogfood hunts (6 parallel) surfaced this as one of two real hits. Every bypass was reproduced firsthand against the compiled guard before and after the fix.
+
+**Open questions / blockers:** none — ready for review.
+
+**Next session:** the "read-only-guard completeness — denylist vs. what the txn read-only backstop actually gates" lens is now swept on `postgres-readonly`; the other three TS servers have no SQL-guard surface, so don't re-sweep there. Gotcha for this repo: `check-readme.mjs` only counts `it(`/`test(` call sites and can't expand multi-line `it.each` arrays that contain `)` — use plain `it()` here.
