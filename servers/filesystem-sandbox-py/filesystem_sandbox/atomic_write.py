@@ -31,6 +31,33 @@ import os
 import tempfile
 from pathlib import Path
 
+# Cap the target basename fed into the temp-file prefix. `NamedTemporaryFile`
+# builds the temp basename as `.{base}.{random}{suffix}`, so prepending the
+# *full* target basename overflows NAME_MAX (255 on macOS/Linux) whenever the
+# target basename is itself near NAME_MAX — a name a plain `open(..., "wb")`
+# accepts then fails ENAMETOOLONG through this atomic helper. 200 bytes leaves
+# ~55 bytes of headroom for the leading dot, the random token, and the `.tmp`
+# suffix. Parity twin of the TS `MAX_TEMP_BASE_BYTES` / `capBaseForTemp`
+# (../filesystem-sandbox/src/atomic_write.ts, #96).
+MAX_TEMP_BASE_BYTES = 200
+
+
+def _cap_base_for_temp(base: str) -> str:
+    """Trim ``base`` to at most ``MAX_TEMP_BASE_BYTES`` UTF-8 bytes.
+
+    The temp name only needs to be a recognizable, collision-free sibling;
+    ``NamedTemporaryFile``'s random token guarantees uniqueness, so truncating
+    the cosmetic base is safe. Trims by whole characters so the result stays
+    valid UTF-8 (a byte-slice could split a multi-byte codepoint). Mirrors the
+    TS ``capBaseForTemp``.
+    """
+    if len(base.encode("utf-8")) <= MAX_TEMP_BASE_BYTES:
+        return base
+    out = base
+    while out and len(out.encode("utf-8")) > MAX_TEMP_BASE_BYTES:
+        out = out[:-1]
+    return out
+
 
 def atomic_write_bytes(path: str | Path, data: bytes) -> None:
     # Write to a sibling temp file in the destination's parent directory,
@@ -45,7 +72,7 @@ def atomic_write_bytes(path: str | Path, data: bytes) -> None:
         with tempfile.NamedTemporaryFile(
             mode="wb",
             dir=target.parent,
-            prefix=f".{target.name}.",
+            prefix=f".{_cap_base_for_temp(target.name)}.",
             suffix=".tmp",
             delete=False,
         ) as tmp:
