@@ -715,3 +715,18 @@ of truth).
 **Open questions / blockers:** none — ready for review.
 
 **Next session:** the "TS-vs-Python parity-port env-var parse-grammar divergence" lens is now swept on fs-sandbox's `MAX_BYTES` (its `READ_ONLY` and `ALLOWLIST` knobs are already parity). fs-sandbox is the only dual-port server — github-gists and internal-tools-bridge have no Python port — so this specific lens is exhausted repo-wide. Checker gotcha for next time: `check-readme.mjs`'s parametrize counter counts top-level commas but does **not** skip nested `()` — parametrize on a single value, not `(value, want)` tuples, or the count overshoots.
+
+---
+
+## 2026-07-09 — Issue #100: filesystem-sandbox-py NAME_MAX temp-name overflow (Python twin of #96)
+**Duration:** ~30 min · **Branch:** `session/2026-07-09-0350-issue-100` · **PR:** #101
+
+- `atomic_write_bytes` built the temp file with `prefix=f".{target.name}."` and no cap, so `NamedTemporaryFile`'s appended random token + `.tmp` overflowed NAME_MAX (255) whenever the target basename was near NAME_MAX — a name a plain `open(...,"wb")` accepts then failed ENAMETOOLONG (errno 63) through the atomic helper, reachable via the `write_file` MCP tool. The Python twin of #96, which fixed the TS side via `capBaseForTemp` / `MAX_TEMP_BASE_BYTES=200`; the Python port never got the cap.
+- Fix: added `MAX_TEMP_BASE_BYTES=200` + `_cap_base_for_temp` (multibyte-safe UTF-8 byte-budget trim) mirroring the TS helper, applied to the temp prefix. Added `tests/test_atomic_write.py` (NAME_MAX round-trip + no `.tmp` leftover + cap unit tests) and bumped the root README `filesystem-sandbox-py` count 83→87 (readme-check enforces it).
+- Reproduced firsthand on clean main; after the fix the 255-char-basename write round-trips with no leftovers. `check-readme.mjs` green, pytest 87 passed, ruff clean.
+
+**Why this work, this session:** Static queue globally exhausted. Found by a parallel dogfood agent (run-the-`write_file` lens), verified firsthand before shipping. The atomic-write basename-cap parity is tracked as a class — the two client-reachable ones (TS #96 and this Python twin #100) are now both fixed; the sibling helpers in leh/lco/prs/rag take operator-controlled paths and are far less reachable — don't churn-PR them.
+
+**Open questions / blockers:** none.
+
+**Next session:** fs-sandbox is the only dual-port server; the TS↔Python parity lens is now swept for both env-var grammar (#98) and atomic-write basename (#100). Heuristic transfers to any future dual-port surface.
