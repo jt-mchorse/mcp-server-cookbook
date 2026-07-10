@@ -484,6 +484,81 @@ describe("guardQuery — rejected (side-effecting functions the read-only backst
     expect(guardQuery("SELECT pg_try_advisory_xact_lock(42)").ok).toBe(false);
   });
 
+  // #104: more admin/side-effecting functions in the same "exempt from
+  // default_transaction_read_only" class #94 partially covered. All reachable
+  // via a single run_select statement; the guard is their sole defense.
+  it("rejects set_config (function-form twin of SET; can flip read-only GUC)", () => {
+    // whole-word SET can't match SET_CONFIG (`_` is a word char), so this needs
+    // its own entry — it can set default_transaction_read_only = off.
+    expect(guardQuery("SELECT set_config('default_transaction_read_only','off',false)").ok).toBe(
+      false,
+    );
+  });
+
+  it("rejects pg_switch_wal (forces a WAL segment switch)", () => {
+    expect(guardQuery("SELECT pg_switch_wal()").ok).toBe(false);
+  });
+
+  it("rejects pg_logical_emit_message (writes a WAL record)", () => {
+    expect(guardQuery("SELECT pg_logical_emit_message(true, 'a', 'b')").ok).toBe(false);
+  });
+
+  it("rejects pg_drop_replication_slot (PG_DROP_ family; destroys a slot)", () => {
+    expect(guardQuery("SELECT pg_drop_replication_slot('slot1')").ok).toBe(false);
+  });
+
+  it("rejects pg_create_restore_point (PG_CREATE_ family; writes WAL)", () => {
+    expect(guardQuery("SELECT pg_create_restore_point('rp')").ok).toBe(false);
+  });
+
+  it("rejects pg_create_logical_replication_slot (PG_CREATE_ family)", () => {
+    expect(
+      guardQuery("SELECT pg_create_logical_replication_slot('s','test_decoding')").ok,
+    ).toBe(false);
+  });
+
+  it("rejects pg_create_physical_replication_slot (PG_CREATE_ family)", () => {
+    expect(guardQuery("SELECT pg_create_physical_replication_slot('s')").ok).toBe(false);
+  });
+
+  it("rejects pg_stat_reset (PG_STAT_RESET family; wipes monitoring stats)", () => {
+    expect(guardQuery("SELECT pg_stat_reset()").ok).toBe(false);
+  });
+
+  it("rejects pg_stat_reset_shared (PG_STAT_RESET family)", () => {
+    expect(guardQuery("SELECT pg_stat_reset_shared('bgwriter')").ok).toBe(false);
+  });
+
+  it("rejects pg_stat_statements_reset (own whole-word entry; distinct prefix)", () => {
+    expect(guardQuery("SELECT pg_stat_statements_reset()").ok).toBe(false);
+  });
+
+  it("rejects pg_replication_origin_create (PG_REPLICATION_ORIGIN family)", () => {
+    expect(guardQuery("SELECT pg_replication_origin_create('o')").ok).toBe(false);
+  });
+
+  it("rejects pg_replication_origin_drop (PG_REPLICATION_ORIGIN family)", () => {
+    expect(guardQuery("SELECT pg_replication_origin_drop('o')").ok).toBe(false);
+  });
+
+  // #104 regression: the read-only siblings of the new families must STILL pass
+  // — the new prefixes/keywords over-block nothing a read-only client needs.
+  it("still allows pg_stat_get_numscans (PG_STAT_ read, not PG_STAT_RESET)", () => {
+    expect(guardQuery("SELECT pg_stat_get_numscans('t'::regclass)")).toEqual({ ok: true });
+  });
+
+  it("still allows pg_current_wal_lsn (read, not pg_switch_wal)", () => {
+    expect(guardQuery("SELECT pg_current_wal_lsn()")).toEqual({ ok: true });
+  });
+
+  it("still allows pg_show_replication_origin_status (read, distinct prefix)", () => {
+    expect(guardQuery("SELECT pg_show_replication_origin_status()")).toEqual({ ok: true });
+  });
+
+  it("still allows current_setting (GUC read, not set_config)", () => {
+    expect(guardQuery("SELECT current_setting('search_path')")).toEqual({ ok: true });
+  });
+
   // Regression: legit reads whose identifiers coincidentally share letters with
   // a forbidden family must STILL pass. `low_stock` is not `lo_*` (the prefix is
   // `lo_`, and `low` breaks at the `w`); `setup_id`/`settings` are not SET/SETVAL.

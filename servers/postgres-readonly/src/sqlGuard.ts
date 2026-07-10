@@ -47,6 +47,20 @@ const FORBIDDEN_KEYWORDS_ANYWHERE = [
   // schema surface (#94). The `lo_*`/dblink/advisory FAMILIES live in
   // FORBIDDEN_FUNCTION_PREFIXES below since whole-word matching misses variants.
   "PG_READ_FILE", "PG_READ_BINARY_FILE", "PG_STAT_FILE",
+  // More admin/side-effecting functions in the same "exempt from
+  // default_transaction_read_only" class as the entries above — the db.ts
+  // session backstop does NOT gate them, so the guard is the sole defense (the
+  // sibling gap #94 left open). `set_config(name, value, is_local)` is the
+  // function-form twin of the `SET`/`RESET` keywords below — whole-word `SET`
+  // can't match `SET_CONFIG` (`_` is a word char) — and can flip the very
+  // `default_transaction_read_only` GUC the layered defense relies on.
+  // `pg_switch_wal` forces a WAL segment switch; `pg_logical_emit_message`
+  // writes a WAL record. `pg_stat_statements_reset` clears the statement-stats
+  // extension (the core `pg_stat_reset*` family is a PREFIX below, but this
+  // name doesn't share that prefix). The DROP/CREATE/replication-origin
+  // families also live in FORBIDDEN_FUNCTION_PREFIXES below.
+  "SET_CONFIG",
+  "PG_SWITCH_WAL", "PG_LOGICAL_EMIT_MESSAGE", "PG_STAT_STATEMENTS_RESET",
   // Session changes
   "SET", "RESET",
   // Meta / out-of-band
@@ -68,15 +82,33 @@ const FORBIDDEN_KEYWORDS_ANYWHERE = [
 //   PG_ADVISORY* /   — advisory locks are session-scoped side effects (note
 //   PG_TRY_ADVISORY*   pg_try_advisory_lock does NOT start with PG_ADVISORY).
 //   PG_LS_*          — pg_ls_dir/pg_ls_waldir/pg_ls_logdir/... list server dirs.
-// The guard's stated stance (sqlGuard.ts header) accepts over-blocking a query a
-// security analyst would call safe; only UNDER-blocking is unacceptable — so
-// prefix breadth is deliberate and aligned.
+//   PG_DROP_*        — pg_drop_replication_slot destroys a replication slot
+//                      (breaks CDC/standbys); every pg_drop_* is destructive.
+//   PG_CREATE_*      — pg_create_restore_point (writes WAL) and
+//                      pg_create_{logical,physical}_replication_slot; no
+//                      read-only pg_create_* exists.
+//   PG_STAT_RESET*   — pg_stat_reset / _shared / _single_table_counters / _slru
+//                      wipe server monitoring state. The read-only stat readers
+//                      are pg_stat_get_* / pg_stat_file (already listed) and
+//                      views, none of which start with PG_STAT_RESET.
+//   PG_REPLICATION_ORIGIN* — replication-origin create/drop/advance/session
+//                      side effects; the read-only status reader is
+//                      pg_show_replication_origin_status (different prefix).
+// All of these are exempt from default_transaction_read_only, so like the
+// families above the guard is their sole defense (#94 sibling gap). The guard's
+// stated stance (sqlGuard.ts header) accepts over-blocking a query a security
+// analyst would call safe; only UNDER-blocking is unacceptable — so prefix
+// breadth is deliberate and aligned.
 const FORBIDDEN_FUNCTION_PREFIXES = [
   "DBLINK",
   "LO_",
   "PG_ADVISORY",
   "PG_TRY_ADVISORY",
   "PG_LS_",
+  "PG_DROP_",
+  "PG_CREATE_",
+  "PG_STAT_RESET",
+  "PG_REPLICATION_ORIGIN",
 ];
 
 export interface GuardResult {
