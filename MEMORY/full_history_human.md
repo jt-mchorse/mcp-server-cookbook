@@ -740,3 +740,13 @@ Extracted the dispatch switch into a side-effect-free `src/handler.ts` (`dispatc
 **Why prioritized.** Static priority:high queue globally exhausted; found via the sibling-incomplete-fix meta-lens. The four TS servers now all carry the handler isError catch — this parity axis is exhausted.
 
 **Open questions / blockers.** None — PR ready for review.
+
+## 2026-07-10 — Issue #104: postgres-readonly guard blocks side-effecting admin functions (~28 min, night)
+
+**What got done.** The `postgres-readonly` SELECT-only guard allowed a set of side-effecting / admin functions that are exempt from `default_transaction_read_only`, so the `db.ts` session backstop doesn't catch them either — the guard is their sole defense and it under-blocked. 12 functions were reachable via `run_select` with a single plain statement (verified firsthand against `guardQuery`): `set_config` (flips the read-only GUC itself — the function-form twin of the blocked `SET`/`RESET` keywords, which whole-word `SET` can't match because `_` is a word char), `pg_switch_wal`, `pg_logical_emit_message`, `pg_drop_replication_slot`, `pg_create_{restore_point,logical/physical_replication_slot}`, `pg_stat_reset*`, `pg_stat_statements_reset`, and `pg_replication_origin_{create,drop}`. This is the same class #94 partially closed.
+
+Extended the denylist: whole-word keywords `SET_CONFIG`, `PG_SWITCH_WAL`, `PG_LOGICAL_EMIT_MESSAGE`, `PG_STAT_STATEMENTS_RESET`; function-family prefixes `PG_DROP_`, `PG_CREATE_`, `PG_STAT_RESET`, `PG_REPLICATION_ORIGIN`. Prefix breadth is aligned with the guard's documented over-block stance; the read-only `pg_stat_get_*` / `pg_current_wal_*` / `pg_show_replication_origin_status` / `current_setting` readers are unaffected (regression-locked). 16 guard tests (12 new rejections + 4 still-allow), README count 110 → 126 (readme-check). Build/typecheck/eslint + full suite (142) green.
+
+**Why prioritized.** Static priority:high queue globally exhausted; found via the sibling-incomplete-fix / read-only-guard-completeness lens. Security-relevant (a read-only-contract bypass, including one that can flip the read-only setting).
+
+**Open questions / blockers.** None — PR ready for review.
