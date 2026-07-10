@@ -750,3 +750,15 @@ Extended the denylist: whole-word keywords `SET_CONFIG`, `PG_SWITCH_WAL`, `PG_LO
 **Why prioritized.** Static priority:high queue globally exhausted; found via the sibling-incomplete-fix / read-only-guard-completeness lens. Security-relevant (a read-only-contract bypass, including one that can flip the read-only setting).
 
 **Open questions / blockers.** None — PR ready for review.
+
+## 2026-07-10 — Issue #106: block adminpack pg_file_* mutation family in the read-only guard (~25 min, night)
+
+**What got done.** The postgres-readonly SQL guard blocked the server-file READ family (`pg_read_file`, `pg_read_binary_file`, `pg_stat_file`) and the large-object file-WRITE `lo_export` (#94), but never added the parallel **adminpack server-file MUTATION family** — `pg_file_write` / `pg_file_unlink` / `pg_file_rename` / `pg_file_sync`, which write/delete/rename/fsync files on the database host. Like `lo_export`/`pg_read_file` these are C functions doing filesystem I/O, exempt from `default_transaction_read_only`, so the `db.ts` session backstop can't gate them and the guard is the sole defense. All four (and the schema-qualified `adminpack.pg_file_unlink`) confirmed `ALLOW` against the real `guardQuery` before the fix.
+
+Also blocked `pg_signal_backend` (the generic PARENT of the already-blocked `pg_terminate_backend`/`pg_cancel_backend` children — blocking the children but not the parent was itself a sibling gap) and the cluster/replication state functions `pg_promote`, `pg_wal_replay_pause`, `pg_wal_replay_resume`.
+
+Fix: added `PG_FILE_` to `FORBIDDEN_FUNCTION_PREFIXES` and the four admin names to `FORBIDDEN_KEYWORDS_ANYWHERE`. 9 tests (each blocked; `pg_filenode_relation` read still allowed, proving the `PG_FILE_` underscore prefix doesn't over-block). README test-count 126 → 135. Full suite (151) + eslint green. Verified firsthand via `tsx` against `guardQuery` before/after.
+
+**Why prioritized.** Static priority:high queue globally exhausted; found via a sibling-incomplete-fix hunt on the just-merged #105 guard surface, then reproduced firsthand.
+
+**Open questions / blockers.** None — PR ready for review. Deferred lower-confidence admin fns (`pg_rotate_logfile`, `pg_backup_start/stop`, replication-slot advance) — not filed, kept the PR to the clear-cut set.
