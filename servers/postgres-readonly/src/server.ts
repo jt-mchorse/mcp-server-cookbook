@@ -8,11 +8,7 @@ import {
 } from "@modelcontextprotocol/sdk/types.js";
 
 import { readDbConfigFromEnv } from "./db.js";
-import {
-  describeSchema,
-  runSelect,
-  sampleRows,
-} from "./tools.js";
+import { dispatchCallTool } from "./handler.js";
 
 const cfg = readDbConfigFromEnv();
 
@@ -82,27 +78,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: TOOLS }))
 server.setRequestHandler(CallToolRequestSchema, async (req): Promise<CallToolResult> => {
   const { name, arguments: args } = req.params;
   const a = (args ?? {}) as Record<string, unknown>;
-
-  switch (name) {
-    case "describe_schema":
-      return describeSchema({ schema: a.schema as string | undefined }, cfg) as Promise<CallToolResult>;
-    case "run_select":
-      return runSelect({ sql: a.sql as string }, cfg) as Promise<CallToolResult>;
-    case "sample_rows":
-      return sampleRows(
-        {
-          schema: a.schema as string | undefined,
-          table: a.table as string,
-          limit: a.limit as number | undefined,
-        },
-        cfg,
-      ) as Promise<CallToolResult>;
-    default:
-      return {
-        content: [{ type: "text" as const, text: `unknown tool: ${name}` }],
-        isError: true,
-      };
-  }
+  return dispatchCallTool(name, a, cfg);
 });
 
 async function main(): Promise<void> {
