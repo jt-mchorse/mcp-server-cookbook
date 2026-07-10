@@ -730,3 +730,13 @@ of truth).
 **Open questions / blockers:** none.
 
 **Next session:** fs-sandbox is the only dual-port server; the TS↔Python parity lens is now swept for both env-var grammar (#98) and atomic-write basename (#100). Heuristic transfers to any future dual-port surface.
+
+## 2026-07-10 — Issue #102: postgres-readonly isError-contract parity (~30 min, night)
+
+**What got done.** `postgres-readonly` was the only one of the four TS servers whose `tools/call` handler had no `try/catch` (the three siblings each wrap their switch in `catch (err) → isError: true`). `withClient` runs `validateDbConfig`/`connect`/the two `SET` statements outside its own `try/finally`, so a connection failure (DB down, wrong `DATABASE_URL`, network/TLS error) — or a mid-query error in `describe_schema` — threw out of the handler and the SDK converted the rejected promise into a JSON-RPC `error { code: InternalError }` instead of the documented `isError: true` result. Verified firsthand: all three tools throw `ECONNREFUSED` on an unreachable DB. This is the same isError-contract-completeness class fixed for the Python filesystem-sandbox adapter in #88/#89, never ported here; it also contradicts `docs/architecture.md`.
+
+Extracted the dispatch switch into a side-effect-free `src/handler.ts` (`dispatchCallTool` + `errorMessage` helper) wrapped in one `try/catch`, mirroring the siblings, and wired `server.ts` to it. `server.ts` runs `main()` on import (per its public-surface test comment, deliberately not smoke-imported), so the extracted module is what makes the fix hermetically testable — unlike the siblings, whose handler catch is untested. Added 6 handler tests exercising the isError path through an unreachable loopback DB. Bumped the README postgres-readonly count 106 → 110; `npm test` (126), eslint, tsc, and readme-check all green.
+
+**Why prioritized.** Static priority:high queue globally exhausted; found via the sibling-incomplete-fix meta-lens. The four TS servers now all carry the handler isError catch — this parity axis is exhausted.
+
+**Open questions / blockers.** None — PR ready for review.
