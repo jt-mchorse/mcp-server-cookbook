@@ -32,8 +32,17 @@ const FORBIDDEN_KEYWORDS_ANYWHERE = [
   "GRANT", "REVOKE",
   // Locking and admin
   "LOCK", "REINDEX", "VACUUM", "CLUSTER", "ANALYZE",
-  // Function-call escape hatches we never want a read-only client invoking
-  "PG_TERMINATE_BACKEND", "PG_CANCEL_BACKEND",
+  // Function-call escape hatches we never want a read-only client invoking.
+  // `pg_signal_backend(pid, sig)` is the generic PARENT of the two children
+  // below — it delivers SIGTERM/SIGINT to another backend, so blocking the
+  // children (`pg_terminate_backend`/`pg_cancel_backend`) but not the parent was
+  // itself a sibling gap (#106). `pg_promote` promotes a standby to primary and
+  // `pg_wal_replay_pause`/`pg_wal_replay_resume` halt/resume WAL replay on a
+  // standby — cluster/replication STATE changes in the same "exempt from
+  // default_transaction_read_only, db.ts backstop can't gate it" class as the
+  // WAL entries (`pg_switch_wal`) below (#106).
+  "PG_TERMINATE_BACKEND", "PG_CANCEL_BACKEND", "PG_SIGNAL_BACKEND",
+  "PG_PROMOTE", "PG_WAL_REPLAY_PAUSE", "PG_WAL_REPLAY_RESUME",
   "PG_RELOAD_CONF", "PG_SLEEP", "PG_NOTIFY",
   // Sequence functions. Postgres EXEMPTS nextval/setval/currval from
   // `default_transaction_read_only`, so the db.ts session backstop does NOT
@@ -81,6 +90,14 @@ const FORBIDDEN_KEYWORDS_ANYWHERE = [
 //                      reads one, others read/write large-object data.
 //   PG_ADVISORY* /   — advisory locks are session-scoped side effects (note
 //   PG_TRY_ADVISORY*   pg_try_advisory_lock does NOT start with PG_ADVISORY).
+//   PG_FILE_*        — adminpack server-file MUTATION family:
+//                      pg_file_write/pg_file_unlink/pg_file_rename/pg_file_sync
+//                      write/delete/rename/fsync files on the database host. The
+//                      write twin of the already-blocked pg_read_file/lo_export
+//                      file I/O — #94 closed the read + large-object-write
+//                      direction but left this adminpack write family open (#106).
+//                      No read-only pg_file_* exists (even pg_file_read is
+//                      server-file exfiltration), so the prefix is safe.
 //   PG_LS_*          — pg_ls_dir/pg_ls_waldir/pg_ls_logdir/... list server dirs.
 //   PG_DROP_*        — pg_drop_replication_slot destroys a replication slot
 //                      (breaks CDC/standbys); every pg_drop_* is destructive.
@@ -102,6 +119,7 @@ const FORBIDDEN_KEYWORDS_ANYWHERE = [
 const FORBIDDEN_FUNCTION_PREFIXES = [
   "DBLINK",
   "LO_",
+  "PG_FILE_",
   "PG_ADVISORY",
   "PG_TRY_ADVISORY",
   "PG_LS_",

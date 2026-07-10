@@ -577,4 +577,59 @@ describe("guardQuery — rejected (side-effecting functions the read-only backst
   it("still allows an ordinary aggregate read", () => {
     expect(guardQuery("SELECT count(*) FROM orders")).toEqual({ ok: true });
   });
+
+  // #106: the adminpack server-file MUTATION family (PG_FILE_ prefix). #94
+  // closed the file-READ direction (pg_read_file/pg_stat_file) and the
+  // large-object file-WRITE (lo_export) but left the pg_file_* write/delete/
+  // rename/sync twins open — filesystem I/O exempt from
+  // default_transaction_read_only, so the guard is their sole defense.
+  it("rejects pg_file_write (writes a file on the server host, PG_FILE_ family)", () => {
+    const r = guardQuery("SELECT pg_file_write('data/x.txt', 'payload', false)");
+    expect(r.ok).toBe(false);
+    expect(r.reason).toMatch(/PG_FILE_/);
+  });
+
+  it("rejects pg_file_unlink (deletes a server file)", () => {
+    expect(guardQuery("SELECT pg_file_unlink('data/x.txt')").ok).toBe(false);
+  });
+
+  it("rejects pg_file_rename (renames server files)", () => {
+    expect(guardQuery("SELECT pg_file_rename('a.txt', 'b.txt')").ok).toBe(false);
+  });
+
+  it("rejects pg_file_sync (fsyncs a server file/dir)", () => {
+    expect(guardQuery("SELECT pg_file_sync('data')").ok).toBe(false);
+  });
+
+  it("rejects the schema-qualified adminpack.pg_file_unlink form", () => {
+    // The prefix matches at a `\W` word boundary, so the `adminpack.` schema
+    // qualifier doesn't evade it.
+    expect(guardQuery("SELECT adminpack.pg_file_unlink('data/x.txt')").ok).toBe(false);
+  });
+
+  // pg_signal_backend is the generic PARENT of the already-blocked
+  // pg_terminate_backend / pg_cancel_backend children — blocking the children
+  // but not the parent was itself a sibling gap (#106).
+  it("rejects pg_signal_backend (parent of terminate/cancel_backend)", () => {
+    const r = guardQuery("SELECT pg_signal_backend(123, 15)");
+    expect(r.ok).toBe(false);
+    expect(r.reason).toMatch(/PG_SIGNAL_BACKEND/);
+  });
+
+  it("rejects pg_promote (promotes a standby to primary; cluster state change)", () => {
+    expect(guardQuery("SELECT pg_promote()").ok).toBe(false);
+  });
+
+  it("rejects pg_wal_replay_pause / pg_wal_replay_resume (halt/resume WAL replay)", () => {
+    expect(guardQuery("SELECT pg_wal_replay_pause()").ok).toBe(false);
+    expect(guardQuery("SELECT pg_wal_replay_resume()").ok).toBe(false);
+  });
+
+  // #106 regression: read-only pg_ functions that share leading letters with the
+  // new PG_FILE_ prefix / new keywords must STILL pass — over-block nothing.
+  it("still allows pg_filenode_relation (read; not the pg_file_ mutation family)", () => {
+    // `pg_filenode_relation` starts `pg_file` but the prefix is `PG_FILE_`
+    // (with the trailing underscore), and `pg_filenode` breaks at `n`.
+    expect(guardQuery("SELECT pg_filenode_relation(1663, 12345)")).toEqual({ ok: true });
+  });
 });
