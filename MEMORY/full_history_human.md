@@ -774,3 +774,13 @@ Added `PG_REPLICATION_SLOT_ADVANCE` and `PG_LOGICAL_SLOT_GET_` to `FORBIDDEN_FUN
 **Why prioritized.** Static priority:high queue globally exhausted; found via the sibling-incomplete-fix meta-lens (read-only guard denylist completeness). The replication-slot lifecycle guard is now complete: create/drop/origin/advance/consume all blocked, read-only peek/view allowed.
 
 **Open questions / blockers.** None — PR ready for review.
+
+## 2026-07-10 — Issue #110: block state-mutating admin/index-maintenance functions (~20 min, night)
+
+**What got done.** Beyond the replication-slot family (#108), the `postgres-readonly` read-only SQL guard still allowed a cluster of state-mutating admin / index-maintenance functions via `run_select`: `pg_import_system_collations` (writes rows into the `pg_collation` catalog), `brin_summarize_new_values`/`brin_summarize_range`/`brin_desummarize_range` (mutate BRIN index storage), `gin_clean_pending_list` (flushes the GIN pending list into the index), and `pg_prewarm` (forces pages into the buffer cache — an I/O side effect in the same class as the already-blocked `pg_sleep`).
+
+Added `PG_IMPORT_`, `BRIN_SUMMARIZE`, `BRIN_DESUMMARIZE`, `GIN_CLEAN_PENDING_LIST`, `PG_PREWARM` to `FORBIDDEN_FUNCTION_PREFIXES`. The prefixes are deliberately specific so they don't over-block the read-only `pageinspect` siblings (`brin_page_items`, `brin_metapage_info`, `gin_metapage_info`, `gin_leafpage_items`) or stat views — a bare `BRIN_`/`GIN_` prefix would have. 8 guard tests (6 block, 2 allow-regression); README count 135→143. Verified firsthand via `tsx`: all 7 mutators ALLOW before / BLOCK after, all 6 read-only siblings stay ALLOW.
+
+**Why prioritized.** Found via the *second-order* sibling hunt on this run's own shipped #108 (the mcp secondary finding), then verified firsthand. Fourth denylist-completeness hit in the #94/#104/#106/#108 family. Sibling PR of #108 — both touch `sqlGuard.ts`/README/tests, so a next-Phase-A serial merge (merge #108 → 140, then rebase #110 → reconcile count, re-add the 5 prefixes after the slot prefixes) is needed.
+
+**Open questions / blockers.** None — PR ready for review.
