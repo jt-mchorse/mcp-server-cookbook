@@ -762,3 +762,15 @@ Fix: added `PG_FILE_` to `FORBIDDEN_FUNCTION_PREFIXES` and the four admin names 
 **Why prioritized.** Static priority:high queue globally exhausted; found via a sibling-incomplete-fix hunt on the just-merged #105 guard surface, then reproduced firsthand.
 
 **Open questions / blockers.** None — PR ready for review. Deferred lower-confidence admin fns (`pg_rotate_logfile`, `pg_backup_start/stop`, replication-slot advance) — not filed, kept the PR to the clear-cut set.
+
+## 2026-07-10 — Issue #108: block replication-slot advance/consume verbs in the read-only guard (~20 min, night)
+
+**What got done.** The `postgres-readonly` SQL guard blocked the *create* (`PG_CREATE_`), *drop* (`PG_DROP_`), and *origin* (`PG_REPLICATION_ORIGIN`) operations of the replication-slot lifecycle but left the **advance/consume** verbs open, so a read-only client could permanently mutate replication state via `run_select`: `pg_replication_slot_advance` (discards WAL a consumer still needs) and `pg_logical_slot_get_changes` / `_get_binary_changes` (the consuming decode variants that advance the slot's confirmed position, unlike the read-only `_peek_changes` twins). These are exempt from `default_transaction_read_only`, so — as the guard header states for the already-blocked siblings — the guard is their sole defense. This is the exposed sibling of #106's create/drop/origin pass.
+
+Added `PG_REPLICATION_SLOT_ADVANCE` and `PG_LOGICAL_SLOT_GET_` to `FORBIDDEN_FUNCTION_PREFIXES`. The `_ADVANCE` prefix is specific enough to leave the read-only `pg_replication_slots` *view* allowed (trailing `s`, no `_ADVANCE`); the `GET_` prefix covers both `get_changes`/`get_binary_changes` and deliberately does NOT catch `_PEEK_`. Five guard tests (3 block, 2 allow); README test-count bumped 135→140. Verified firsthand via `tsx`: before the fix all three ALLOW, after all three BLOCK, with peek + view staying ALLOW.
+
+**Gotcha.** `prettier --write` reformats the whole file, touching unrelated pre-existing lines — the repo is not prettier-clean under the local version, and CI gates only on eslint (`npm run lint`), not prettier. Reverted the prettier pass and kept only the logical edits in the existing manual style.
+
+**Why prioritized.** Static priority:high queue globally exhausted; found via the sibling-incomplete-fix meta-lens (read-only guard denylist completeness). The replication-slot lifecycle guard is now complete: create/drop/origin/advance/consume all blocked, read-only peek/view allowed.
+
+**Open questions / blockers.** None — PR ready for review.

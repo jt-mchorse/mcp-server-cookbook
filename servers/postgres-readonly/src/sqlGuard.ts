@@ -111,6 +111,20 @@ const FORBIDDEN_KEYWORDS_ANYWHERE = [
 //   PG_REPLICATION_ORIGIN* — replication-origin create/drop/advance/session
 //                      side effects; the read-only status reader is
 //                      pg_show_replication_origin_status (different prefix).
+//   PG_REPLICATION_SLOT_ADVANCE — advances a replication slot, discarding WAL a
+//                      standby/consumer still needs (breaks CDC/replication). The
+//                      advance verb of the same slot lifecycle whose create
+//                      (PG_CREATE_) and drop (PG_DROP_) are already blocked; the
+//                      read-only slot reader is the pg_replication_slots *view*
+//                      (trailing S, no _ADVANCE), which this exact prefix leaves
+//                      allowed.
+//   PG_LOGICAL_SLOT_GET_ — pg_logical_slot_get_changes / _get_binary_changes are
+//                      the *consuming* decode variants: they advance the slot's
+//                      confirmed position (destructive), unlike the read-only
+//                      pg_logical_slot_PEEK_changes twins. The GET_ prefix blocks
+//                      both consumers and deliberately does NOT catch _PEEK_.
+//                      Advance/consume are the write verbs of the replication-slot
+//                      lifecycle the #106 create/drop/origin pass left open.
 // All of these are exempt from default_transaction_read_only, so like the
 // families above the guard is their sole defense (#94 sibling gap). The guard's
 // stated stance (sqlGuard.ts header) accepts over-blocking a query a security
@@ -127,6 +141,8 @@ const FORBIDDEN_FUNCTION_PREFIXES = [
   "PG_CREATE_",
   "PG_STAT_RESET",
   "PG_REPLICATION_ORIGIN",
+  "PG_REPLICATION_SLOT_ADVANCE",
+  "PG_LOGICAL_SLOT_GET_",
 ];
 
 export interface GuardResult {

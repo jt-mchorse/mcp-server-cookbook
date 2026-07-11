@@ -541,6 +541,38 @@ describe("guardQuery — rejected (side-effecting functions the read-only backst
     expect(guardQuery("SELECT pg_replication_origin_drop('o')").ok).toBe(false);
   });
 
+  // #108: the advance/consume verbs of the replication-slot lifecycle — the
+  // #106 create/drop/origin pass left these open. Each mutates replication
+  // state (advances a slot / discards WAL) and is exempt from
+  // default_transaction_read_only, so the guard is the sole defense.
+  it("rejects pg_replication_slot_advance (PG_REPLICATION_SLOT_ADVANCE; discards WAL)", () => {
+    expect(guardQuery("SELECT pg_replication_slot_advance('s','0/16B1750')").ok).toBe(false);
+  });
+
+  it("rejects pg_logical_slot_get_changes (PG_LOGICAL_SLOT_GET_; consuming decode)", () => {
+    expect(guardQuery("SELECT pg_logical_slot_get_changes('s', NULL, NULL)").ok).toBe(false);
+  });
+
+  it("rejects pg_logical_slot_get_binary_changes (PG_LOGICAL_SLOT_GET_ family)", () => {
+    expect(guardQuery("SELECT pg_logical_slot_get_binary_changes('s', NULL, NULL)").ok).toBe(
+      false,
+    );
+  });
+
+  // #108 regression: the read-only slot readers must STILL pass — the new
+  // prefixes over-block nothing a read-only client needs.
+  it("still allows pg_logical_slot_peek_changes (read-only decode, not GET_)", () => {
+    expect(guardQuery("SELECT pg_logical_slot_peek_changes('s', NULL, NULL)")).toEqual({
+      ok: true,
+    });
+  });
+
+  it("still allows the pg_replication_slots view (read, not _ADVANCE)", () => {
+    expect(guardQuery("SELECT slot_name, active FROM pg_replication_slots")).toEqual({
+      ok: true,
+    });
+  });
+
   // #104 regression: the read-only siblings of the new families must STILL pass
   // — the new prefixes/keywords over-block nothing a read-only client needs.
   it("still allows pg_stat_get_numscans (PG_STAT_ read, not PG_STAT_RESET)", () => {
