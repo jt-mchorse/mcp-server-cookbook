@@ -573,6 +573,49 @@ describe("guardQuery — rejected (side-effecting functions the read-only backst
     });
   });
 
+  // #110: state-mutating admin / index-maintenance functions the #94/#104/#106
+  // passes left open — each mutates catalog or index storage (or, for
+  // pg_prewarm, consumes I/O like the blocked pg_sleep) and is exempt from
+  // default_transaction_read_only, so the guard is the sole defense.
+  it("rejects pg_import_system_collations (PG_IMPORT_; writes pg_collation)", () => {
+    expect(guardQuery("SELECT pg_import_system_collations('pg_catalog')").ok).toBe(false);
+  });
+
+  it("rejects brin_summarize_new_values (BRIN_SUMMARIZE; mutates BRIN index)", () => {
+    expect(guardQuery("SELECT brin_summarize_new_values('idx')").ok).toBe(false);
+  });
+
+  it("rejects brin_summarize_range (BRIN_SUMMARIZE family)", () => {
+    expect(guardQuery("SELECT brin_summarize_range('idx', 0)").ok).toBe(false);
+  });
+
+  it("rejects brin_desummarize_range (BRIN_DESUMMARIZE; mutates BRIN index)", () => {
+    expect(guardQuery("SELECT brin_desummarize_range('idx', 0)").ok).toBe(false);
+  });
+
+  it("rejects gin_clean_pending_list (GIN_CLEAN_PENDING_LIST; index write)", () => {
+    expect(guardQuery("SELECT gin_clean_pending_list('idx')").ok).toBe(false);
+  });
+
+  it("rejects pg_prewarm (PG_PREWARM; forces pages into the buffer cache)", () => {
+    expect(guardQuery("SELECT pg_prewarm('tbl')").ok).toBe(false);
+    expect(guardQuery("SELECT pg_prewarm('tbl', 'buffer')").ok).toBe(false);
+  });
+
+  // #110 regression: the read-only pageinspect siblings of the brin/gin
+  // maintenance functions must STILL pass — the new prefixes over-block nothing.
+  it("still allows brin_page_items / brin_metapage_info (pageinspect reads)", () => {
+    expect(guardQuery("SELECT * FROM brin_page_items(get_raw_page('i', 0), 'i')")).toEqual({
+      ok: true,
+    });
+    expect(guardQuery("SELECT brin_metapage_info(get_raw_page('i', 0))")).toEqual({ ok: true });
+  });
+
+  it("still allows gin_metapage_info / gin_leafpage_items (pageinspect reads)", () => {
+    expect(guardQuery("SELECT gin_metapage_info(get_raw_page('i', 0))")).toEqual({ ok: true });
+    expect(guardQuery("SELECT gin_leafpage_items(get_raw_page('i', 0))")).toEqual({ ok: true });
+  });
+
   // #104 regression: the read-only siblings of the new families must STILL pass
   // — the new prefixes/keywords over-block nothing a read-only client needs.
   it("still allows pg_stat_get_numscans (PG_STAT_ read, not PG_STAT_RESET)", () => {

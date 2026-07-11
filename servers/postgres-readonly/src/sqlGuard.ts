@@ -125,6 +125,22 @@ const FORBIDDEN_KEYWORDS_ANYWHERE = [
 //                      both consumers and deliberately does NOT catch _PEEK_.
 //                      Advance/consume are the write verbs of the replication-slot
 //                      lifecycle the #106 create/drop/origin pass left open.
+//   PG_IMPORT_*      — pg_import_system_collations writes rows into the
+//                      pg_collation catalog (a catalog mutation); no read-only
+//                      pg_import_* exists.
+//   BRIN_SUMMARIZE* /   — brin_summarize_new_values / brin_summarize_range /
+//   BRIN_DESUMMARIZE*     brin_desummarize_range mutate BRIN index storage. The
+//                      read-only brin inspectors are pageinspect's
+//                      brin_page_items / brin_metapage_info / brin_revmap_data
+//                      (distinct prefixes), so these two exact prefixes leave the
+//                      reads allowed.
+//   GIN_CLEAN_PENDING_LIST — flushes the GIN pending list into the main index (an
+//                      index write); the read-only gin inspectors are pageinspect's
+//                      gin_metapage_info / gin_page_opaque_info / gin_leafpage_items
+//                      (distinct prefix).
+//   PG_PREWARM*      — forces table/index pages into the buffer cache: a
+//                      resource-consuming side effect in the same class as the
+//                      already-blocked PG_SLEEP, and the guard is the sole defense.
 // All of these are exempt from default_transaction_read_only, so like the
 // families above the guard is their sole defense (#94 sibling gap). The guard's
 // stated stance (sqlGuard.ts header) accepts over-blocking a query a security
@@ -143,6 +159,11 @@ const FORBIDDEN_FUNCTION_PREFIXES = [
   "PG_REPLICATION_ORIGIN",
   "PG_REPLICATION_SLOT_ADVANCE",
   "PG_LOGICAL_SLOT_GET_",
+  "PG_IMPORT_",
+  "BRIN_SUMMARIZE",
+  "BRIN_DESUMMARIZE",
+  "GIN_CLEAN_PENDING_LIST",
+  "PG_PREWARM",
 ];
 
 export interface GuardResult {
