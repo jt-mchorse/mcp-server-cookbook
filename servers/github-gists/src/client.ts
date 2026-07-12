@@ -228,10 +228,15 @@ export class GistsClient {
     if (this.cfg.token === null) {
       throw new TokenRequiredError("update_gist_file");
     }
-    if (!args.gistId || args.gistId.trim().length === 0) {
+    // typeof guard mirrors getGist (which type-checks gistId) and the content
+    // check below: a present-but-non-string arg (the MCP handler casts
+    // `a.gist_id as string` with no runtime validation, and the SDK doesn't
+    // enforce inputSchema types) is truthy, so without this it skips the guard
+    // and `.trim()` throws a raw TypeError instead of this clean message (#117).
+    if (!args.gistId || typeof args.gistId !== "string" || args.gistId.trim().length === 0) {
       throw new Error("gist_id must be a non-empty string");
     }
-    if (!args.filename || args.filename.trim().length === 0) {
+    if (!args.filename || typeof args.filename !== "string" || args.filename.trim().length === 0) {
       throw new Error("filename must be a non-empty string");
     }
     if (typeof args.content !== "string") {

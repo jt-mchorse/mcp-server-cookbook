@@ -806,3 +806,15 @@ Added whole-word `TXID_CURRENT` + `PG_CURRENT_XACT_ID` entries. The guard's whol
 **Open questions / blockers:** none. Deferred `pg_log_backend_memory_contexts` (MED) and backup/WAL admin functions (LOW, superuser-gated) as a separate priority:low follow-up.
 
 **Next session:** Phase A merge PR for #114; consider the deferred follow-up.
+
+## 2026-07-12 — Issue #117: updateGistFile non-string gist_id/filename raises raw TypeError
+**Duration:** ~16 min · **Branch:** `session/2026-07-12-0924-issue-117`
+
+- `GistsClient.updateGistFile` type-guarded its `content` arg but checked `gistId`/`filename` only for truthiness + `.trim()`. A present-but-non-string value (e.g. a JSON number a client can send, since the MCP handler casts `a.gist_id as string` with no runtime validation and the SDK doesn't enforce inputSchema types) is truthy, skips the guard, and hits `.trim()` → raw `TypeError: args.gistId.trim is not a function`, surfaced to the client. The sibling `getGist` and the in-method `content` check both established the typeof contract; only these two args were missed.
+- Added `typeof args.gistId !== "string"` / `typeof args.filename !== "string"` to match. One regression test asserts non-string values (number/bool/object/array) reject with the clean `must be a non-empty string` message and never a `is not a function` TypeError. Verified firsthand via `npx tsx`. Full github-gists suite 85 pass; tsc + eslint + check-readme green (count 63→64).
+
+**Why this work, this session:** Second hit of the run, surfaced by the wave-3 sweep of the mcp servers *other* than postgres-readonly; same guard/validation-completeness class as #114.
+
+**Open questions / blockers:** none — ready for review.
+
+**Next session:** Phase A merge PR for #117.

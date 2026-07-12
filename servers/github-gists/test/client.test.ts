@@ -314,6 +314,31 @@ describe("GistsClient.updateGistFile", () => {
     ).rejects.toThrow(/content/);
   });
 
+  it("rejects a present-but-non-string gist_id/filename with the clean message, not a raw TypeError (#117)", async () => {
+    // The MCP handler casts `a.gist_id as string` with no runtime validation and
+    // the SDK doesn't enforce inputSchema types, so a client can send a JSON
+    // number. Truthy non-strings skipped the pre-#117 truthiness+trim guard and
+    // hit `.trim()` -> raw "args.gistId.trim is not a function". getGist and the
+    // content check both establish the typeof contract; gist_id/filename must match.
+    const { fetch } = recordingFetch({ status: 200, ok: true, jsonBody: {} });
+    const client = new GistsClient({ cfg: baseCfg({ token: "tok" }), fetch });
+    for (const bad of [123, true, {}, ["x"]]) {
+      const gistErr = await client
+        // @ts-expect-error intentionally wrong type
+        .updateGistFile({ gistId: bad, filename: "f.md", content: "hi" })
+        .catch((e: Error) => e);
+      expect(gistErr.message).toBe("gist_id must be a non-empty string");
+      expect(gistErr.message).not.toMatch(/is not a function/);
+
+      const nameErr = await client
+        // @ts-expect-error intentionally wrong type
+        .updateGistFile({ gistId: "abc", filename: bad, content: "hi" })
+        .catch((e: Error) => e);
+      expect(nameErr.message).toBe("filename must be a non-empty string");
+      expect(nameErr.message).not.toMatch(/is not a function/);
+    }
+  });
+
   it("does not include the token in the error message on 401", async () => {
     const { fetch } = recordingFetch({
       status: 401,
