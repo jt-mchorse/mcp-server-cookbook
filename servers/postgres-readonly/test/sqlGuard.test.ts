@@ -448,6 +448,23 @@ describe("guardQuery — rejected (side-effecting functions the read-only backst
     expect(guardQuery("SELECT lo_put(1, 0, 'x')").ok).toBe(false);
   });
 
+  // lowrite/loread are the two large-object functions spelled WITHOUT the `lo_`
+  // underscore, so the `LO_` prefix that blocks lo_put/lo_import/lo_export misses
+  // them; whole-word LOWRITE/LOREAD entries close the gap (#114). lowrite mutates
+  // pg_largeobject (a write on a read-only server); loread exfiltrates LO bytes.
+  it("rejects lowrite/loread (underscore-less large-object siblings of the LO_ family)", () => {
+    expect(guardQuery("SELECT lowrite(0, 'abc')").ok).toBe(false);
+    expect(guardQuery("SELECT loread(0, 100)").ok).toBe(false);
+    // case-insensitive
+    expect(guardQuery("SELECT LOWRITE(0,'a')").ok).toBe(false);
+    expect(guardQuery("SELECT LoRead(0, 10)").ok).toBe(false);
+    // hidden inside a CTE
+    expect(guardQuery("WITH x AS (SELECT lowrite(0,'a')) SELECT * FROM x").ok).toBe(false);
+    // whole-word matching: identifiers that merely START with the names (a longer
+    // token) are not over-blocked, e.g. a column `loreadings` or author `lowriter`
+    expect(guardQuery("SELECT loreadings, lowriter FROM catalog").ok).toBe(true);
+  });
+
   // dblink_* runs on a SEPARATE libpq connection the session setting can't
   // reach; the pre-#94 whole-word `DBLINK` entry missed these variants.
   it("rejects dblink_connect (whole-word DBLINK entry missed this)", () => {

@@ -794,3 +794,15 @@ Added whole-word `TXID_CURRENT` + `PG_CURRENT_XACT_ID` entries. The guard's whol
 **Why prioritized.** Sixth sibling in the denylist-completeness lineage (#94 → #105/#104 → #107/#106 → #109/#108 → #111/#110). Found via a targeted hunt on the guard's richest vein, verified firsthand with `npx tsx` against `guardQuery` (before: ALLOWED; after: blocked). The XID-side-effect/wraparound claim rests on documented Postgres semantics (no live DB available), but the guard-level behavior is verified firsthand and matches the README threat model that already treats `nextval`/`setval` as modification even on a USAGE-only role.
 
 **Open questions / blockers.** None — PR ready. The Postgres extension universe is large; future hunts could surface more (pageinspect writes, other `pg_stat_statements` functions), but the core side-effecting transaction/state families are now deeply covered.
+
+## 2026-07-12 — Issue #114: large-object lowrite/loread bypass the read-only guard
+**Duration:** ~20 min · **Branch:** `session/2026-07-12-0914-issue-114`
+
+- The postgres-readonly SQL guard blocks the large-object API through the `LO_` function-family prefix (catching `lo_put`/`lo_import`/`lo_export`/`lo_get`/`lo_open`/`lo_from_bytea`), but the two historical fast-path names `lowrite(fd, data)` and `loread(fd, len)` have no underscore after `lo`, so the prefix never matched them and they passed the guard. `lowrite` writes bytes into a large object (a real write on a read-only server); `loread` exfiltrates large-object bytes. Both are exempt from `default_transaction_read_only`, so the guard is their sole defense.
+- Added whole-word `LOWRITE`/`LOREAD` to `FORBIDDEN_KEYWORDS_ANYWHERE` — they are the only two large-object functions without the underscore, so whole-word entries close the gap without over-blocking any read-only variant. One regression test (6 asserts) covers the two functions, case-insensitivity, a CTE-hidden form, and a no-over-block probe (`loreadings`/`lowriter` identifiers stay allowed). Verified firsthand via `npx tsx guardQuery`: ALLOW→DENY for the writes, unchanged for the LO_ siblings and benign SELECTs.
+
+**Why this work, this session:** Seventh sibling in the guard's denylist-completeness lineage (#94 → … → #112); surfaced by the mcp sibling-hunt on the just-merged #113 XID guard and verified firsthand.
+
+**Open questions / blockers:** none. Deferred `pg_log_backend_memory_contexts` (MED) and backup/WAL admin functions (LOW, superuser-gated) as a separate priority:low follow-up.
+
+**Next session:** Phase A merge PR for #114; consider the deferred follow-up.
