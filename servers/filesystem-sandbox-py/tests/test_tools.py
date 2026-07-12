@@ -130,6 +130,21 @@ def test_write_file_refuses_content_over_cap(deps: ToolDeps, tmp_path: Path):
         write_file(deps, str(target), "x" * 2000)
 
 
+def test_write_file_refuses_non_string_content(deps: ToolDeps, tmp_path: Path):
+    # The server passes ``arguments["content"]`` with no runtime type check and
+    # the SDK doesn't enforce inputSchema types, so a client can send a
+    # non-string. Without the guard, ``(123).encode(...)`` raised a raw
+    # AttributeError surfaced as ``unexpected error: ...``; the ``path`` sibling
+    # is isinstance-guarded, so content must be too (#119, sibling of #117).
+    # ValueError is in the dispatch's clean-error tuple, so it renders cleanly.
+    target = tmp_path / "root" / "nonstring.txt"
+    for bad in (123, {"a": 1}, True, [1, 2, 3]):
+        with pytest.raises(ValueError, match="content must be a string"):
+            write_file(deps, str(target), bad)  # type: ignore[arg-type]
+    # Nothing should have been written.
+    assert not target.exists()
+
+
 def test_write_file_propagates_sandbox_escape(deps: ToolDeps, tmp_path: Path):
     outsider = tmp_path / "elsewhere"
     outsider.mkdir()
