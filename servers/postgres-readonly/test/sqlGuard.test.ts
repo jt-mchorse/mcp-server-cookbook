@@ -707,4 +707,48 @@ describe("guardQuery — rejected (side-effecting functions the read-only backst
     // (with the trailing underscore), and `pg_filenode` breaks at `n`.
     expect(guardQuery("SELECT pg_filenode_relation(1663, 12345)")).toEqual({ ok: true });
   });
+
+  // #112: the XID-assigning transaction functions. txid_current() and its
+  // Postgres-13+ alias pg_current_xact_id() force assignment of a real,
+  // permanent XID — advancing the cluster-global counter + writing a pg_xact/WAL
+  // record (wraparound pressure). Exempt from default_transaction_read_only like
+  // nextval/setval, so the db.ts backstop can't gate them; the guard is the sole
+  // defense. Sixth sibling in the #94/#106/#108/#110/#111 denylist-completeness
+  // lineage. The read-only *_if_assigned / *_snapshot / txid_status peekers must
+  // stay allowed (consuming-vs-peeking split, cf. pg_logical_slot_get_ vs _peek_).
+  it("rejects txid_current (assigns a permanent XID)", () => {
+    const r = guardQuery("SELECT txid_current()");
+    expect(r.ok).toBe(false);
+    expect(r.reason).toMatch(/TXID_CURRENT/);
+  });
+
+  it("rejects pg_current_xact_id (PG13+ alias of txid_current)", () => {
+    const r = guardQuery("SELECT pg_current_xact_id()");
+    expect(r.ok).toBe(false);
+    expect(r.reason).toMatch(/PG_CURRENT_XACT_ID/);
+  });
+
+  it("rejects txid_current inside a CTE", () => {
+    expect(guardQuery("WITH t AS (SELECT txid_current()) SELECT * FROM t").ok).toBe(false);
+  });
+
+  it("rejects txid_current case-insensitively", () => {
+    expect(guardQuery("select TxId_Current()").ok).toBe(false);
+  });
+
+  it("still allows txid_current_if_assigned (peeks; assigns no XID)", () => {
+    expect(guardQuery("SELECT txid_current_if_assigned()")).toEqual({ ok: true });
+  });
+
+  it("still allows pg_current_xact_id_if_assigned (peeks; assigns no XID)", () => {
+    expect(guardQuery("SELECT pg_current_xact_id_if_assigned()")).toEqual({ ok: true });
+  });
+
+  it("still allows txid_status (reports a given xid's status; read-only)", () => {
+    expect(guardQuery("SELECT txid_status(100)")).toEqual({ ok: true });
+  });
+
+  it("still allows txid_current_snapshot (returns the current snapshot; read-only)", () => {
+    expect(guardQuery("SELECT txid_current_snapshot()")).toEqual({ ok: true });
+  });
 });

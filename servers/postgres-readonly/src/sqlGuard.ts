@@ -50,6 +50,17 @@ const FORBIDDEN_KEYWORDS_ANYWHERE = [
   // a live sequence and `nextval` burns values; both are "modification" under
   // the README threat model even on a role that only has sequence USAGE (#94).
   "NEXTVAL", "SETVAL", "CURRVAL",
+  // XID-assigning transaction functions. `txid_current()` and its Postgres-13+
+  // alias `pg_current_xact_id()` force the current transaction to be assigned a
+  // real, permanent XID — advancing the cluster-global counter and writing a
+  // pg_xact/WAL record, contributing to XID-wraparound pressure. Like
+  // nextval/setval this side effect is EXEMPT from `default_transaction_read_only`,
+  // so the db.ts backstop can't gate it — the guard is the sole defense (#112).
+  // Whole-word matching (`_` is a word char) blocks these but leaves the read-only
+  // siblings that DON'T assign an XID allowed: `txid_current_if_assigned`,
+  // `pg_current_xact_id_if_assigned`, `txid_status`, `txid_current_snapshot` —
+  // the same consuming-vs-peeking split as pg_logical_slot_get_* vs _peek_.
+  "TXID_CURRENT", "PG_CURRENT_XACT_ID",
   // Server-side FILE I/O. These read (or, for lo_export, write) files on the
   // database host — filesystem, not the transaction — so read-only txns don't
   // gate them. Arbitrary server-file reads are data exfiltration beyond the
