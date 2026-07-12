@@ -784,3 +784,13 @@ Added `PG_IMPORT_`, `BRIN_SUMMARIZE`, `BRIN_DESUMMARIZE`, `GIN_CLEAN_PENDING_LIS
 **Why prioritized.** Found via the *second-order* sibling hunt on this run's own shipped #108 (the mcp secondary finding), then verified firsthand. Fourth denylist-completeness hit in the #94/#104/#106/#108 family. Sibling PR of #108 — both touch `sqlGuard.ts`/README/tests, so a next-Phase-A serial merge (merge #108 → 140, then rebase #110 → reconcile count, re-add the 5 prefixes after the slot prefixes) is needed.
 
 **Open questions / blockers.** None — PR ready for review.
+
+## 2026-07-12 — Issue #112: block XID-assigning txid_current/pg_current_xact_id (~18 min, night)
+
+**What got done.** The `postgres-readonly` SQL guard's `FORBIDDEN_KEYWORDS_ANYWHERE` denylist missed the XID-assigning transaction functions `txid_current()` and its Postgres-13+ alias `pg_current_xact_id()` — both were **allowed** by `guardQuery`. Calling either forces the current (read-only) transaction to be assigned a real, permanent XID: it advances the cluster-global counter and writes a `pg_xact`/WAL record, contributing to XID-wraparound pressure. Like `nextval`/`setval`, this side effect is **exempt from `default_transaction_read_only`**, so the `db.ts` session backstop can't gate it — the guard is the sole defense, and it had zero `txid` coverage.
+
+Added whole-word `TXID_CURRENT` + `PG_CURRENT_XACT_ID` entries. The guard's whole-word matcher (`(^|\W)${kw}(\W|$)`, where `_` is a word char) blocks `txid_current()`/`pg_current_xact_id()` but leaves the read-only siblings that assign no XID allowed — `txid_current_if_assigned`, `pg_current_xact_id_if_assigned`, `txid_status`, `txid_current_snapshot` — the same consuming-vs-peeking split the guard uses for `pg_logical_slot_get_*` vs `_peek_`. 8 tests (4 blocked + 4 read-only-still-allowed). Full suite 172, typecheck + eslint clean, readme-check ok; bumped the postgres-readonly count 148→156.
+
+**Why prioritized.** Sixth sibling in the denylist-completeness lineage (#94 → #105/#104 → #107/#106 → #109/#108 → #111/#110). Found via a targeted hunt on the guard's richest vein, verified firsthand with `npx tsx` against `guardQuery` (before: ALLOWED; after: blocked). The XID-side-effect/wraparound claim rests on documented Postgres semantics (no live DB available), but the guard-level behavior is verified firsthand and matches the README threat model that already treats `nextval`/`setval` as modification even on a USAGE-only role.
+
+**Open questions / blockers.** None — PR ready. The Postgres extension universe is large; future hunts could surface more (pageinspect writes, other `pg_stat_statements` functions), but the core side-effecting transaction/state families are now deeply covered.
