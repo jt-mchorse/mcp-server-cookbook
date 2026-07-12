@@ -818,3 +818,15 @@ Added whole-word `TXID_CURRENT` + `PG_CURRENT_XACT_ID` entries. The guard's whol
 **Open questions / blockers:** none — ready for review.
 
 **Next session:** Phase A merge PR for #117.
+
+## 2026-07-12 — Issue #119: write_file content arg not typeof-guarded (TS + Python parity)
+**Duration:** ~22 min · **Branch:** `session/2026-07-12-0933-issue-119`
+
+- `filesystem-sandbox`'s `write_file` validated its `path` arg cleanly (sandbox `_validateInput`/`_validate_input` typeof/isinstance → `SandboxEscape("input_empty")`) but did not type-guard `content`. The handler passes `arguments["content"]` with no runtime check and the SDK doesn't enforce inputSchema types, so a client can send a non-string. In TS, `Buffer.from(content,"utf-8")` threw a raw `TypeError` on a number/object/bool and — worse — **silently wrote raw bytes** for an array like `[1,2,3]`, reporting success. In the Python twin, `content.encode("utf-8")` raised a raw `AttributeError` surfaced as `unexpected error: ...`.
+- Added a `content` type guard at the top of `write_file` in both ports (TS `throw new Error("content must be a string")`; Python `raise ValueError(...)`, which the dispatch's clean-error tuple renders cleanly), mirroring the `path` contract and the github-gists #117 fix. Regression tests in both ports assert non-string number/object/bool/array reject cleanly and write nothing. Verified firsthand. TS suite 59 pass, Python 88 pass; tsc/eslint/ruff/check-readme green.
+
+**Why this work, this session:** Third hit of the run — a second-order sibling of this same run's own #117, surfaced by the wave-4 second-order sweep of tool-arg validation across all four mcp servers.
+
+**Open questions / blockers:** none — ready for review. With this, all four servers' input-arg validation is swept (postgres-readonly tools + internal-tools-bridge were already fully guarded).
+
+**Next session:** Phase A merge PR for #119 (sibling of #115/#118 — will conflict on README/MEMORY; merge one then rebase).
