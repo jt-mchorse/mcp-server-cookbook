@@ -67,6 +67,18 @@ const FORBIDDEN_KEYWORDS_ANYWHERE = [
   // schema surface (#94). The `lo_*`/dblink/advisory FAMILIES live in
   // FORBIDDEN_FUNCTION_PREFIXES below since whole-word matching misses variants.
   "PG_READ_FILE", "PG_READ_BINARY_FILE", "PG_STAT_FILE",
+  // Large-object fast-path functions spelled WITHOUT the `lo_` underscore.
+  // The rest of the large-object API (`lo_put`/`lo_import`/`lo_export`/`lo_get`/
+  // `lo_open`/`lo_from_bytea`/...) is caught by the `LO_` PREFIX in
+  // FORBIDDEN_FUNCTION_PREFIXES, but the two historical names `lowrite(fd, data)`
+  // and `loread(fd, len)` have no underscore after `lo`, so that prefix misses
+  // them. `lowrite` WRITES bytes into a large object (a mutation of
+  // pg_largeobject) and `loread` reads large-object bytes (exfiltration) — both
+  // exempt from `default_transaction_read_only`, so the guard is the sole
+  // defense, exactly like the underscore-spelled siblings. They are the ONLY two
+  // large-object functions without the underscore, so whole-word entries close
+  // the gap with no read-only variant over-blocked (#114).
+  "LOWRITE", "LOREAD",
   // More admin/side-effecting functions in the same "exempt from
   // default_transaction_read_only" class as the entries above — the db.ts
   // session backstop does NOT gate them, so the guard is the sole defense (the
