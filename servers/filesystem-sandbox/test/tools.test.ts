@@ -94,6 +94,25 @@ describe("writeFile", () => {
     ).rejects.toBeInstanceOf(FileTooLargeError);
   });
 
+  it("rejects a present-but-non-string content with a clean error, not a raw TypeError, and writes nothing (#119)", async () => {
+    // The handler casts `a.content as string` with no runtime validation and the
+    // SDK doesn't enforce inputSchema types, so a client can send a non-string.
+    // A number/object/bool hit `Buffer.from(x)` -> raw TypeError; an ARRAY like
+    // [1,2,3] silently wrote raw bytes and reported success. The `path` sibling is
+    // typeof-guarded (sandbox _validateInput) — content must match.
+    const file = path.join(allowedRoot, "nonstring.txt");
+    for (const bad of [123, { a: 1 }, true, [1, 2, 3]]) {
+      const err = await writeFile(await deps(), file, bad as unknown as string).catch(
+        (e: Error) => e,
+      );
+      expect(err).toBeInstanceOf(Error);
+      expect(err.message).toBe("content must be a string");
+      expect(err.message).not.toMatch(/must be of type string|is not a function/);
+    }
+    // The array case must NOT have created/written the file.
+    await expect(fs.access(file)).rejects.toThrow();
+  });
+
   it("refuses to write outside the allow-list", async () => {
     const outside = path.join("/tmp", "definitely-outside-" + Math.random().toString(36).slice(2), "x");
     await expect(writeFile(await deps(), outside, "x")).rejects.toThrow(/outside_allowlist/);

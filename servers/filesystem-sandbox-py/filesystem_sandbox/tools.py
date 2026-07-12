@@ -109,6 +109,16 @@ def write_file(deps: ToolDeps, file_path: str, content: str) -> dict[str, int]:
     """
     if deps.read_only:
         raise WriteForbiddenError()
+    # Type-guard ``content`` before encoding. The server casts
+    # ``arguments["content"]`` with no runtime validation and the SDK doesn't
+    # enforce inputSchema types, so a present-but-non-string reaches here.
+    # Without this, ``(123).encode(...)`` raises a raw ``AttributeError`` that
+    # the dispatch's clean-error tuple doesn't catch (surfaces as
+    # ``unexpected error: ...``). ``ValueError`` IS in that tuple, so it renders
+    # cleanly. Mirrors the ``path`` isinstance contract (``_validate_input``) and
+    # the TS twin's guard (#119, sibling of #117).
+    if not isinstance(content, str):
+        raise ValueError("content must be a string")
     data = content.encode("utf-8")
     if len(data) > deps.max_bytes:
         raise FileTooLargeError(len(data), deps.max_bytes)

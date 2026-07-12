@@ -87,6 +87,16 @@ export async function writeFile(
   content: string,
 ): Promise<{ bytes_written: number }> {
   if (deps.readOnly) throw new WriteForbiddenError();
+  // Type-guard `content` before encoding. The handler casts
+  // `a.content as string` with no runtime validation and the SDK doesn't
+  // enforce inputSchema types, so a present-but-non-string reaches here. Without
+  // this, a number/object/bool hits `Buffer.from(x, "utf-8")` and throws a raw
+  // TypeError, and — worse — an ARRAY like [1,2,3] silently writes raw bytes and
+  // reports success. Mirrors the `path` typeof contract (sandbox `_validateInput`)
+  // and the github-gists `content` guard (#119, sibling of #117).
+  if (typeof content !== "string") {
+    throw new Error("content must be a string");
+  }
   const data = Buffer.from(content, "utf-8");
   if (data.byteLength > deps.maxBytes) {
     throw new FileTooLargeError(data.byteLength, deps.maxBytes);

@@ -107,10 +107,10 @@ Test suites are hermetic (no Docker / no network needed):
 
 ```bash
 cd servers/postgres-readonly      && npm install && npm test    # 157 SQL-guard (+ SELECT-INTO, comment-merged-keyword, backslash-quote-split & side-effect/admin-function guards incl. adminpack pg_file_* + signal/promote/wal-replay + replication-slot advance/consume + catalog/index-maintenance pg_import_system_collations/brin/gin/pg_prewarm + XID-assigning txid_current/pg_current_xact_id + large-object lowrite/loread) + public-surface + cfg-validation + describe_schema type-resolution + handler isError-contract tests
-cd servers/filesystem-sandbox     && npm install && npm test    # 58 sandbox (+ leaf-symlink write-path guard) + tool + config (+ MAX_BYTES grammar parity) + public-surface + atomic-write (+ NAME_MAX-basename temp-name) tests
+cd servers/filesystem-sandbox     && npm install && npm test    # 59 sandbox (+ leaf-symlink write-path guard) + tool (+ non-string content typeof guard) + config (+ MAX_BYTES grammar parity) + public-surface + atomic-write (+ NAME_MAX-basename temp-name) tests
 cd servers/github-gists           && npm install && npm test    # 64 config + client (redaction + rate-limit diag + cfg validation + filename-trim + non-string gist_id/filename typeof guard + single-read-Response error body + capped JSON error message) + error-message-format + tool + public-surface tests
 cd servers/internal-tools-bridge  && npm install && npm test    # 35 bridge + tool + public-surface + repo-stats-readme-lock tests (no shell, env scrub, output cap, wall-clock-bound timeout, validateConfig)
-cd servers/filesystem-sandbox-py  && pip install -e '.[dev]' && pytest  # 87 sandbox + tool + config (+ MAX_BYTES grammar parity) + public-surface + atomic-write (+ NAME_MAX-basename temp-name) + isError-parity tests
+cd servers/filesystem-sandbox-py  && pip install -e '.[dev]' && pytest  # 88 sandbox + tool (+ non-string content typeof guard) + config (+ MAX_BYTES grammar parity) + public-surface + atomic-write (+ NAME_MAX-basename temp-name) + isError-parity tests
 ```
 
 Wiring into Claude Desktop, the Claude Code CLI, or your own MCP client is
