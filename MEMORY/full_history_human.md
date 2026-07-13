@@ -842,3 +842,17 @@ Added whole-word `TXID_CURRENT` + `PG_CURRENT_XACT_ID` entries. The guard's whol
 **Open questions / blockers:** none — ready for review.
 
 **Next session:** Phase A merge PR #121.
+
+## Session 2026-07-13 (night) — issue #122: reject non-string schema/table in postgres-readonly
+
+`describe_schema` and `sample_rows` validated the `schema`/`table` identifiers with `IDENT_RE.test(x)`. `RegExp.test` coerces its argument with `String(x)`, so a non-string value slipped past the guard whenever its string form was a bare identifier: `["users"]` → `"users"`, `true` → `"true"`, `null` → `"null"`. A 1-element array like `["users"]` then actually queried the real table; `true`/`null` reached the DB as a confusing raw error. This is the un-swept sibling of #117 (github-gists) and #119 (filesystem-sandbox), which both added a `typeof x !== "string"` guard before the string operation.
+
+The fix adds that `typeof` check ahead of each `IDENT_RE.test` in both tools. Ten hermetic guard tests exercise array/boolean/null/number/object inputs; they short-circuit before `withClient` ever connects, so no live Postgres is needed. Bumped the postgres-readonly README test count from 160 to 163 for `readme-check`. Full server suite green, lint + typecheck clean.
+
+A tooling note: `tools/check-readme.mjs` counts literal `it(`/`test(` occurrences, not expanded parametrized cases — the three new `it(` statements inside `for` loops bumped the count by 3 (to 163), even though they run ten cases. Ran `node tools/check-readme.mjs` to confirm before pushing.
+
+**Why this work, this session:** Fifth hit of the night run, surfaced by the sibling-incomplete-fix dogfood hunt on mcp-server-cookbook and verified firsthand.
+
+**Open questions / blockers:** none — PR #123 ready for review.
+
+**Next session:** Phase A merge PR for #122.

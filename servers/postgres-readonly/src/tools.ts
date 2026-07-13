@@ -54,7 +54,10 @@ export function formatColumnType(dataType: string, udtName: string): string {
 
 export async function describeSchema(args: DescribeSchemaArgs, cfg: DbConfig): Promise<ToolResult> {
   const schema = args.schema ?? "public";
-  if (!IDENT_RE.test(schema)) {
+  // `typeof` first: `IDENT_RE.test(x)` coerces via String(x), so a non-string
+  // schema (`true` -> "true", `["public"]` -> "public") slips past the regex.
+  // Reject before coercion, mirroring the #117/#119 non-string-arg guards.
+  if (typeof schema !== "string" || !IDENT_RE.test(schema)) {
     return err(`schema name must match ${IDENT_RE.source}; got ${JSON.stringify(schema)}`);
   }
 
@@ -165,10 +168,14 @@ export interface SampleRowsArgs {
 
 export async function sampleRows(args: SampleRowsArgs, cfg: DbConfig): Promise<ToolResult> {
   const schema = args.schema ?? "public";
-  if (!IDENT_RE.test(schema)) {
+  // `typeof` first, same reason as describeSchema: `IDENT_RE.test(x)` coerces
+  // via String(x), so a non-string schema/table slips past the regex — and a
+  // 1-element array like `["users"]` (-> "users") would actually query the
+  // real table. Reject before coercion (#117/#119 sibling).
+  if (typeof schema !== "string" || !IDENT_RE.test(schema)) {
     return err(`schema name must match ${IDENT_RE.source}; got ${JSON.stringify(schema)}`);
   }
-  if (!IDENT_RE.test(args.table)) {
+  if (typeof args.table !== "string" || !IDENT_RE.test(args.table)) {
     return err(`table name must match ${IDENT_RE.source}; got ${JSON.stringify(args.table)}`);
   }
   const requested = args.limit ?? 10;
