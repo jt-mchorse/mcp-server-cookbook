@@ -830,3 +830,15 @@ Added whole-word `TXID_CURRENT` + `PG_CURRENT_XACT_ID` entries. The guard's whol
 **Open questions / blockers:** none — ready for review. With this, all four servers' input-arg validation is swept (postgres-readonly tools + internal-tools-bridge were already fully guarded).
 
 **Next session:** Phase A merge PR for #119 (sibling of #115/#118 — will conflict on README/MEMORY; merge one then rebase).
+
+## 2026-07-12 — Issue #116: pg_log_backend_memory_contexts + backup/WAL/log admin functions bypass the read-only guard
+**Duration:** ~20 min · **Branch:** `session/2026-07-12-1114-issue-116`
+
+- The postgres-readonly SQL guard blocked the cross-backend signal family (`pg_signal_backend`/`pg_terminate_backend`/`pg_cancel_backend`) and WAL side effects (`pg_switch_wal`), but three sibling groups spotted during the #114 large-object sweep still passed: `pg_log_backend_memory_contexts(pid)` (a fourth signal-family member that makes another backend dump memory contexts to the server log), the backup functions `pg_backup_start`/`pg_backup_stop` + legacy `pg_start_backup`/`pg_stop_backup` (checkpoint + WAL activity), and the log/snapshot admin `pg_rotate_logfile`/`pg_logfile_rotate` + `pg_export_snapshot`. All are exempt from `default_transaction_read_only`, so the db.ts backstop can't gate them — the guard is the sole defense.
+- Verified firsthand via `npx tsx guardQuery`: all eight ALLOW before, all BLOCK after, while benign identifiers sharing a stem (`pg_backup_start_history`, `backup_log`, `export_snapshot_id`) stay ALLOWED (whole-word matching). Added `PG_LOG_BACKEND_MEMORY_CONTEXTS` to the signal group plus a new whole-word backup/WAL/log admin block. Three regression tests. Full suite 176 pass; static count 157→160; tsc/eslint/check-readme green.
+
+**Why this work, this session:** This was the one real, actionable filed issue portfolio-wide (the deferred priority:low follow-up from #114); every other open issue is a JT-gated decision-revisit or a demo capture.
+
+**Open questions / blockers:** none — ready for review.
+
+**Next session:** Phase A merge PR #121.

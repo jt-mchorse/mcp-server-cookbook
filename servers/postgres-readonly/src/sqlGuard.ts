@@ -36,12 +36,18 @@ const FORBIDDEN_KEYWORDS_ANYWHERE = [
   // `pg_signal_backend(pid, sig)` is the generic PARENT of the two children
   // below — it delivers SIGTERM/SIGINT to another backend, so blocking the
   // children (`pg_terminate_backend`/`pg_cancel_backend`) but not the parent was
-  // itself a sibling gap (#106). `pg_promote` promotes a standby to primary and
+  // itself a sibling gap (#106). `pg_log_backend_memory_contexts(pid)` is a
+  // fourth member of that cross-backend signal family — it signals ANOTHER
+  // backend to dump its memory contexts to the server log, a side effect on a
+  // process other than the caller's, the same class as pg_signal_backend and
+  // its terminate/cancel children; blocking those three but not this one was the
+  // same sibling gap (#116). `pg_promote` promotes a standby to primary and
   // `pg_wal_replay_pause`/`pg_wal_replay_resume` halt/resume WAL replay on a
   // standby — cluster/replication STATE changes in the same "exempt from
   // default_transaction_read_only, db.ts backstop can't gate it" class as the
   // WAL entries (`pg_switch_wal`) below (#106).
   "PG_TERMINATE_BACKEND", "PG_CANCEL_BACKEND", "PG_SIGNAL_BACKEND",
+  "PG_LOG_BACKEND_MEMORY_CONTEXTS",
   "PG_PROMOTE", "PG_WAL_REPLAY_PAUSE", "PG_WAL_REPLAY_RESUME",
   "PG_RELOAD_CONF", "PG_SLEEP", "PG_NOTIFY",
   // Sequence functions. Postgres EXEMPTS nextval/setval/currval from
@@ -93,6 +99,21 @@ const FORBIDDEN_KEYWORDS_ANYWHERE = [
   // families also live in FORBIDDEN_FUNCTION_PREFIXES below.
   "SET_CONFIG",
   "PG_SWITCH_WAL", "PG_LOGICAL_EMIT_MESSAGE", "PG_STAT_STATEMENTS_RESET",
+  // Backup / WAL-checkpoint / log-file admin functions in the same
+  // "exempt from default_transaction_read_only, db.ts backstop can't gate it"
+  // class as pg_switch_wal above (#116). `pg_backup_start`/`pg_backup_stop`
+  // (and their pre-15 legacy spellings `pg_start_backup`/`pg_stop_backup`)
+  // begin/end an online base backup, forcing a checkpoint and WAL activity;
+  // `pg_rotate_logfile` (aka `pg_logfile_rotate`) forces the server to switch
+  // to a new log file; `pg_export_snapshot` registers a snapshot for the
+  // duration of the transaction (a shared-state side effect). None has a
+  // read-only variant sharing its exact name, so whole-word entries close the
+  // gap with nothing over-blocked. `pg_backup_start`/`stop` are also spelled
+  // with the same `pg_backup_` stem but the legacy `pg_*_backup` names don't
+  // share a prefix, so all four are enumerated as whole words rather than a
+  // single prefix.
+  "PG_BACKUP_START", "PG_BACKUP_STOP", "PG_START_BACKUP", "PG_STOP_BACKUP",
+  "PG_ROTATE_LOGFILE", "PG_LOGFILE_ROTATE", "PG_EXPORT_SNAPSHOT",
   // Session changes
   "SET", "RESET",
   // Meta / out-of-band

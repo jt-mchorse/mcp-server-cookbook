@@ -717,6 +717,43 @@ describe("guardQuery — rejected (side-effecting functions the read-only backst
     expect(guardQuery("SELECT pg_wal_replay_resume()").ok).toBe(false);
   });
 
+  // #116: pg_log_backend_memory_contexts is the fourth member of the
+  // cross-backend signal family (terminate/cancel/signal_backend) — it signals
+  // ANOTHER backend to dump memory contexts to the server log. Blocking the
+  // other three but not this one was the same sibling gap.
+  it("rejects pg_log_backend_memory_contexts (cross-backend signal sibling)", () => {
+    const r = guardQuery("SELECT pg_log_backend_memory_contexts(1234)");
+    expect(r.ok).toBe(false);
+    expect(r.reason).toMatch(/PG_LOG_BACKEND_MEMORY_CONTEXTS/);
+    // case-insensitive
+    expect(guardQuery("SELECT PG_LOG_BACKEND_MEMORY_CONTEXTS(1)").ok).toBe(false);
+  });
+
+  // #116: backup / WAL-checkpoint / log-file admin functions — same
+  // "exempt from default_transaction_read_only" class as pg_switch_wal. Both the
+  // modern (pg_backup_start/stop) and legacy (pg_start/stop_backup) spellings,
+  // log-file rotation (both aliases), and pg_export_snapshot are blocked.
+  it("rejects backup/WAL/log admin functions (pg_backup_*, pg_*_backup, pg_rotate_logfile, pg_export_snapshot)", () => {
+    expect(guardQuery("SELECT pg_backup_start('label')").ok).toBe(false);
+    expect(guardQuery("SELECT pg_backup_stop()").ok).toBe(false);
+    expect(guardQuery("SELECT pg_start_backup('label')").ok).toBe(false);
+    expect(guardQuery("SELECT pg_stop_backup()").ok).toBe(false);
+    expect(guardQuery("SELECT pg_rotate_logfile()").ok).toBe(false);
+    expect(guardQuery("SELECT pg_logfile_rotate()").ok).toBe(false);
+    expect(guardQuery("SELECT pg_export_snapshot()").ok).toBe(false);
+    // CTE-hidden form is still caught
+    expect(guardQuery("WITH x AS (SELECT pg_backup_start('l')) SELECT * FROM x").ok).toBe(false);
+  });
+
+  // #116 no-over-block: whole-word matching leaves benign identifiers that merely
+  // share a stem (e.g. a `pg_backup_start_history` view or a `backup_log` table)
+  // allowed — only the exact function names are blocked.
+  it("still allows benign identifiers sharing a stem with the #116 admin names", () => {
+    expect(guardQuery("SELECT * FROM pg_backup_start_history").ok).toBe(true);
+    expect(guardQuery("SELECT export_snapshot_id FROM my_table").ok).toBe(true);
+    expect(guardQuery("SELECT * FROM backup_log").ok).toBe(true);
+  });
+
   // #106 regression: read-only pg_ functions that share leading letters with the
   // new PG_FILE_ prefix / new keywords must STILL pass — over-block nothing.
   it("still allows pg_filenode_relation (read; not the pg_file_ mutation family)", () => {
