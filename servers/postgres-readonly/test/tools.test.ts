@@ -16,7 +16,18 @@
 
 import { describe, expect, it } from "vitest";
 
-import { formatColumnType } from "../src/tools.js";
+import type { DbConfig } from "../src/db.js";
+import { describeSchema, formatColumnType, sampleRows } from "../src/tools.js";
+
+// A cfg that must never be reached: these tests exercise the identifier guard,
+// which returns before `withClient` ever connects. If a non-string arg slipped
+// past the guard the call would try to dial this bogus DSN and fail loudly,
+// so "returns a clean isError result naming the identifier" is the assertion.
+const UNREACHABLE_CFG: DbConfig = {
+  connectionString: "postgres://unreachable.invalid:1/none",
+  maxRows: 10,
+  statementTimeoutMs: 1000,
+};
 
 describe("formatColumnType", () => {
   it("uses udt_name for a USER-DEFINED (enum/domain/composite) column", () => {
@@ -47,5 +58,40 @@ describe("formatColumnType", () => {
 
   it("keeps the SQL-standard data_type for a text column", () => {
     expect(formatColumnType("text", "text")).toBe("text");
+  });
+});
+
+// #122: non-string schema/table bypassed the IDENT_RE guard via String()
+// coercion (`IDENT_RE.test(["users"])` -> String(["users"]) === "users" -> true;
+// `true` -> "true"; `null` -> "null"). A 1-element array like `["users"]` would
+// then actually query the real table. The guard now rejects any non-string
+// identifier before coercion, mirroring the #117/#119 non-string-arg fixes.
+// These are hermetic: the guard returns before `withClient` ever connects.
+describe("describeSchema — non-string schema is rejected (#122)", () => {
+  for (const bad of [["public"], true, 42, { s: "public" }] as unknown[]) {
+    it(`rejects schema=${JSON.stringify(bad)} with a clean isError result`, async () => {
+      const res = await describeSchema({ schema: bad as string | undefined }, UNREACHABLE_CFG);
+      expect(res.isError).toBe(true);
+      expect(res.content[0].text).toMatch(/schema name must match/);
+    });
+  }
+});
+
+describe("sampleRows — non-string table/schema is rejected (#122)", () => {
+  for (const bad of [["users"], true, null, 7, { t: "users" }] as unknown[]) {
+    it(`rejects table=${JSON.stringify(bad)} with a clean isError result`, async () => {
+      const res = await sampleRows({ table: bad as string }, UNREACHABLE_CFG);
+      expect(res.isError).toBe(true);
+      expect(res.content[0].text).toMatch(/table name must match/);
+    });
+  }
+
+  it("rejects a non-string schema even with a valid table", async () => {
+    const res = await sampleRows(
+      { schema: ["public"] as unknown as string, table: "users" },
+      UNREACHABLE_CFG,
+    );
+    expect(res.isError).toBe(true);
+    expect(res.content[0].text).toMatch(/schema name must match/);
   });
 });
