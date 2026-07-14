@@ -50,6 +50,11 @@ const FORBIDDEN_KEYWORDS_ANYWHERE = [
   "PG_LOG_BACKEND_MEMORY_CONTEXTS",
   "PG_PROMOTE", "PG_WAL_REPLAY_PAUSE", "PG_WAL_REPLAY_RESUME",
   "PG_RELOAD_CONF", "PG_SLEEP", "PG_NOTIFY",
+  // pg_sync_replication_slots (PG17) creates/updates logical slots on a standby
+  // to match the primary — the standby-side copy verb of the slot lifecycle whose
+  // create/drop/advance/consume and the primary-side PG_COPY_ copiers are blocked.
+  // Same read-only-exempt class; whole-word (no shared PG_SYNC_ read-only sibling).
+  "PG_SYNC_REPLICATION_SLOTS",
   // Sequence functions. Postgres EXEMPTS nextval/setval/currval from
   // `default_transaction_read_only`, so the db.ts session backstop does NOT
   // catch them — the guard is the only defense. `setval` persistently rewrites
@@ -169,6 +174,16 @@ const FORBIDDEN_KEYWORDS_ANYWHERE = [
 //                      both consumers and deliberately does NOT catch _PEEK_.
 //                      Advance/consume are the write verbs of the replication-slot
 //                      lifecycle the #106 create/drop/origin pass left open.
+//   PG_COPY_         — pg_copy_logical_replication_slot / pg_copy_physical_
+//                      replication_slot create a NEW persistent slot by copying an
+//                      existing one — the *copy* verb of the same slot lifecycle
+//                      whose create (PG_CREATE_), drop (PG_DROP_), advance
+//                      (PG_REPLICATION_SLOT_ADVANCE) and consume (PG_LOGICAL_SLOT_
+//                      GET_) are already blocked (#108/#109). These are the ONLY two
+//                      SQL-callable pg_copy_* functions and both create slots, so
+//                      the prefix over-blocks no read-only surface. (pg_sync_
+//                      replication_slots, PG17, is the standby-side sibling — a
+//                      whole-word entry in FORBIDDEN_KEYWORDS_ANYWHERE.)
 //   PG_IMPORT_*      — pg_import_system_collations writes rows into the
 //                      pg_collation catalog (a catalog mutation); no read-only
 //                      pg_import_* exists.
@@ -203,6 +218,7 @@ const FORBIDDEN_FUNCTION_PREFIXES = [
   "PG_REPLICATION_ORIGIN",
   "PG_REPLICATION_SLOT_ADVANCE",
   "PG_LOGICAL_SLOT_GET_",
+  "PG_COPY_",
   "PG_IMPORT_",
   "BRIN_SUMMARIZE",
   "BRIN_DESUMMARIZE",

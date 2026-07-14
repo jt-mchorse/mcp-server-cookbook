@@ -576,6 +576,26 @@ describe("guardQuery — rejected (side-effecting functions the read-only backst
     );
   });
 
+  // #124: the COPY verb of the slot lifecycle — #108 blocked advance/consume and
+  // #106 blocked create/drop, but pg_copy_{logical,physical}_replication_slot
+  // create a NEW persistent slot by copying an existing one and were left open.
+  // Both are exempt from default_transaction_read_only, so the guard is the sole
+  // defense; PG_COPY_ over-blocks nothing (the only two pg_copy_* functions both
+  // create slots).
+  it("rejects pg_copy_logical_replication_slot (PG_COPY_ family; creates a slot)", () => {
+    expect(guardQuery("SELECT pg_copy_logical_replication_slot('src','dst')").ok).toBe(false);
+  });
+
+  it("rejects pg_copy_physical_replication_slot (PG_COPY_ family; creates a slot)", () => {
+    expect(
+      guardQuery("SELECT pg_copy_physical_replication_slot('src','dst', true)").ok,
+    ).toBe(false);
+  });
+
+  it("rejects pg_sync_replication_slots (PG17 standby slot-sync; whole-word)", () => {
+    expect(guardQuery("SELECT pg_sync_replication_slots()").ok).toBe(false);
+  });
+
   // #108 regression: the read-only slot readers must STILL pass — the new
   // prefixes over-block nothing a read-only client needs.
   it("still allows pg_logical_slot_peek_changes (read-only decode, not GET_)", () => {
