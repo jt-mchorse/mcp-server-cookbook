@@ -856,3 +856,16 @@ A tooling note: `tools/check-readme.mjs` counts literal `it(`/`test(` occurrence
 **Open questions / blockers:** none — PR #123 ready for review.
 
 **Next session:** Phase A merge PR for #122.
+
+## 2026-07-14 (night) — Issue #124: read-only guard missed the COPY verb of the replication-slot lifecycle
+**Duration:** ~25 min · **Branch:** `session/2026-07-14-0718-issue-124` · **PR:** #125
+
+The `postgres-readonly` SQL guard blocked the create (`PG_CREATE_`), drop (`PG_DROP_`), advance (`PG_REPLICATION_SLOT_ADVANCE`), and consume (`PG_LOGICAL_SLOT_GET_`) verbs of the replication-slot lifecycle — the #94→#116 hardening chain — but missed the **copy** verb. `pg_copy_logical_replication_slot` and `pg_copy_physical_replication_slot` (real PG12+ functions that create a *new* persistent slot by copying an existing one) passed the guard and reached `client.query()`. Like their siblings they are a cluster-level side effect exempt from `default_transaction_read_only`, so the guard is the sole defense. Verified firsthand via `tsx`: pre-fix both copy functions plus PG17's `pg_sync_replication_slots` were ALLOWED while create/drop/advance were BLOCKED; post-fix all are blocked and the read-only `pg_replication_slots` view + `pg_logical_slot_peek_changes` still pass.
+
+Fixed by adding `PG_COPY_` to `FORBIDDEN_FUNCTION_PREFIXES` (the only two `pg_copy_*` functions both create slots, so nothing read-only is over-blocked) and `PG_SYNC_REPLICATION_SLOTS` (whole-word, the PG17 standby-side sibling) to `FORBIDDEN_KEYWORDS_ANYWHERE`. 3 lock tests next to the existing create/drop/advance slot tests; README test-count 163→166 (`check-readme.mjs` counts literal `it(`). Full server suite (189) green, lint + typecheck clean.
+
+**Why this work, this session:** Second hit of the night run, surfaced by the mcp sibling-incomplete-fix dogfood hunt and verified firsthand. The replication-slot family is now fully covered: create/drop/advance/consume/copy/sync.
+
+**Open questions / blockers:** none — PR #125 ready for review.
+
+**Next session:** Phase A merge PR for #124.
