@@ -639,6 +639,30 @@ describe("guardQuery — rejected (side-effecting functions the read-only backst
     expect(guardQuery("SELECT pg_prewarm('tbl', 'buffer')").ok).toBe(false);
   });
 
+  // Sibling of #110: pg_truncate_visibility_map(regclass) is the pg_visibility
+  // extension's MUTATOR — it truncates a relation's visibility-map fork
+  // (destructive on-disk storage change), exempt from default_transaction_read_only
+  // just like the brin/gin/prewarm maintenance functions, so the guard is the sole
+  // defense. Must be blocked in bare, schema-qualified, and CTE shapes.
+  it("rejects pg_truncate_visibility_map (PG_TRUNCATE_VISIBILITY_MAP; truncates VM fork)", () => {
+    expect(guardQuery("SELECT pg_truncate_visibility_map('users')").ok).toBe(false);
+    expect(guardQuery("select PG_CATALOG.pg_truncate_visibility_map('users'::regclass)").ok).toBe(
+      false,
+    );
+    expect(
+      guardQuery("WITH x AS (SELECT pg_truncate_visibility_map('t')) SELECT * FROM x").ok,
+    ).toBe(false);
+  });
+
+  // Sibling of #110 regression: the pg_visibility extension's read-only inspectors
+  // must STILL pass — the whole-word block over-blocks none of them.
+  it("still allows pg_visibility / pg_check_frozen / pg_check_visible (pg_visibility reads)", () => {
+    expect(guardQuery("SELECT * FROM pg_visibility('users'::regclass)")).toEqual({ ok: true });
+    expect(guardQuery("SELECT pg_visibility_map('users'::regclass)")).toEqual({ ok: true });
+    expect(guardQuery("SELECT pg_check_frozen('users'::regclass)")).toEqual({ ok: true });
+    expect(guardQuery("SELECT pg_check_visible('users'::regclass)")).toEqual({ ok: true });
+  });
+
   // #110 regression: the read-only pageinspect siblings of the brin/gin
   // maintenance functions must STILL pass — the new prefixes over-block nothing.
   it("still allows brin_page_items / brin_metapage_info (pageinspect reads)", () => {
