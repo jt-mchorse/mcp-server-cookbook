@@ -869,3 +869,20 @@ Fixed by adding `PG_COPY_` to `FORBIDDEN_FUNCTION_PREFIXES` (the only two `pg_co
 **Open questions / blockers:** none — PR #125 ready for review.
 
 **Next session:** Phase A merge PR for #124.
+
+## 2026-07-15 — Issue #126: pg_truncate_visibility_map guard gap (sibling of #110)
+
+The #110 pass blocked the pg_visibility/brin/gin storage-maintenance MUTATORS that
+are exempt from default_transaction_read_only, but missed one member of exactly that
+family: pg_truncate_visibility_map(regclass), which truncates a relation's
+visibility-map fork. Verified firsthand it was allowed in bare/schema-qualified/CTE
+shapes while the extension's read inspectors stay allowed. Added a whole-word block +
+2 lock tests + README count bump.
+
+Process note: the hunt agent that surfaced this also went ahead and implemented it,
+but with a 280-line prettier reformatting of pre-existing arrays. CI here runs
+eslint/tsc/vitest/build with NO prettier check, so the committed single-line array
+style is correct — I reverted the churn and reapplied a minimal 36-line diff.
+
+Why prioritized: sibling-incomplete-fix meta-lens; a real, firsthand-verified pg
+function (not one of the hallucinated names this repo has been a trap for).

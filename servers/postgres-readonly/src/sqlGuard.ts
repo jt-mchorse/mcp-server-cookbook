@@ -104,6 +104,17 @@ const FORBIDDEN_KEYWORDS_ANYWHERE = [
   // families also live in FORBIDDEN_FUNCTION_PREFIXES below.
   "SET_CONFIG",
   "PG_SWITCH_WAL", "PG_LOGICAL_EMIT_MESSAGE", "PG_STAT_STATEMENTS_RESET",
+  // `pg_truncate_visibility_map(regclass)` (pg_visibility contrib extension)
+  // TRUNCATES a relation's visibility-map fork — a persistent, destructive
+  // mutation of on-disk storage in the same "extension storage-maintenance
+  // mutation, exempt from default_transaction_read_only" class as the already-
+  // blocked brin_summarize/brin_desummarize (BRIN_* prefixes), gin_clean_pending_list
+  // and pg_prewarm (#110): the db.ts read-only backstop can't gate it, so the guard
+  // is the sole defense. The extension's OTHER functions are all read-only inspectors
+  // (pg_visibility, pg_visibility_map, pg_check_frozen, pg_check_visible) and none
+  // shares this exact name, so a whole-word entry closes the gap with no read
+  // over-blocked (a PG_VISIBILITY prefix would wrongly catch the inspector reads).
+  "PG_TRUNCATE_VISIBILITY_MAP",
   // Backup / WAL-checkpoint / log-file admin functions in the same
   // "exempt from default_transaction_read_only, db.ts backstop can't gate it"
   // class as pg_switch_wal above (#116). `pg_backup_start`/`pg_backup_stop`
