@@ -886,3 +886,13 @@ style is correct — I reverted the churn and reapplied a minimal 36-line diff.
 
 Why prioritized: sibling-incomplete-fix meta-lens; a real, firsthand-verified pg
 function (not one of the hallucinated names this repo has been a trap for).
+
+## 2026-07-16 (night) — postgres-readonly guard: autoprewarm + pg_logdir_ls (#128)
+
+The SQL guard blocked `pg_prewarm` (via the `PG_PREWARM` prefix) and the adminpack `pg_file_*`/`pg_ls_*` families, but three real side-effecting Postgres functions in those same extension families slipped through:
+
+- `autoprewarm_dump_now()` — writes the `autoprewarm.blocks` state file to `$PGDATA`.
+- `autoprewarm_start_worker()` — launches the autoprewarm background worker.
+- `pg_logdir_ls()` — adminpack function listing the server log directory (exfiltration).
+
+The autoprewarm pair starts with `autoprewarm`, not `pg`, so `PG_PREWARM` missed them; `pg_logdir_ls` is spelled `pg_logdir_ls`, not `pg_ls_*`, so `PG_LS_` missed it. Fixed by adding an `AUTOPREWARM_` prefix and a `PG_LOGDIR_LS` whole-word entry, with 3 lock tests. Verified firsthand that all three were allowed pre-fix and blocked post-fix, that they are genuine Postgres functions, and that read-only inspectors stay allowed. README count bumped 168 → 171. PR #129.
