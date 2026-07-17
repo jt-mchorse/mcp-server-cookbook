@@ -252,6 +252,15 @@ export class GistsClient {
         [args.filename.trim()]: { content: args.content },
       },
     };
+    // `description` is the optional string sibling of gist_id/filename/content:
+    // the MCP handler casts `a.description as string | undefined` with no runtime
+    // validation, so a non-string can arrive here. Without this guard it was
+    // forwarded into the PATCH payload unvalidated (a wasted authenticated call +
+    // a remote 422 instead of a clean local message). Allow the undefined case;
+    // reject a present-but-non-string value, matching the #117 typeof contract.
+    if (args.description !== undefined && typeof args.description !== "string") {
+      throw new Error("description must be a string when provided");
+    }
     if (args.description !== undefined) {
       payload.description = args.description;
     }
