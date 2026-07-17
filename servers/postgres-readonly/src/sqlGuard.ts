@@ -115,6 +115,14 @@ const FORBIDDEN_KEYWORDS_ANYWHERE = [
   // shares this exact name, so a whole-word entry closes the gap with no read
   // over-blocked (a PG_VISIBILITY prefix would wrongly catch the inspector reads).
   "PG_TRUNCATE_VISIBILITY_MAP",
+  // `pg_logdir_ls()` (adminpack) lists the server LOG directory as
+  // (timestamp, filename) rows — server-directory exfiltration in the exact
+  // same class as the already-blocked `pg_ls_logdir`/`pg_ls_dir` (PG_LS_ prefix
+  // below, #94). It is spelled `pg_logdir_ls`, not `pg_ls_*`, so the PG_LS_
+  // prefix misses it, and it belongs to the same adminpack family as the
+  // PG_FILE_* mutators (#106). No read-only variant shares this exact name, so a
+  // whole-word entry closes the gap with nothing over-blocked.
+  "PG_LOGDIR_LS",
   // Backup / WAL-checkpoint / log-file admin functions in the same
   // "exempt from default_transaction_read_only, db.ts backstop can't gate it"
   // class as pg_switch_wal above (#116). `pg_backup_start`/`pg_backup_stop`
@@ -211,6 +219,16 @@ const FORBIDDEN_KEYWORDS_ANYWHERE = [
 //   PG_PREWARM*      — forces table/index pages into the buffer cache: a
 //                      resource-consuming side effect in the same class as the
 //                      already-blocked PG_SLEEP, and the guard is the sole defense.
+//   AUTOPREWARM_*    — the pg_prewarm extension's autoprewarm module exposes
+//                      exactly two SQL-callable functions, both side-effecting:
+//                      autoprewarm_dump_now() immediately WRITES the
+//                      autoprewarm.blocks state file to $PGDATA (a persistent
+//                      on-disk side effect) and autoprewarm_start_worker()
+//                      launches the autoprewarm background worker. Same extension
+//                      as PG_PREWARM above, but these start with `autoprewarm`,
+//                      not `pg`, so the PG_PREWARM prefix misses them (#110
+//                      sibling gap). Both mutate/side-effect and neither has a
+//                      read-only variant, so the prefix over-blocks no reads.
 // All of these are exempt from default_transaction_read_only, so like the
 // families above the guard is their sole defense (#94 sibling gap). The guard's
 // stated stance (sqlGuard.ts header) accepts over-blocking a query a security
@@ -235,6 +253,7 @@ const FORBIDDEN_FUNCTION_PREFIXES = [
   "BRIN_DESUMMARIZE",
   "GIN_CLEAN_PENDING_LIST",
   "PG_PREWARM",
+  "AUTOPREWARM_",
 ];
 
 export interface GuardResult {

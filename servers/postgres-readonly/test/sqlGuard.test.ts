@@ -639,6 +639,35 @@ describe("guardQuery — rejected (side-effecting functions the read-only backst
     expect(guardQuery("SELECT pg_prewarm('tbl', 'buffer')").ok).toBe(false);
   });
 
+  // Sibling of #110/#127: the pg_prewarm extension's autoprewarm module exposes
+  // two SQL-callable functions, both side-effecting — autoprewarm_dump_now()
+  // WRITES the autoprewarm.blocks state file to $PGDATA and
+  // autoprewarm_start_worker() launches the autoprewarm background worker. They
+  // start with `autoprewarm`, not `pg`, so the PG_PREWARM prefix missed them; the
+  // AUTOPREWARM_ prefix closes the gap (bare, schema-qualified, and CTE shapes).
+  it("rejects autoprewarm_dump_now (AUTOPREWARM_; writes autoprewarm.blocks)", () => {
+    expect(guardQuery("SELECT autoprewarm_dump_now()").ok).toBe(false);
+    expect(guardQuery("select PG_CATALOG.autoprewarm_dump_now()").ok).toBe(false);
+    expect(
+      guardQuery("WITH x AS (SELECT autoprewarm_dump_now()) SELECT * FROM x").ok,
+    ).toBe(false);
+  });
+
+  it("rejects autoprewarm_start_worker (AUTOPREWARM_; launches bg worker)", () => {
+    expect(guardQuery("SELECT autoprewarm_start_worker()").ok).toBe(false);
+  });
+
+  // Sibling of #94/#106: pg_logdir_ls() (adminpack) lists the server LOG
+  // directory as (timestamp, filename) rows — server-directory exfiltration in
+  // the same class as the already-blocked pg_ls_logdir (PG_LS_ prefix), but
+  // spelled pg_logdir_ls so the PG_LS_ prefix missed it. Whole-word block.
+  it("rejects pg_logdir_ls (PG_LOGDIR_LS; adminpack server-log-dir listing)", () => {
+    const r = guardQuery("SELECT pg_logdir_ls()");
+    expect(r.ok).toBe(false);
+    expect(r.reason).toMatch(/PG_LOGDIR_LS/);
+    expect(guardQuery("select PG_CATALOG.pg_logdir_ls()").ok).toBe(false);
+  });
+
   // Sibling of #110: pg_truncate_visibility_map(regclass) is the pg_visibility
   // extension's MUTATOR — it truncates a relation's visibility-map fork
   // (destructive on-disk storage change), exempt from default_transaction_read_only
