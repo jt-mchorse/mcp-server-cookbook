@@ -896,3 +896,16 @@ The SQL guard blocked `pg_prewarm` (via the `PG_PREWARM` prefix) and the adminpa
 - `pg_logdir_ls()` — adminpack function listing the server log directory (exfiltration).
 
 The autoprewarm pair starts with `autoprewarm`, not `pg`, so `PG_PREWARM` missed them; `pg_logdir_ls` is spelled `pg_logdir_ls`, not `pg_ls_*`, so `PG_LS_` missed it. Fixed by adding an `AUTOPREWARM_` prefix and a `PG_LOGDIR_LS` whole-word entry, with 3 lock tests. Verified firsthand that all three were allowed pre-fix and blocked post-fix, that they are genuine Postgres functions, and that read-only inspectors stay allowed. README count bumped 168 → 171. PR #129.
+
+## 2026-07-17 — Issue #130: guard non-string description in updateGistFile
+
+#117 added typeof guards to `gist_id`, `filename`, and `content` in
+`updateGistFile`, but left the optional `description` argument passed straight
+into the GitHub PATCH payload. Because the MCP handler casts it as
+`string | undefined` and the SDK doesn't enforce inputSchema types, a non-string
+`description` was forwarded to GitHub unvalidated — a wasted authenticated call
+and a remote 422 rather than the clean local reject the sibling args produce.
+Added the parity guard (allowing the optional-undefined case), a test covering
+123/true/object/array, and bumped the github-gists README test count 64→65 (the
+readme-check static count). Honest severity is medium — this forwards bad input
+rather than crashing. Shipped as PR #131.

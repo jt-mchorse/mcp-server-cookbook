@@ -339,6 +339,25 @@ describe("GistsClient.updateGistFile", () => {
     }
   });
 
+  it("rejects a present-but-non-string description and never forwards it (#130, sibling of #117)", async () => {
+    // description is the optional string sibling of gist_id/filename/content. The
+    // #117 typeof sweep guarded those three but left description passed straight
+    // into the PATCH payload — a non-string was forwarded to GitHub unvalidated
+    // (a wasted authenticated call + remote 422) instead of a clean local reject.
+    const { fetch, calls } = recordingFetch({ status: 200, ok: true, jsonBody: {} });
+    const client = new GistsClient({ cfg: baseCfg({ token: "tok" }), fetch });
+    for (const bad of [123, true, {}, ["x"]]) {
+      const err = await client
+        // @ts-expect-error intentionally wrong type
+        .updateGistFile({ gistId: "abc", filename: "f.md", content: "hi", description: bad })
+        .catch((e: Error) => e);
+      expect(err.message).toBe("description must be a string when provided");
+      expect(err.message).not.toMatch(/is not a function/);
+    }
+    // The request is never issued when description is invalid.
+    expect(calls.length).toBe(0);
+  });
+
   it("does not include the token in the error message on 401", async () => {
     const { fetch } = recordingFetch({
       status: 401,
