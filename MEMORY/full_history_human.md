@@ -909,3 +909,49 @@ Added the parity guard (allowing the optional-undefined case), a test covering
 123/true/object/array, and bumped the github-gists README test count 64→65 (the
 readme-check static count). Honest severity is medium — this forwards bad input
 rather than crashing. Shipped as PR #131.
+
+## 2026-08-03 — Issue #132: the seventh repo of the ruff break
+
+The 2026-07-31 cross-repo sweep fixed six repos whose CI went red when ruff
+0.16.1 extended `ruff format` to Python code blocks inside Markdown. It missed
+this one. The sweep enumerated repos with a top-level `pyproject.toml`, and
+`mcp-server-cookbook` is a TS-first repo whose only Python package sits two
+directories down at `servers/filesystem-sandbox-py`.
+
+The break here also wears a different face. Instead of the format-scope change,
+0.16.1 widened ruff's **default rule selection** — and this package was the only
+Python package in the portfolio with no `[tool.ruff.lint]` block at all. Its
+`pyproject.toml` declared `line-length` and `target-version` and nothing else,
+so what CI enforced was whatever ruff shipped that week. Same root cause,
+unpinned dev tooling; different symptom.
+
+Verified on the same tree with the same commands CI runs: ruff 0.15.13 says
+"All checks passed", ruff 0.16.1 finds 8 errors. The repo's `main` is currently
+green only because nothing has been pushed since 2026-07-20 — this is a latent
+red, not a live one, which is worth noting because it means the "check main CI
+in Phase A" idea from the last session would *not* have caught it. The audit
+fingerprint that would is "lint config drift", not "main is red".
+
+The fix declares the `select = ["E","F","I","B","UP","SIM","PT"]` /
+`ignore = ["E501"]` block that all eight other Python packages already carry.
+Pinned against that list the tree is version-stable, with exactly one violation
+on both ruff versions: a `UP037` on `Sandbox.create`'s quoted `-> "Sandbox"`
+return annotation. That is a genuine pre-existing breach of the contract this
+repo meant to enforce, silently un-enforced the whole time. A missing config
+doesn't just invite drift; it hides violations.
+
+One near-miss worth recording. My first read was that those quotes were
+load-bearing — a classmethod returning its own not-yet-bound class. A quick
+probe said otherwise, but the probe venv was Python 3.14, which masks the whole
+question via PEP 649 deferred annotations. Re-run against a real 3.11 and 3.12,
+the unquoted form raises `NameError: name 'Sandbox' is not defined`. The actual
+file is safe only because `sandbox.py` already carries
+`from __future__ import annotations` at line 36. Interpreter version skew is the
+exact twin of the tool version skew that caused this whole class of bug: probe
+on the versions CI actually runs, which the workflow matrix names.
+
+Separately, running the suite surfaced a second latent break in the same CI job:
+`mcp>=1.27` now resolves to mcp 2.0.0, whose `CallToolResult` no longer exposes
+`isError`, failing both tests in `test_server_iserror.py`. It reproduces on
+unmodified `main`, so it is pre-existing and unrelated — filed and fixed
+separately, and that PR should merge first. Shipped as PR #133.
