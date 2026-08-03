@@ -110,7 +110,7 @@ cd servers/postgres-readonly      && npm install && npm test    # 171 SQL-guard 
 cd servers/filesystem-sandbox     && npm install && npm test    # 59 sandbox (+ leaf-symlink write-path guard) + tool (+ non-string content typeof guard) + config (+ MAX_BYTES grammar parity) + public-surface + atomic-write (+ NAME_MAX-basename temp-name) tests
 cd servers/github-gists           && npm install && npm test    # 65 config + client (redaction + rate-limit diag + cfg validation + filename-trim + non-string gist_id/filename/description typeof guard + single-read-Response error body + capped JSON error message) + error-message-format + tool + public-surface tests
 cd servers/internal-tools-bridge  && npm install && npm test    # 35 bridge + tool + public-surface + repo-stats-readme-lock tests (no shell, env scrub, output cap, wall-clock-bound timeout, validateConfig)
-cd servers/filesystem-sandbox-py  && pip install -e '.[dev]' && pytest  # 92 sandbox + tool (+ non-string content typeof guard) + config (+ MAX_BYTES grammar parity) + public-surface + atomic-write (+ NAME_MAX-basename temp-name) + isError-parity + ruff-config-scope tests
+cd servers/filesystem-sandbox-py  && pip install -e '.[dev]' && pytest  # 93 sandbox + tool (+ non-string content typeof guard) + config (+ MAX_BYTES grammar parity) + public-surface + atomic-write (+ NAME_MAX-basename temp-name) + isError-parity (wire-level, SDK-major-stable) + ruff-config-scope tests
 ```
 
 Wiring into Claude Desktop, the Claude Code CLI, or your own MCP client is
