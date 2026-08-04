@@ -94,7 +94,7 @@ class Sandbox:
         self._roots: tuple[str, ...] = tuple(resolved_roots)
 
     @classmethod
-    def create(cls, roots: list[str]) -> "Sandbox":
+    def create(cls, roots: list[str]) -> Sandbox:
         """Build a sandbox over ``roots``. Each root must exist and
         be a directory; symlinks are followed once at construction."""
         if not roots:

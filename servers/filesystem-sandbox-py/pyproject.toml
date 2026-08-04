@@ -34,5 +34,22 @@ addopts = "-ra -q"
 asyncio_mode = "auto"
 
 [tool.ruff]
+# ruff 0.16.1 extended `ruff format` to Python code blocks inside Markdown.
+# CI installs ruff unpinned (`pip install -e '.[server,dev]'`), so the tool's
+# scope widened overnight. Six sibling repos went red on committed Markdown
+# that had never been in scope; here it is still latent only because this
+# package's README happens to already be formatted (#132). This package's
+# lint contract has always been "format Python source"; prose is not Python
+# source. Re-state the scope the config always meant.
+extend-exclude = ["*.md"]
 line-length = 100
 target-version = "py311"
+
+[tool.ruff.lint]
+# Without this block the package inherits whatever ruff's *default* rule
+# selection happens to be on the day CI runs — which is how 0.16.1 turned a
+# clean tree into 8 errors with nothing here changed. Every other Python
+# package in the portfolio declares this exact list; state it here too so
+# what CI enforces is a property of the repo, not of the release calendar.
+select = ["E", "F", "I", "B", "UP", "SIM", "PT"]
+ignore = ["E501"]
