@@ -955,3 +955,41 @@ Separately, running the suite surfaced a second latent break in the same CI job:
 `isError`, failing both tests in `test_server_iserror.py`. It reproduces on
 unmodified `main`, so it is pre-existing and unrelated — filed and fixed
 separately, and that PR should merge first. Shipped as PR #133.
+
+## 2026-08-03 — Issue #134: the isError tests broke on a rename no client saw
+
+Running the suite while verifying #132 turned up two failures in
+`test_server_iserror.py`: `AttributeError: 'CallToolResult' object has no
+attribute 'isError'`. They reproduce on unmodified `main`. The `server` extra
+pins `mcp>=1.27` with no upper bound, so CI now resolves mcp **2.0.0**, which
+renamed that attribute to `is_error`.
+
+The important part is what did *not* break. mcp 2.0.0 kept `isError` as the
+**wire alias** and sets `populate_by_name`, so `_wrap_dispatch_result` still
+constructs correctly and the payload a client receives is byte-for-byte what it
+was. The #88 parity guarantee — the TS sibling flags every refusal, and MCP
+clients key off that flag — held perfectly. Only the tests broke.
+
+Which points at the actual defect. That test guards a claim about the *wire
+payload*, but it asserted on a pydantic attribute name, an implementation
+detail of the SDK. So it broke on a rename that never reached a client, while
+being unable to tell you whether the thing it guards still worked. Swapping to
+`result.is_error` would only move the brittleness — mcp 1.x is still inside the
+declared range, so that spelling breaks the other direction. The fix asserts on
+`model_dump(by_alias=True)["isError"]`, which is stable across both majors and
+is literally what a client sees.
+
+Deliberately left `_wrap_dispatch_result`'s `isError=` constructor keyword
+alone. It is the *alias*, and that is the form that works on both majors —
+`is_error=` would work on 2.x and break 1.x. Added a test pinning that hinge, so
+if a future SDK drops alias population it fails loudly next to the explanation
+rather than silently shipping `isError: false` on every refusal, which is
+exactly the regression #88 existed to fix.
+
+A stacking wrinkle: #132 and #134 break the same CI job, so neither PR could be
+green alone — #133 was red on pytest because of this bug, and this branch was
+red on lint because of that one. Resolved by basing PR #135 on #133's branch
+rather than `main`; GitHub retargets it automatically once #133 merges.
+
+Verified 93 tests green against mcp 1.29.0 and 2.0.0, on Python 3.11 and 3.12,
+with ruff clean on both 0.15.13 and 0.16.1. Shipped as PR #135.
