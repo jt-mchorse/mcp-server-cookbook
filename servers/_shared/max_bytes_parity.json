@@ -1,0 +1,46 @@
+{
+  "_comment": [
+    "Shared MCP_FS_SANDBOX_MAX_BYTES parity table for the filesystem-sandbox dual port (#137).",
+    "Both test suites read THIS file, so the two ports are exercised against literally the",
+    "same inputs and expectations rather than two hand-maintained copies that can drift.",
+    "#98 unified the grammar (which literal forms parse). It did not unify the value domain,",
+    "which is why every row carries an expected `max_bytes` and not just accept/reject:",
+    "TS silently rounded 9007199254740993 down to ...992 while Python applied it exactly,",
+    "and a 310-digit value overflowed to Infinity in TS (server refuses to start) while",
+    "Python accepted an effectively unbounded cap. Asserting only accept/reject would have",
+    "let the rounding row pass on the broken tree.",
+    "`raw` values longer than a literal are expressed as {\"digits\": N} = '1' followed by N-1 zeros."
+  ],
+  "default_max_bytes": 1000000,
+  "max_safe_integer": 9007199254740991,
+  "cases": [
+    { "label": "plain value", "raw": "524288", "accept": true, "max_bytes": 524288 },
+    { "label": "default when unset", "raw": null, "accept": true, "max_bytes": 1000000 },
+    { "label": "default when blank", "raw": "   ", "accept": true, "max_bytes": 1000000 },
+    { "label": "leading plus", "raw": "+100", "accept": true, "max_bytes": 100 },
+    { "label": "surrounding whitespace", "raw": "  524288  ", "accept": true, "max_bytes": 524288 },
+    { "label": "one byte", "raw": "1", "accept": true, "max_bytes": 1 },
+
+    { "label": "MAX_SAFE_INTEGER exactly", "raw": "9007199254740991", "accept": true, "max_bytes": 9007199254740991 },
+    { "label": "2^53 (first unrepresentable)", "raw": "9007199254740992", "accept": false },
+    { "label": "2^53+1 (TS silently rounded down)", "raw": "9007199254740993", "accept": false },
+    { "label": "2^53+3 (TS silently rounded up)", "raw": "9007199254740995", "accept": false },
+    { "label": "20 digits", "raw": "10000000000000000000", "accept": false },
+
+    { "label": "zero", "raw": "0", "accept": false },
+    { "label": "negative", "raw": "-1", "accept": false },
+    { "label": "negative zero", "raw": "-0", "accept": false },
+    { "label": "fractional", "raw": "1.5", "accept": false },
+    { "label": "non-numeric", "raw": "banana", "accept": false },
+    { "label": "scientific", "raw": "1e6", "accept": false },
+    { "label": "hex", "raw": "0x10", "accept": false },
+    { "label": "octal", "raw": "0o17", "accept": false },
+    { "label": "binary", "raw": "0b10", "accept": false },
+    { "label": "underscore grouped", "raw": "1_000_000", "accept": false },
+    { "label": "infinity literal", "raw": "Infinity", "accept": false },
+    { "label": "nan literal", "raw": "NaN", "accept": false },
+
+    { "label": "310 digits (TS Infinity, Python unbounded)", "digits": 310, "accept": false },
+    { "label": "5000 digits (past CPython int() str limit)", "digits": 5000, "accept": false }
+  ]
+}

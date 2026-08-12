@@ -20,6 +20,12 @@ from dataclasses import dataclass
 
 DEFAULT_MAX_BYTES = 1_000_000
 
+# `Number.MAX_SAFE_INTEGER` in the TS sibling — the largest integer that port
+# represents exactly. Shared ceiling for `MCP_FS_SANDBOX_MAX_BYTES` so the two
+# ports agree on the value domain, not just the grammar (#137).
+MAX_SAFE_INTEGER = 2**53 - 1
+MAX_SAFE_INTEGER_DIGITS = len(str(MAX_SAFE_INTEGER))
+
 
 @dataclass(frozen=True)
 class SandboxConfig:
@@ -59,16 +65,35 @@ def read_sandbox_config_from_env(env: dict[str, str] | None = None) -> SandboxCo
     # fails the other (#98). Both ports now gate on the same explicit regex so
     # they accept/reject an identical grammar; the trailing `int()` parse then
     # only ever sees plain digits.
+    #
+    # #98 made the two ports agree on the *grammar*. It did not make them agree
+    # on the *value domain* (#137). `int()` is arbitrary-precision and `Number()`
+    # is float-backed, so above 2**53 the TS port silently rounded
+    # (`9007199254740993` -> `...992`) while this one applied the exact value,
+    # and a 310-digit value overflowed to `Infinity` there — refusing to start —
+    # while this one accepted an effectively unbounded cap.
+    #
+    # MAX_SAFE_INTEGER (2**53 - 1) is the ceiling because it is the largest
+    # value the TS port represents exactly; under it the two agree by
+    # construction rather than by coincidence. Checking the digit length before
+    # `int()` also keeps CPython 3.11+'s 4300-digit string limit unreachable —
+    # its ValueError names `sys.set_int_max_str_digits()` rather than this
+    # variable, which is not a message an operator can act on.
     max_bytes_raw = e.get("MCP_FS_SANDBOX_MAX_BYTES", "").strip()
     max_bytes = DEFAULT_MAX_BYTES
     if max_bytes_raw:
-        if not re.fullmatch(r"[+-]?\d+", max_bytes_raw):
+        too_long = len(max_bytes_raw.lstrip("+-")) > MAX_SAFE_INTEGER_DIGITS
+        if not re.fullmatch(r"[+-]?\d+", max_bytes_raw) or too_long:
             raise ValueError(
-                f"MCP_FS_SANDBOX_MAX_BYTES must be a positive integer; got {max_bytes_raw!r}"
+                f"MCP_FS_SANDBOX_MAX_BYTES must be a positive integer no greater "
+                f"than {MAX_SAFE_INTEGER}; got {max_bytes_raw!r}"
             )
         parsed = int(max_bytes_raw)
-        if parsed <= 0:
-            raise ValueError(f"MCP_FS_SANDBOX_MAX_BYTES must be a positive integer; got {parsed!r}")
+        if parsed <= 0 or parsed > MAX_SAFE_INTEGER:
+            raise ValueError(
+                f"MCP_FS_SANDBOX_MAX_BYTES must be a positive integer no greater "
+                f"than {MAX_SAFE_INTEGER}; got {max_bytes_raw!r}"
+            )
         max_bytes = parsed
 
     return SandboxConfig(allowed_roots=parts, read_only=read_only, max_bytes=max_bytes)
