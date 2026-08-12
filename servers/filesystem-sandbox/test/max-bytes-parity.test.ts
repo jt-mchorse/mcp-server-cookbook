@@ -13,7 +13,7 @@
  *     verbatim the "starts one port, hard-fails the other" harm #98 set out to
  *     fix.
  *
- * The table lives in `servers/_shared/max_bytes_parity.json` and is read by
+ * The table lives in `test-fixtures/max_bytes_parity.json` and is read by
  * BOTH suites, so the ports are exercised against literally the same inputs
  * rather than two hand-maintained copies that can drift apart the way the
  * implementations did.
@@ -38,7 +38,7 @@ interface ParityCase {
 }
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const TABLE_PATH = join(HERE, "..", "..", "_shared", "max_bytes_parity.json");
+const TABLE_PATH = join(HERE, "..", "..", "..", "test-fixtures", "max_bytes_parity.json");
 
 const table = JSON.parse(readFileSync(TABLE_PATH, "utf8")) as {
   default_max_bytes: number;

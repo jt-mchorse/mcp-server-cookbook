@@ -12,7 +12,7 @@ arbitrary-precision language and a float-backed one diverge:
   the TS port overflowed to ``Infinity`` and refused to start. That is verbatim
   the "starts one port, hard-fails the other" harm #98 set out to fix.
 
-The table lives in ``servers/_shared/max_bytes_parity.json`` and is read by
+The table lives in ``test-fixtures/max_bytes_parity.json`` and is read by
 *both* suites, so the ports are exercised against literally the same inputs
 rather than two hand-maintained copies that can drift apart the way the
 implementations did.
@@ -35,7 +35,7 @@ from filesystem_sandbox.config import (
     read_sandbox_config_from_env,
 )
 
-_TABLE_PATH = Path(__file__).resolve().parents[2] / "_shared" / "max_bytes_parity.json"
+_TABLE_PATH = Path(__file__).resolve().parents[3] / "test-fixtures" / "max_bytes_parity.json"
 
 
 def _load_table() -> dict:
