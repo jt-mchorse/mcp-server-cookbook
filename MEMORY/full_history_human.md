@@ -993,3 +993,39 @@ rather than `main`; GitHub retargets it automatically once #133 merges.
 
 Verified 93 tests green against mcp 1.29.0 and 2.0.0, on Python 3.11 and 3.12,
 with ruff clean on both 0.15.13 and 0.16.1. Shipped as PR #135.
+
+## 2026-08-12 — the parity fix that only fixed the syntax (#137)
+
+#98 gave both filesystem-sandbox ports the same regex for
+`MCP_FS_SANDBOX_MAX_BYTES`, and both files say so: they "accept/reject an
+identical grammar". That's accurate, and it isn't the same as parity.
+
+`Number("9007199254740993")` is `9007199254740992`. Both `Number.isInteger` and
+`Number.isFinite` are true, so nothing objected — the TypeScript server quietly
+enforced a cap one byte below what the operator wrote, while Python applied the
+exact value. `9007199254740995` rounded the other way. Further up, a 310-digit
+value became `Infinity` in TypeScript and the server refused to start, while
+Python accepted it and ran effectively unbounded. That last one is word for
+word the harm #98's own comment describes as fixed.
+
+The lens worth keeping: **a parity fix scoped to syntax leaves the value domain
+open.** For any float-backed / arbitrary-precision pair, making the grammar
+identical does nothing about what each language does at the top of its range.
+Memory recorded this lens as exhausted here after #98 — and it was exhausted
+across literal forms. Re-running the same probe at large magnitudes rather than
+across `1e6` / `0x10` / `1_000_000` found three defects immediately.
+
+One bound closes all three: reject above `Number.MAX_SAFE_INTEGER` in both
+ports. It's the largest value TypeScript represents exactly, so beneath it the
+two agree by construction rather than by coincidence, and it keeps Python's
+`int()` clear of CPython 3.11+'s 4300-digit limit, whose error message tells
+operators about `sys.set_int_max_str_digits()` instead of the variable they
+set.
+
+The part meant to outlast the fix is the shared table. Both suites read
+`servers/_shared/max_bytes_parity.json`, so the ports are tested against
+literally the same inputs — because a fix explicitly aimed at parity left a
+parity gap precisely because each side maintained its own test list. And every
+accepting row asserts the resulting cap, not just accept/reject: on the broken
+tree both ports *accepted* the rounding case and merely disagreed on the
+number, which an accept/reject-only check waves through.

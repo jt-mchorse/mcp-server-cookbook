@@ -6,7 +6,8 @@
  * empty value refuses to start the server (D-005 — silent permissive
  * default would be the worst possible config).
  *
- * `MCP_FS_SANDBOX_READ_ONLY` — when set to `1` / `true`, the server
+ * `MCP_FS_SANDBOX_READ_ONLY` — when set to `1` / `true` / `yes`
+ * (case-insensitive), the server
  * refuses `write_file` calls. Defaults to permissive (off) since the
  * server's whole point is bounded writes; but operators who want
  * extra defense-in-depth can flip this and be sure no write tool ever
@@ -57,14 +58,37 @@ export function readSandboxConfigFromEnv(env: NodeJS.ProcessEnv = process.env): 
   // value starts one port and hard-fails the other (#98). Both ports now gate
   // on the same explicit regex so they accept/reject an identical grammar; the
   // trailing `Number` parse then only ever sees plain digits.
+  // #98 made the two ports agree on the *grammar*. It did not make them agree
+  // on the *value domain*, and that is where a float-backed language and an
+  // arbitrary-precision one diverge (#137):
+  //
+  //   - `Number("9007199254740993")` is 9007199254740992 — silently one byte
+  //     below what the operator wrote, with `Number.isInteger` and
+  //     `Number.isFinite` both true, so nothing caught it. Python's `int()`
+  //     applied the exact value. Same config, two different caps.
+  //   - A 310-digit value overflowed to `Infinity` here and was rejected, while
+  //     Python accepted it and ran with an effectively unbounded cap — verbatim
+  //     the "starts one port, hard-fails the other" harm #98 set out to fix.
+  //
+  // MAX_SAFE_INTEGER is the ceiling because it is the largest value this port
+  // can represent exactly; under it the two agree by construction rather than
+  // by coincidence. A ~9 PB per-call byte cap is not a real configuration, so
+  // the bound costs no legitimate use. It also keeps Python's `int()` away from
+  // CPython 3.11+'s 4300-digit string limit, whose ValueError text names
+  // `sys.set_int_max_str_digits()` instead of this variable.
   const maxBytesRaw = env.MCP_FS_SANDBOX_MAX_BYTES;
   let maxBytes = DEFAULT_MAX_BYTES;
   if (maxBytesRaw !== undefined && maxBytesRaw.trim() !== "") {
     const trimmed = maxBytesRaw.trim();
-    const parsed = /^[+-]?\d+$/.test(trimmed) ? Number(trimmed) : Number.NaN;
+    // Reject over-long digit strings before `Number` sees them, so the
+    // magnitude check below never depends on a lossy conversion.
+    const withinSafeRange =
+      /^[+-]?\d+$/.test(trimmed) && BigInt(trimmed) <= BigInt(Number.MAX_SAFE_INTEGER);
+    const parsed = withinSafeRange ? Number(trimmed) : Number.NaN;
     if (!Number.isFinite(parsed) || parsed <= 0 || !Number.isInteger(parsed)) {
       throw new Error(
-        `MCP_FS_SANDBOX_MAX_BYTES must be a positive integer; got ${JSON.stringify(maxBytesRaw)}`,
+        `MCP_FS_SANDBOX_MAX_BYTES must be a positive integer no greater than ` +
+          `${Number.MAX_SAFE_INTEGER}; got ${JSON.stringify(maxBytesRaw)}`,
       );
     }
     maxBytes = parsed;
