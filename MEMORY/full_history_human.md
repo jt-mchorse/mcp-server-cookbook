@@ -1029,3 +1029,58 @@ parity gap precisely because each side maintained its own test list. And every
 accepting row asserts the resulting cap, not just accept/reject: on the broken
 tree both ports *accepted* the rounding case and merely disagreed on the
 number, which an accept/reject-only check waves through.
+
+## 2026-08-19 — the third parity axis: what `trim()` actually removes (#139)
+
+`#98` aligned the two `filesystem-sandbox` config ports on the byte cap's
+grammar. `#138` (merged four days ago) aligned them on its value domain. So the
+question was simply: what is the third axis? It turned out to be the character
+set `trim()` / `strip()` actually removes — which neither fix touched, and which
+applies to all three env vars rather than just the numeric one.
+
+JS `String.prototype.trim()` removes `U+FEFF` (the BOM) and Python's
+`str.strip()` does not. Python removes `U+0085` (NEL) and `U+001C`–`U+001F` and
+JS does not. Six divergent codepoints, cutting both ways. All twelve non-space
+rows diverged across the three variables:
+
+```
+U+FEFF on READ_ONLY  -> TS true,  PY FALSE            fails OPEN in Python
+U+0085 on READ_ONLY  -> TS FALSE, PY true             fails OPEN in TS
+U+FEFF on MAX_BYTES  -> TS 4096,  PY refuses to start
+U+FEFF on ALLOWLIST  -> TS "/tmp/sbx", PY "<BOM>/tmp/sbx"
+```
+
+The read-only row is `#52` verbatim — "silently failed open to *write* mode even
+though the operator set the read-only safety toggle" — reached through a
+character class instead of ordinary whitespace. And unlike most of this run's
+findings, reachability here is strong: a leading `U+FEFF` is what a `.env` saved
+as UTF-8-with-BOM produces, which is the default in several Windows editors and
+what PowerShell's `Out-File` emits without `-Encoding utf8NoBOM`. Both ports
+document `ALLOWLIST` first, so it's the likeliest variable to carry it.
+
+The fix is the **union** of the two sets, not one side conceding to the other. A
+union strips strictly more than either did, so a config that worked on one port
+now works on both and nothing that works breaks. `U+200B` is deliberately
+excluded — it is not whitespace in either language, so including it would be a
+widening decision rather than a parity fix, and a test in each port pins that it
+stays untrimmed.
+
+**The process lesson is the biggest one from this run.** My first two probes
+embedded `U+0085` and `U+001C` as literal characters in a probe file, and they
+did not survive the round trip. The cases degenerated to the baseline, a real
+divergence looked like agreement, and I nearly concluded the bug wasn't there.
+What saved it was noticing that two probes of the same property disagreed — the
+combined probe said TS refused, the per-variable one said TS accepted — and
+treating the probe as wrong before the code. Rebuilding every character from a
+codepoint (`String.fromCodePoint` / `chr`) settled it. Two practical notes: the
+Bash tool refuses a command containing literal control characters outright, so
+probe files have to be written with the Write tool rather than a heredoc; and
+every test file here now opens with a guard asserting the padding characters are
+non-empty single characters, because a test whose padding degrades to `""`
+passes vacuously.
+
+Also confirmed the operator-memory note about this repo: `tools/check-readme.mjs`
+caught the new test files immediately and demanded the quoted counts move
+(63→75, 98→110). Those counts are static (`it(` / `test(` / `def test_`), so the
+96 runtime tests are only 24 static declarations. All four `tools/check-*.mjs`
+locks need running, not just the README one.
