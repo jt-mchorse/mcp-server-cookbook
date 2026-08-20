@@ -134,8 +134,41 @@ class Sandbox:
                 "to avoid CWD-dependent surprises",
             )
 
+        # A trailing separator means "this must be a directory" in POSIX. Both
+        # ports rejected `<root>/real.txt/` before #141, but for different
+        # reasons and by accident: Python fell out of `lexists`, and TS was at
+        # the mercy of whether the host's `realpath` happened to be lenient
+        # (darwin's was). Detect it explicitly on both sides so the verdict AND
+        # the reason match, and neither depends on the platform.
+        wants_directory = len(input_value) > 1 and input_value.endswith(os.sep)
+        if wants_directory and not os.path.isdir(input_value):
+            raise SandboxEscape(
+                "not_a_directory",
+                input_value,
+                "input ends with a path separator, which requires a directory; "
+                "the resolved target is not one",
+            )
+
         if must_exist:
-            if not os.path.lexists(input_value):
+            # `exists`, not `lexists` (#141). `lexists` does NOT follow symlinks,
+            # so a DANGLING link passed this gate and `realpath` then returned its
+            # non-existent target — `resolve(..., must_exist=True)` handed back a
+            # path for which `os.path.exists()` is False, contradicting the
+            # parameter it is named for. The TS sibling calls `fs.realpath`, which
+            # throws ENOENT on a dangling link, and rejects.
+            #
+            # This is the `must_exist=True` sibling of #60. That issue fixed the
+            # dangling-leaf-symlink branch under `must_exist=False` and BOTH ports
+            # carry a test for it; neither covered this branch.
+            #
+            # A dangling link pointing OUTSIDE was already rejected — by
+            # containment, further down. This closes the pointing-INSIDE case,
+            # which containment cannot see.
+            #
+            # Consistent with D-006 rather than a departure from it: the gate now
+            # agrees with the symlink-following `realpath` on the very next line,
+            # instead of disagreeing with it.
+            if not os.path.exists(input_value):
                 raise SandboxEscape("outside_allowlist", input_value)
             real = os.path.realpath(input_value)
         else:
