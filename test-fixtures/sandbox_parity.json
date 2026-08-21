@@ -1,0 +1,171 @@
+{
+  "_comment": [
+    "Shared resolve() parity table for the two filesystem-sandbox ports (#141).",
+    "",
+    "Read by servers/filesystem-sandbox/test/sandbox-parity.test.ts and",
+    "servers/filesystem-sandbox-py/tests/test_sandbox_parity.py, so both ports",
+    "are exercised against literally the same inputs rather than two",
+    "hand-maintained copies that can drift apart the way the implementations",
+    "did. Same convention as max_bytes_parity.json and the config-trim pair.",
+    "",
+    "Each suite builds `tree` under its own temp directory, then runs every",
+    "case. Paths are relative to that temp directory; the allow-list is the",
+    "single root `root`.",
+    "",
+    "Every row asserts the RESOLVED PATH on accept and the REASON on reject,",
+    "not just accept/reject. The trailing-slash row is why: before #141 both",
+    "ports rejected it, but for different reasons and by accident."
+  ],
+  "allowlist": ["root"],
+  "tree": {
+    "dirs": ["root", "root/sub", "outside"],
+    "files": {
+      "root/real.txt": "inside\n",
+      "outside/secret.txt": "secret\n"
+    },
+    "symlinks": [
+      { "link": "root/dangling_inside", "target": "root/nope.txt" },
+      { "link": "root/dangling_outside", "target": "outside/nope.txt" },
+      { "link": "root/live_outside", "target": "outside/secret.txt" }
+    ]
+  },
+  "cases": [
+    {
+      "label": "existing file",
+      "path": "root/real.txt",
+      "must_exist": true,
+      "expect": "ok",
+      "resolved": "root/real.txt"
+    },
+    {
+      "label": "existing dir",
+      "path": "root/sub",
+      "must_exist": true,
+      "expect": "ok",
+      "resolved": "root/sub"
+    },
+    {
+      "label": "missing file under must_exist",
+      "path": "root/nope.txt",
+      "must_exist": true,
+      "expect": "escape",
+      "reason": "outside_allowlist"
+    },
+    {
+      "label": "dangling symlink pointing INSIDE the root",
+      "note": "#141 divergence 1: Python's lexists gate did not follow the link, so resolve(must_exist=True) returned a path that does not exist. The must_exist=True sibling of #60.",
+      "path": "root/dangling_inside",
+      "must_exist": true,
+      "expect": "escape",
+      "reason": "outside_allowlist"
+    },
+    {
+      "label": "dangling symlink pointing outside",
+      "path": "root/dangling_outside",
+      "must_exist": true,
+      "expect": "escape",
+      "reason": "outside_allowlist"
+    },
+    {
+      "label": "live symlink pointing outside",
+      "path": "root/live_outside",
+      "must_exist": true,
+      "expect": "escape",
+      "reason": "outside_allowlist"
+    },
+    {
+      "label": "traversal out of the root",
+      "path": "root/../outside/secret.txt",
+      "must_exist": true,
+      "expect": "escape",
+      "reason": "outside_allowlist"
+    },
+    {
+      "label": "new file, parent is a real directory",
+      "path": "root/sub/new.txt",
+      "must_exist": false,
+      "expect": "ok",
+      "resolved": "root/sub/new.txt"
+    },
+    {
+      "label": "new file whose parent is a regular FILE",
+      "note": "#141 divergence 2: TS realpath() succeeds on a file, so this resolved OK and a write failed with a raw ENOTDIR instead of the typed error.",
+      "path": "root/real.txt/new.txt",
+      "must_exist": false,
+      "expect": "escape",
+      "reason": "outside_allowlist"
+    },
+    {
+      "label": "new file, parent missing",
+      "path": "root/missingdir/new.txt",
+      "must_exist": false,
+      "expect": "escape",
+      "reason": "outside_allowlist"
+    },
+    {
+      "label": "leaf is a dangling symlink, must_exist false",
+      "note": "the #60 case both ports already covered; kept so this table proves it still holds.",
+      "path": "root/dangling_inside",
+      "must_exist": false,
+      "expect": "escape",
+      "reason": "outside_allowlist"
+    },
+    {
+      "label": "leaf is a live symlink pointing outside, must_exist false",
+      "path": "root/live_outside",
+      "must_exist": false,
+      "expect": "escape",
+      "reason": "outside_allowlist"
+    },
+    {
+      "label": "basename is .. (collapses to the root itself)",
+      "path": "root/sub/..",
+      "must_exist": false,
+      "expect": "ok",
+      "resolved": "root"
+    },
+    {
+      "label": "trailing separator on a file",
+      "note": "#141 divergence 3: both ports rejected, but with different reasons and by accident. TS depended on whether the host realpath was lenient (darwin's was); Python fell out of lexists. Now decided explicitly on both.",
+      "path": "root/real.txt/",
+      "must_exist": true,
+      "expect": "escape",
+      "reason": "not_a_directory"
+    },
+    {
+      "label": "trailing separator on a directory is fine",
+      "path": "root/sub/",
+      "must_exist": true,
+      "expect": "ok",
+      "resolved": "root/sub"
+    },
+    {
+      "label": "double separator",
+      "path": "root//real.txt",
+      "must_exist": true,
+      "expect": "ok",
+      "resolved": "root/real.txt"
+    },
+    {
+      "label": "the root itself",
+      "path": "root",
+      "must_exist": true,
+      "expect": "ok",
+      "resolved": "root"
+    },
+    {
+      "label": "relative path",
+      "path": "!relative:root/real.txt",
+      "must_exist": true,
+      "expect": "escape",
+      "reason": "input_relative_disallowed"
+    },
+    {
+      "label": "empty input",
+      "path": "!literal:",
+      "must_exist": true,
+      "expect": "escape",
+      "reason": "input_empty"
+    }
+  ]
+}

@@ -106,6 +106,36 @@ export class Sandbox {
       );
     }
 
+    // A trailing separator means "this must be a directory" in POSIX. Node's
+    // `fs.realpath` is lenient about it on some platforms — on darwin
+    // `<root>/real.txt/` resolved happily to `<root>/real.txt`, while the
+    // Python sibling rejected it, because `os.path.lexists` does not (#141).
+    // Whether Node is lenient is platform-dependent and CI runs ubuntu, so the
+    // two ports may agree there and disagree on a developer's Mac. That is
+    // precisely the argument for deciding it here: a sandbox whose accept set
+    // depends on the host OS is worse than one that doesn't.
+    //
+    // Recorded rather than inferred: I measured the darwin behaviour and did
+    // not measure Linux's, so this makes the answer explicit on both instead
+    // of relying on either.
+    const wantsDirectory = input.length > 1 && input.endsWith(path.sep);
+    if (wantsDirectory) {
+      let isDir = false;
+      try {
+        isDir = (await fs.stat(input)).isDirectory();
+      } catch {
+        isDir = false;
+      }
+      if (!isDir) {
+        throw new SandboxEscape(
+          "not_a_directory",
+          input,
+          "input ends with a path separator, which requires a directory; " +
+            "the resolved target is not one",
+        );
+      }
+    }
+
     const mustExist = opts.mustExist ?? true;
     let real: string;
     if (mustExist) {
@@ -126,6 +156,19 @@ export class Sandbox {
       try {
         parentReal = await fs.realpath(parent);
       } catch {
+        throw new SandboxEscape("outside_allowlist", input);
+      }
+      // `realpath` succeeds for a regular FILE, so `<root>/real.txt/new.txt`
+      // resolved OK here and a write then failed with a raw ENOTDIR at the
+      // syscall instead of the typed error this module promises (#141). You
+      // cannot create a file underneath a regular file. The Python sibling
+      // already checked this, via `os.path.isdir(parent)` before resolving.
+      try {
+        if (!(await fs.stat(parentReal)).isDirectory()) {
+          throw new SandboxEscape("outside_allowlist", input);
+        }
+      } catch (err) {
+        if (err instanceof SandboxEscape) throw err;
         throw new SandboxEscape("outside_allowlist", input);
       }
       const candidate = path.join(parentReal, path.basename(input));

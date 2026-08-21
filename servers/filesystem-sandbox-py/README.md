@@ -46,7 +46,11 @@ typed `SandboxEscape` exceptions:
 
 ## Parity matrix
 
-What's identical across the TS and Python implementations:
+What's identical across the TS and Python implementations. The
+`resolve()` row is enforced by a shared fixture rather than asserted
+here — `test-fixtures/sandbox_parity.json` is read by both suites, so
+the two ports are exercised against literally the same inputs (#141).
+
 
 | Property                                                       | TS  | Py  |
 |----------------------------------------------------------------|:---:|:---:|
@@ -57,6 +61,7 @@ What's identical across the TS and Python implementations:
 | Per-call `realpath` so symlinks-pointing-outside are rejected  | ✅   | ✅   |
 | Trailing-sep prefix match (no `/tmp/foo` ↔ `/tmp/foobar`)       | ✅   | ✅   |
 | `mustExist:false` for write-to-new-file (parent must exist)    | ✅   | ✅   |
+| `resolve()` verdict *and* reason, over a shared path table     | ✅   | ✅   |
 | Binary file detection on `read_file`                           | ✅   | ✅   |
 | Per-call byte cap (`MCP_FS_SANDBOX_MAX_BYTES`)                 | ✅   | ✅   |
 | Read-only mode (`MCP_FS_SANDBOX_READ_ONLY`)                    | ✅   | ✅   |

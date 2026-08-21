@@ -1084,3 +1084,74 @@ caught the new test files immediately and demanded the quoted counts move
 (63→75, 98→110). Those counts are static (`it(` / `test(` / `def test_`), so the
 96 runtime tests are only 24 static declarations. All four `tools/check-*.mjs`
 locks need running, not just the README one.
+
+## 2026-08-20 — the two sandbox ports disagreed on 3 of 15 resolve() cases (#141)
+
+Three parity fixes preceded this one — #98 (grammar), #137 (value domain),
+#139 (trim charset) — and all three landed in `config`. `sandbox`, where the
+security property actually lives, had never been probed side by side. The test
+suite showed the same shape: a `config-trim-parity` pair, a `max-bytes-parity`
+pair, and no sandbox pair. When a repo has a parity convention, it is worth
+listing which modules it actually covers.
+
+The method was the differential probe: build one real directory tree, run an
+identical case table through both ports, print the verdicts side by side. Three
+of fifteen diverged immediately, and none of them would have been found by
+reading either implementation alone.
+
+Worth stating plainly, and I did in both the issue and the PR: **none of the
+three was an allow-list escape.** Containment held everywhere — traversal,
+live-symlink-outside and dangling-symlink-outside all rejected correctly in
+both ports. These were contract disagreements in an exported API. Saying what a
+security-adjacent finding *is not* matters; otherwise the reader assumes the
+worst and trusts the next report less.
+
+The first divergence was the sibling of #60. Python gated `must_exist=True` on
+`os.path.lexists`, which does not follow symlinks, so a dangling link passed and
+`realpath` returned its non-existent target — `resolve(..., must_exist=True)`
+handed back a path for which `os.path.exists` is `False`. #60 had fixed the
+dangling-leaf branch under `must_exist=False`, and *both ports carry a test for
+it*; neither covered the other branch. Swapping `lexists` for `exists` also
+makes the gate agree with the symlink-following `realpath` on the very next
+line, so it argues from D-006 rather than against it.
+
+The second was the reverse direction — TS accepted a path whose parent is a
+regular file, because `fs.realpath` succeeds on a file, and a write then failed
+with a raw `ENOTDIR`. The lax port was not the same one in all three cases,
+which is a good reason not to treat either as the reference.
+
+The third was platform-dependent and I said so rather than smoothing it over. A
+trailing separator on a file was rejected by both, but for different reasons and
+by accident: TS depended on whether the host's `realpath` was lenient (darwin's
+was), Python fell out of `lexists`. I measured on darwin only and CI runs
+ubuntu, so the ports may agree in CI and disagree on a Mac. That is the argument
+*for* deciding it explicitly.
+
+One thing I nearly shipped half-fixed: after the first pass all fifteen
+*verdicts* matched, but TS said `not_a_directory` and Python said
+`outside_allowlist` for the trailing-slash row, because Python's existence gate
+fired first. Parity means the reason too. Moving the check to the same early
+point in both made the logic literally identical.
+
+And a fixture trap worth remembering: `pathlib` strips a trailing separator when
+it builds a `Path`, so `base / "root/real.txt/"` silently lost the very
+character the row exists to test, and the case passed vacuously. The row caught
+it by reporting `DID NOT RAISE`. Table-driven path tests want string
+concatenation, on both sides — Node's `path.join` normalizes too.
+
+The README test-count lock caught me again, exactly as the operator notes
+predicted: 75→79 and 110→115, counted statically, so my one looping `it(` call
+generating nineteen cases counted once. I also added a `resolve()` row to the
+Python README's parity matrix — that matrix is the document making the parity
+claim, and it had no row for the thing that diverged.
+
+**Why this work, this session:** the static `priority:high` queue was globally
+empty; this came from asking which files the three prior parity fixes had
+actually enumerated.
+
+**Open questions / blockers:** none. The Linux behaviour of divergence 3 is
+unverified by choice, and the fix makes it moot.
+
+**Next session:** `postgres-readonly`'s `sqlGuard` was swept clean on 2026-08-13
+(23 attack shapes); the remaining unprobed surface here is `github-gists` and
+`internal-tools-bridge`.
