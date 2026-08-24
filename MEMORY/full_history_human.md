@@ -1206,3 +1206,70 @@ and I checked `main` first to confirm the move was mine rather than something I'
 inherited. Worth remembering that those counts are static occurrences of `it(`
 and `test(`, so seventeen new runtime tests only moved the claim by twelve —
 `it.each` counts once.
+
+---
+
+## 2026-08-24 — Issue #145: a broken bridge server advertised a tool it could not run
+
+**What got done.** The two servers in this cookbook validated their environment
+configuration at different times, and the difference was observable over the
+wire. Spawning each as a real stdio MCP process and driving `initialize` →
+`tools/list` → `tools/call`:
+
+```
+gists,  MCP_GITHUB_GISTS_TIMEOUT_MS=abc   EXITED at boot, code=1, no tools/list response
+bridge, MCP_BRIDGE_CWD=''                 STILL RUNNING, tools/list ADVERTISED repo_stats
+bridge, MCP_BRIDGE_CWD='./relative'       STILL RUNNING, tools/list ADVERTISED repo_stats
+```
+
+The sharpest statement of the harm is not "it fails late" — it is
+**`tools/list` advertised `repo_stats`**. A broken server looked healthy to a
+client, an agent would have already chosen the tool, and the eventual
+`BridgeConfig.cwd must be an absolute path` reads as a *runtime* failure rather
+than a *configuration* one.
+
+**Root cause: the guard was not at the entry site its own docstring names.** The
+only `validateConfig` call lived inside `runBridged`, i.e. at the first tool
+call — while the docstring says the principle is "operator-supplied
+numeric/path inputs validated **at the entry site** with a loud error rather
+than silent degeneracy". For an environment variable the entry site is the boot
+path.
+
+**Kept both call sites, deliberately.** `runBridged` still validates, because it
+guards a programmatic caller constructing a `BridgeConfig` directly — a
+different entry site with the same rule. Moving the guard would have traded one
+gap for another; the fix is to *add*, not to relocate.
+
+**Two smaller things that were part of why it survived.** `??` fires on
+`null`/`undefined` only, so `MCP_BRIDGE_CWD=` was taken verbatim as `""` rather
+than falling back to `process.cwd()` — the third repo this run with that shape,
+after nextjs#104 and ai-app-integration-tests#101. And the startup log printed
+`cwd=` with nothing after it, rendering the broken value indistinguishably from
+a good one. A log line that interpolates a value without quoting hides the empty
+string.
+
+**Why the tests spawn a real server.** The observable is whether the *process is
+willing to serve*, and no in-process unit test can see that — which is exactly
+why the bridge's existing 55-test suite passed with the bug in place. `tsx` is
+used rather than `dist/` because CI runs `npm test` before `npm run build`, so a
+test against the compiled output would either fail on a clean checkout or
+silently test a stale build.
+
+Worth noting on cost: a first version with fixed sleeps took 26.7s for 12 cases.
+Resolving as soon as `repo_stats` appears on stdout, and writing stdin
+immediately (it is buffered), brought that to 4.0s — and a fixed pre-write delay
+is itself a host-timing assumption, which is the flaky-test class.
+
+**README gotcha.** `tools/check-readme.mjs` counts *static* `it(` occurrences, so
+the root README quotes **49** while the per-server README quotes **67** runtime
+tests. Two different numbers for the same suite, both correct. Run
+`node tools/check-readme.mjs` after adding a test file.
+
+**Filed separately:** #146 — `github-gists` fails at the right *time* but as a
+raw stack trace, where the bridge now prints one actionable line. Both servers
+should read the same way, since the diagnostic is part of the pattern this
+cookbook demonstrates.
+
+**Tests.** 12 new; 7 fail against a narrowed revert. Bridge suite 55 → 67 green,
+gists 103 unchanged, lint and `tsc` clean, `check-readme` and
+`check-architecture-doc` both pass.
