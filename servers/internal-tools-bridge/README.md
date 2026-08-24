@@ -142,14 +142,14 @@ Returns (paths and counts are real on a fresh clone):
 ```json
 {
   "root": "/.../servers/internal-tools-bridge",
-  "total_files": 15,
-  "total_bytes": 210984,
+  "total_files": 16,
+  "total_bytes": 220928,
   "by_ext": {
     ".js": 1,
     ".json": 3,
     ".md": 1,
     ".mjs": 1,
-    ".ts": 9
+    ".ts": 10
   }
 }
 ```
