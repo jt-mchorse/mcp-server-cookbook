@@ -63,11 +63,42 @@ export function readGistsConfigFromEnv(env: NodeJS.ProcessEnv = process.env): Gi
         `MCP_GITHUB_GISTS_TIMEOUT_MS must be a positive integer; got ${JSON.stringify(timeoutRaw)}`,
       );
     }
+    // Above the 32-bit timer limit `setTimeout` clamps to 1 ms, so the abort
+    // deadline fires before the request leaves — the same "every tool call
+    // fails with a timeout before the network round-trip even starts" harm
+    // `validateGistsConfig` below already rejects `timeoutMs = 0` for. A lower
+    // bound and an upper bound are different classes; only the lower one was
+    // closed (#143).
+    //
+    // Reachable through the ordinary env grammar: `Number("1e10")` is
+    // 10000000000 and `Number.isInteger` of it is `true`, so scientific
+    // notation passes every check above. #137/#98 deliberately unified *which
+    // literal forms* parse across this repo's ports; *which magnitudes are
+    // usable* is a separate axis and was never bounded.
+    if (parsed > MAX_TIMEOUT_MS) {
+      throw new Error(
+        `MCP_GITHUB_GISTS_TIMEOUT_MS must be <= ${MAX_TIMEOUT_MS} (2**31 - 1), the largest ` +
+          `delay setTimeout honours; above it the abort fires after ~1ms and every request ` +
+          `times out immediately; got ${JSON.stringify(timeoutRaw)}`,
+      );
+    }
     timeoutMs = parsed;
   }
 
   return { token, baseUrl: normalizedBase, userAgent, timeoutMs };
 }
+
+/**
+ * Largest delay Node's `setTimeout` honours. Above this it clamps to 1 ms with
+ * a `TimeoutOverflowWarning` on stderr, so a deliberately-generous timeout
+ * becomes an immediate one (#143).
+ *
+ * Measured on an abort deadline: `2147483647` was still open after 122 ms,
+ * `2147483648` and `1e10` both aborted after ~2 ms. This is the platform's
+ * 32-bit timer limit, not a policy number — raising it does not buy a longer
+ * timeout, it buys a timeout that fires instantly.
+ */
+export const MAX_TIMEOUT_MS = 2 ** 31 - 1;
 
 export function hasToken(cfg: GistsConfig): boolean {
   return cfg.token !== null;
@@ -121,6 +152,18 @@ export function validateGistsConfig(cfg: GistsConfig): void {
     // preserved here as the consolidated gate covers more fields.
     throw new RangeError(
       `GistsConfig.timeoutMs must be an integer >= 1; got ${cfg.timeoutMs}`,
+    );
+  }
+  // Upper half of the same range. The docstring above explains that
+  // `timeoutMs = 0` "aborts every request on the next tick — silent degeneracy
+  // that makes every tool call fail with a timeout before the network
+  // round-trip even starts". A value at or above `2**31` does exactly that, via
+  // the `setTimeout` clamp, and nothing rejected it (#143).
+  if (cfg.timeoutMs > MAX_TIMEOUT_MS) {
+    throw new RangeError(
+      `GistsConfig.timeoutMs must be <= ${MAX_TIMEOUT_MS} (2**31 - 1), the largest delay ` +
+        `setTimeout honours; above it the abort fires after ~1ms, so every request fails ` +
+        `with a timeout before the round-trip starts; got ${cfg.timeoutMs}`,
     );
   }
   if (cfg.token !== null) {

@@ -20,6 +20,18 @@ import { isAbsolute } from "node:path";
 export const MAX_OUTPUT_BYTES = 1_048_576; // 1 MiB per stream
 export const DEFAULT_TIMEOUT_MS = 10_000;
 
+/**
+ * Largest delay Node's `setTimeout` honours. Above this it clamps to 1 ms with
+ * a `TimeoutOverflowWarning` on stderr, so a deliberately-generous timeout
+ * becomes an immediate one (#143).
+ *
+ * Measured on an abort deadline: `2147483647` was still open after 122 ms,
+ * `2147483648` and `1e10` both aborted after ~2 ms. This is the platform's
+ * 32-bit timer limit, not a policy number — raising it does not buy a longer
+ * timeout, it buys a timeout that fires instantly.
+ */
+export const MAX_TIMEOUT_MS = 2 ** 31 - 1;
+
 const ENV_PASSLIST = ["PATH", "LANG", "LC_ALL", "TZ", "NODE_OPTIONS"] as const;
 
 export class BridgeError extends Error {
@@ -118,6 +130,20 @@ function validateConfig(cfg: BridgeConfig): void {
     if (!Number.isInteger(cfg.timeoutMs) || cfg.timeoutMs < 1) {
       throw new BridgeError(
         `BridgeConfig.timeoutMs must be an integer >= 1; got ${cfg.timeoutMs}`,
+      );
+    }
+    // Upper half of the same range. The docstring above rejects
+    // `timeoutMs = 0` because it "SIGKILLs every child on the next tick" — and
+    // a value at or above `2**31` does precisely that, because `setTimeout`
+    // clamps it to 1 ms. The child is not merely abandoned, it is SIGKILLed a
+    // millisecond after it starts, and the `TimeoutError` then reports the
+    // configured value, so an operator who set 1e10 sees "exceeded
+    // 10000000000ms timeout" for a process that lived 2 ms (#143).
+    if (cfg.timeoutMs > MAX_TIMEOUT_MS) {
+      throw new BridgeError(
+        `BridgeConfig.timeoutMs must be <= ${MAX_TIMEOUT_MS} (2**31 - 1), the largest delay ` +
+          `setTimeout honours; above it the timer fires after ~1ms and every child is ` +
+          `SIGKILLed immediately; got ${cfg.timeoutMs}`,
       );
     }
   }

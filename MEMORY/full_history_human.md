@@ -1155,3 +1155,54 @@ unverified by choice, and the fix makes it moot.
 **Next session:** `postgres-readonly`'s `sqlGuard` was swept clean on 2026-08-13
 (23 attack shapes); the remaining unprobed surface here is `github-gists` and
 `internal-tools-bridge`.
+
+---
+
+## 2026-08-21 — a timeout so long it fires immediately (#143)
+
+Both servers accept a `timeoutMs` and check that it's "an integer >= 1". Node's
+`setTimeout` clamps any delay above 2147483647 to one millisecond. So a
+deliberately generous timeout — the kind you set when an endpoint is slow, or
+that you get from a units slip — becomes an immediate one. Every gists request
+aborts before it leaves, and every bridged subprocess is SIGKILLed about a
+millisecond after it spawns.
+
+The striking part is that both guards already describe this harm. They just
+describe it as the reason for rejecting the *bottom* of the range. The gists
+docstring says a `timeoutMs` of zero "aborts every request on the next tick —
+silent degeneracy that makes every tool call fail with a timeout before the
+network round-trip even starts." The bridge's says a zero "SIGKILLs every child
+on the next tick." Both sentences are exactly what `1e10` does. A lower bound
+and an upper bound are different classes, and only one of them had been closed.
+
+Getting there wasn't clever, it was mechanical: right after fixing the same clamp
+in the streaming repo, I grepped every TypeScript repo in the portfolio for
+`setTimeout` calls with a non-literal delay. These two were the hits. One grep,
+a second whole issue.
+
+Reachability doesn't need a contrived value. `Number("1e10")` is ten billion, and
+`Number.isInteger` of it is `true`, so scientific notation passed every existing
+check. That's not a quirk of this field either — an earlier pair of fixes
+deliberately unified *which literal forms* parse across this repo's ports, so
+`1e6` and friends are meant to work. Widening which forms parse without bounding
+which magnitudes are usable is the gap, and it's the same shape those fixes were
+noted for at the time.
+
+The error messages compound it. Both report the configured value rather than the
+deadline that actually fired, so an operator who set a 115-day timeout reads
+"exceeded 10000000000ms timeout" about a process that lived two milliseconds.
+The message sends you looking at the network or the subprocess when the problem
+is in the config. I left those messages alone on purpose: once the config is
+bounded the two numbers can't disagree, and improving the wording would have
+papered over the actual repair.
+
+`maxOutputBytes` sits right next to `timeoutMs` in both validators and is *not*
+affected — it's a byte count compared with `>`, never handed to a timer. There's
+a test that says so, so the next person sweeping this class doesn't have to work
+it out again.
+
+The repo's README test-count lock did its job: it went red when the counts moved,
+and I checked `main` first to confirm the move was mine rather than something I'd
+inherited. Worth remembering that those counts are static occurrences of `it(`
+and `test(`, so seventeen new runtime tests only moved the claim by twelve —
+`it.each` counts once.

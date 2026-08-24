@@ -142,14 +142,14 @@ Returns (paths and counts are real on a fresh clone):
 ```json
 {
   "root": "/.../servers/internal-tools-bridge",
-  "total_files": 14,
-  "total_bytes": 206614,
+  "total_files": 15,
+  "total_bytes": 210984,
   "by_ext": {
     ".js": 1,
     ".json": 3,
     ".md": 1,
     ".mjs": 1,
-    ".ts": 8
+    ".ts": 9
   }
 }
 ```
@@ -161,7 +161,7 @@ at the time of writing (it shifts as files change).
 ## Tests
 
 ```bash
-npm test          # 45 tests (30 bridge, 10 tools, 3 public-surface, 2 repo-stats-readme) — ~1s
+npm test          # 55 tests (30 bridge, 10 tools, 3 public-surface, 2 repo-stats-readme, 10 timeout-clamp) — ~1s
 npm run lint
 npm run typecheck
 ```
