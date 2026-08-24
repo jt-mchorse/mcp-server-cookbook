@@ -161,7 +161,7 @@ at the time of writing (it shifts as files change).
 ## Tests
 
 ```bash
-npm test          # 55 tests (30 bridge, 10 tools, 3 public-surface, 2 repo-stats-readme, 10 timeout-clamp) — ~1s
+npm test          # 67 tests (30 bridge, 10 tools, 3 public-surface, 2 repo-stats-readme, 10 timeout-clamp, 12 server-boot-config) — ~5s
 npm run lint
 npm run typecheck
 ```

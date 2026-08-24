@@ -104,6 +104,20 @@ export interface RunResult {
  *   - cwd that is not absolute resolves against process.cwd(), violating
  *     the "locked to a configured root" guarantee in the same docstring.
  *
+ * Called from TWO entry sites, and #145 is why. It used to run only from
+ * `runBridged`, i.e. at the first tool call -- so a server started with an
+ * unusable `MCP_BRIDGE_CWD` completed the MCP handshake and ADVERTISED
+ * `repo_stats` in `tools/list`, then failed the call with
+ * `BridgeConfig.cwd must be an absolute path`. To a client that reads as a
+ * runtime failure rather than a configuration one, and an agent will have
+ * already chosen the tool by then. `server.ts` now calls this before the
+ * transport connects; `github-gists` has always failed at boot for the same
+ * class of input, so the two servers in this cookbook now demonstrate one
+ * pattern instead of two.
+ *
+ * That placement is what the next paragraph already asked for: the entry site
+ * for an environment variable is the boot path, not the first use.
+ *
  * Mirrors the portfolio's contract-tightening sweep (PRs
  * llm-eval-harness#41, llm-cost-optimizer#35, rag-production-kit#37,
  * embedding-model-shootout#30, vector-search-at-scale#28,
@@ -112,7 +126,7 @@ export interface RunResult {
  * operator-supplied numeric/path inputs validated at the entry site
  * with a loud error rather than silent degeneracy.
  */
-function validateConfig(cfg: BridgeConfig): void {
+export function validateBridgeConfig(cfg: BridgeConfig): void {
   if (typeof cfg.cwd !== "string" || cfg.cwd.length === 0 || !isAbsolute(cfg.cwd)) {
     throw new BridgeError(`BridgeConfig.cwd must be an absolute path; got ${JSON.stringify(cfg.cwd)}`);
   }
@@ -167,7 +181,11 @@ export async function runBridged(
   binary: string,
   args: ReadonlyArray<string>,
 ): Promise<RunResult> {
-  validateConfig(cfg);
+  // Kept as well as the boot-time call added in #145, not instead of it. This
+  // guards a programmatic caller who constructs a `BridgeConfig` directly --
+  // a different entry site with the same rule -- and dropping it would trade
+  // one gap for another.
+  validateBridgeConfig(cfg);
   if (!cfg.allowlist.includes(binary)) {
     throw new AllowlistError(
       `binary not on allowlist: ${binary} (allowed: ${cfg.allowlist.join(", ")})`,

@@ -13,11 +13,46 @@ import {
   NonZeroExitError,
   OutputCapError,
   TimeoutError,
+  validateBridgeConfig,
 } from "./bridge.js";
 import { defaultBridgeConfig, repoStats, ToolInputError } from "./tools.js";
 
-const cwd = process.env.MCP_BRIDGE_CWD ?? process.cwd();
+// `??` fires on `null`/`undefined` only, so `MCP_BRIDGE_CWD=` -- what a
+// `docker run -e MCP_BRIDGE_CWD` with nothing after it produces, and what an
+// empty line in an env file produces -- used to be taken verbatim as `""`
+// instead of falling back to `process.cwd()` (#145). Same shape as
+// nextjs-streaming-ai-patterns#104 and ai-app-integration-tests#101.
+const cwdRaw = (process.env.MCP_BRIDGE_CWD ?? "").trim();
+const cwd = cwdRaw.length > 0 ? cwdRaw : process.cwd();
 const cfg = defaultBridgeConfig(cwd);
+
+// Validate before anything is served. Previously the only `validateConfig`
+// call was inside `runBridged`, so a server with an unusable `MCP_BRIDGE_CWD`
+// booted, completed the handshake, and advertised `repo_stats` in
+// `tools/list` -- then failed the call. Measured over a real stdio session:
+//
+//   MCP_BRIDGE_CWD=''          boot: STILL RUNNING, tools/list ADVERTISED repo_stats
+//   MCP_BRIDGE_CWD='./rel'     boot: STILL RUNNING, tools/list ADVERTISED repo_stats
+//   github-gists, bad timeout  boot: EXITED code=1, no tools/list response
+//
+// A broken bridge looked healthy to a client, and an agent had already chosen
+// the tool by the time the error arrived. `github-gists` has always failed at
+// boot for the same class; the two servers in this cookbook now demonstrate
+// one pattern instead of two (#145).
+//
+// The message names `MCP_BRIDGE_CWD` because that is what the operator typed;
+// `BridgeConfig.cwd` is an implementation detail they never saw.
+try {
+  validateBridgeConfig(cfg);
+} catch (e) {
+  const detail = e instanceof Error ? e.message : String(e);
+  console.error(
+    `internal-tools-bridge: refusing to start. MCP_BRIDGE_CWD=` +
+      `${JSON.stringify(process.env.MCP_BRIDGE_CWD ?? null)} is not usable: ${detail}. ` +
+      `Set it to an absolute path, or leave it unset to use the process working directory.`,
+  );
+  process.exit(1);
+}
 
 const server = new Server(
   { name: "internal-tools-bridge", version: "0.1.0" },
