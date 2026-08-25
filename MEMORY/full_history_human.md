@@ -1273,3 +1273,48 @@ cookbook demonstrates.
 **Tests.** 12 new; 7 fail against a narrowed revert. Bridge suite 55 → 67 green,
 gists 103 unchanged, lint and `tsc` clean, `check-readme` and
 `check-architecture-doc` both pass.
+
+## 2026-08-25 — the two sandbox ports told clients different things (#148, D-010)
+
+**What got done.** `filesystem-sandbox-py`'s README opens with "A line-for-line
+port … same threat model, same tools." The two ports already shared four parity
+tables — MAX_BYTES grammar, value domain, config trim charset, and `resolve()` —
+and every one of them covers an *internal*. The string a client reads when a call
+is refused had never been compared, and all four arms diverged. Both ports now
+emit `sandbox_escape (<reason>): <json-quoted input>`, pinned by a fifth shared
+table read by both suites.
+
+**Two of the four divergences were defects, not preferences,** and separating
+those out made the rest easy to argue. Python repeated the reason —
+`sandbox_escape (outside_allowlist): outside_allowlist: '/etc/passwd'` — because
+`SandboxEscape.__init__` already puts it in the message. And its `value_error:`
+prefix had no counterpart at all, though both ports raise the same message text
+at the two corresponding sites.
+
+**The quoting was chosen by measurement.** Before committing to
+`JSON.stringify` / `json.dumps(ensure_ascii=False)` as "the same function in two
+languages", I diffed them over nine awkward codepoints. They agree on eight. The
+ninth is a lone surrogate, which Python cannot encode to UTF-8 at all — so it is
+documented as out of scope in the table rather than pinned to a value one port
+cannot produce. When two languages must produce one byte-identical string, diff
+their standard-library encoders first.
+
+**Pinned the arms that were already correct.** `WriteForbiddenError` and
+`FileTooLargeError` were byte-identical before this change and are rows in the
+table anyway. A parity table that lists only what was broken cannot notice one of
+the others breaking later.
+
+**A plumbing asymmetry worth remembering.** `errorMessage` had to move from
+`server.ts` to `tools.ts` so a test could import it: `server.ts` has a top-level
+`main().catch(...)` that starts the stdio transport on import, which the repo's
+own public-surface test documents. The Python side needed no move, because it
+guards `main()` under `if __name__`.
+
+**Open questions.** None. `_dispatch_tool`'s `unexpected error:` arm is the
+boundary catch for a *bug* rather than a typed refusal, and its text is a
+debugging aid rather than a contract; deliberately left out of the table.
+
+**Tests.** 15 new on the TypeScript side, 17 on the Python side, both reading the
+same fixture. Reverting only the one formatting line in each port turns 8 red in
+TS and 9 in Python. TS 157 → 172 green, Python 192 → 209 green; eslint, tsc and
+build clean; README and architecture-doc checks green.

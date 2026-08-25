@@ -137,3 +137,47 @@ This is the same defense-in-depth posture used by D-004 (postgres-readonly: no s
 **Reversibility:** Cheap. The bridge is one file (`src/bridge.ts`, ~160 lines). Each layer can be relaxed independently if a specific use case demands it, but the *default* must be the tight one — operators who want to loosen explicitly pass a wider `BridgeConfig`.
 
 **Related issues:** #4
+
+## D-010 — the sandbox refusal string is a contract, identical in both ports (2026-08-25)
+
+**Decision.** `filesystem-sandbox` and `filesystem-sandbox-py` return
+byte-identical error strings. A sandbox refusal reads
+`sandbox_escape (<reason>): <json-quoted input>`; the typed tool errors keep
+their existing messages; a generic error carries no type label. A fifth shared
+table, `test-fixtures/error_message_parity.json`, is read by both suites.
+
+**Why.** The Python port's README opens with "A line-for-line port … same threat
+model, same tools." The two ports already shared four parity tables — MAX_BYTES
+grammar (#98), value domain (#137), config trim charset (#139), and `resolve()`
+(#141) — and every one of them covers an *internal*: how a config value is
+trimmed, how a path resolves, what byte budget is accepted. The string a client
+reads when a call is refused had never been compared, and all four arms diverged.
+
+Two of the divergences were defects rather than preferences. Python repeated the
+reason — `sandbox_escape (outside_allowlist): outside_allowlist: '/etc/passwd'` —
+because `SandboxEscape.__init__` already puts it in the message and
+`_error_message` prepended it again. And Python's `value_error:` prefix had no
+counterpart in the other port, though both raise the *same message text* at the
+two corresponding sites.
+
+**On the quoting.** Both ports now JSON-quote the input. An unquoted path
+carrying a space, a trailing separator, or a NUL is ambiguous in a refusal
+message, and ambiguity is exactly what a sandbox refusal must not have. The
+spelling was chosen by measurement, not preference: `JSON.stringify` and
+`json.dumps(..., ensure_ascii=False)` were compared over nine awkward codepoints
+(U+2028, U+2029, U+0085, U+00A0, NUL, U+001F, U+007F, a lone surrogate, U+FEFF)
+and agree on eight. The ninth is a lone surrogate, which Python cannot encode to
+UTF-8 at all and so cannot reach its port through an MCP stdio transport; it is
+documented as out of scope in the table rather than pinned to a value one port
+cannot produce.
+
+**Alternatives considered.** *Keep `sandbox refusal`* — rejected; `sandbox_escape`
+is the typed `SandboxEscapeReason` vocabulary, where "sandbox refusal" is prose.
+*Leave the input unquoted* — rejected for the ambiguity above. *Keep the
+`value_error:` prefix and add a TypeScript counterpart* — rejected; dropping it
+makes the two identical rather than inventing a label. *Fix only Python* —
+rejected; two of the four axes are TypeScript-side choices, so a one-sided fix
+would be picking one port as correct by default rather than by argument.
+
+**Reversibility.** Cheap, but it changes a string a client may match on, which is
+why it is written down. Both ports changed.
