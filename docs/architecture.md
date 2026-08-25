@@ -124,6 +124,11 @@ model from a second language ecosystem.
 - **`servers/internal-tools-bridge/`** — in-repo CLI exposed as a
   structured-args MCP tool. Shell-free `spawn` with binary allow-list,
   env passlist, output cap, per-call timeout (D-009). Closes #4.
+- **Error-message parity (D-010).** `filesystem-sandbox` and
+  `filesystem-sandbox-py` return byte-identical refusal strings,
+  pinned by `test-fixtures/error_message_parity.json` — the fifth
+  shared parity table, and the first covering a surface a client
+  actually reads rather than an internal.
 - **`servers/filesystem-sandbox-py/`** — Python parity port of
   `servers/filesystem-sandbox/` against the official `mcp` Python SDK.
   Same threat model, same primitive shape, dep-free security core.

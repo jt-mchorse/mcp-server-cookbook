@@ -1,0 +1,127 @@
+{
+  "_comment": [
+    "Shared error-message parity table for the two filesystem-sandbox ports (#148, D-010).",
+    "",
+    "Read by servers/filesystem-sandbox/test/error-message-parity.test.ts and",
+    "servers/filesystem-sandbox-py/tests/test_error_message_parity.py, so both",
+    "ports are exercised against literally the same expectations rather than two",
+    "hand-maintained copies. Fifth table, after max_bytes_parity.json,",
+    "sandbox_parity.json, and the config-trim pair.",
+    "",
+    "This is the ONLY parity surface a client actually reads. The other four cover",
+    "internals -- how a config value is trimmed, how a path resolves, what byte",
+    "budget is accepted. This one is the string returned when a call is refused,",
+    "and before #148 all four arms diverged:",
+    "",
+    "  case              TypeScript                                  Python",
+    "  outside_allowlist sandbox refusal (outside_allowlist): /etc/passwd",
+    "                                                                sandbox_escape (outside_allowlist): outside_allowlist: '/etc/passwd'",
+    "  input_null_byte   sandbox refusal (input_null_byte): a<NUL>b",
+    "                                                                sandbox_escape (input_null_byte): input_null_byte: 'a\\x00b'",
+    "  generic error     content must be a string                    value_error: content must be a string",
+    "",
+    "Python repeated the reason because SandboxEscape.__init__ already puts",
+    "`{reason}: {input!r}` into the message and _error_message then prepended",
+    "`({err.reason})`. That half was a defect on its own terms, not a parity",
+    "preference.",
+    "",
+    "The input is JSON-quoted on both sides -- JSON.stringify / json.dumps with",
+    "ensure_ascii=False. Measured over nine awkward codepoints (U+2028, U+2029,",
+    "U+0085, U+00A0, NUL, U+001F, U+007F, a lone surrogate, U+FEFF) the two",
+    "functions agree on eight. The exception is a LONE SURROGATE, which Python",
+    "cannot encode to UTF-8 at all and so cannot round-trip an MCP stdio",
+    "transport; it is deliberately absent from `cases` rather than pinned to a",
+    "value one port cannot produce.",
+    "",
+    "U+2028 / U+2029 are also absent even though both encoders agree (both emit",
+    "them raw). Embedding a raw line separator in a JSON fixture two languages",
+    "must read byte-identically is a needless hazard for a property already",
+    "verified directly; the NUL row covers the escape path.",
+    "",
+    "WriteForbiddenError and FileTooLargeError were ALREADY byte-identical and",
+    "are pinned anyway -- a parity table that lists only what was broken cannot",
+    "notice one of them breaking later."
+  ],
+  "cases": [
+    {
+      "name": "sandbox escape, outside_allowlist",
+      "kind": "sandbox_escape",
+      "reason": "outside_allowlist",
+      "input": "/etc/passwd",
+      "expected": "sandbox_escape (outside_allowlist): \"/etc/passwd\""
+    },
+    {
+      "name": "sandbox escape, input carries a space",
+      "kind": "sandbox_escape",
+      "reason": "outside_allowlist",
+      "input": "/a b/c",
+      "expected": "sandbox_escape (outside_allowlist): \"/a b/c\""
+    },
+    {
+      "name": "sandbox escape, input carries a NUL",
+      "kind": "sandbox_escape",
+      "reason": "input_null_byte",
+      "input": "a\u0000b",
+      "expected": "sandbox_escape (input_null_byte): \"a\\u0000b\""
+    },
+    {
+      "name": "sandbox escape, input carries a tab",
+      "kind": "sandbox_escape",
+      "reason": "input_control_char",
+      "input": "a\tb",
+      "expected": "sandbox_escape (input_control_char): \"a\\tb\""
+    },
+    {
+      "name": "sandbox escape, trailing separator",
+      "kind": "sandbox_escape",
+      "reason": "not_a_file",
+      "input": "sub/",
+      "expected": "sandbox_escape (not_a_file): \"sub/\""
+    },
+    {
+      "name": "sandbox escape, empty input",
+      "kind": "sandbox_escape",
+      "reason": "input_empty",
+      "input": "",
+      "expected": "sandbox_escape (input_empty): \"\""
+    },
+    {
+      "name": "sandbox escape, quote and backslash in input",
+      "kind": "sandbox_escape",
+      "reason": "outside_allowlist",
+      "input": "a\"b\\c",
+      "expected": "sandbox_escape (outside_allowlist): \"a\\\"b\\\\c\""
+    },
+    {
+      "name": "sandbox escape, non-ASCII input is not escaped",
+      "kind": "sandbox_escape",
+      "reason": "outside_allowlist",
+      "input": "/café/日本語",
+      "expected": "sandbox_escape (outside_allowlist): \"/café/日本語\""
+    },
+    {
+      "name": "write forbidden (already in parity; pinned so it stays)",
+      "kind": "write_forbidden",
+      "expected": "write_file is disabled (MCP_FS_SANDBOX_READ_ONLY=1)"
+    },
+    {
+      "name": "file too large (already in parity; pinned so it stays)",
+      "kind": "file_too_large",
+      "size": 4096,
+      "limit": 1024,
+      "expected": "file size 4096 > limit 1024 bytes"
+    },
+    {
+      "name": "generic error, content must be a string",
+      "kind": "generic",
+      "message": "content must be a string",
+      "expected": "content must be a string"
+    },
+    {
+      "name": "generic error, not valid UTF-8",
+      "kind": "generic",
+      "message": "file is not valid UTF-8 text: /r/x.bin",
+      "expected": "file is not valid UTF-8 text: /r/x.bin"
+    }
+  ]
+}

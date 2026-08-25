@@ -111,3 +111,33 @@ export async function writeFile(
 export function isSandboxEscape(err: unknown): err is SandboxEscape {
   return err instanceof SandboxEscape;
 }
+
+/**
+ * Stringify a tool error for the MCP response.
+ *
+ * Byte-identical to the Python port's `_error_message`, pinned by the shared
+ * table in `test-fixtures/error_message_parity.json` (#148, D-010). This is the
+ * only parity surface a client actually reads; the other four shared tables
+ * cover internals. Before #148 all four arms diverged, and the Python side
+ * repeated the reason (`sandbox_escape (outside_allowlist): outside_allowlist:
+ * '/etc/passwd'`) because `SandboxEscape.__init__` already puts it in the
+ * message.
+ *
+ * The input is JSON-quoted rather than interpolated raw. An unquoted path
+ * carrying a space, a trailing separator, or a NUL is ambiguous in a refusal
+ * message, and ambiguity is exactly what a sandbox refusal must not have.
+ * `JSON.stringify` and Python's `json.dumps(..., ensure_ascii=False)` agree on
+ * eight of nine awkward codepoints; the ninth is a lone surrogate, which Python
+ * cannot encode to UTF-8 and so cannot reach its port at all.
+ *
+ * The typed errors' messages are already safe to show: they never echo
+ * allow-list contents or absolute paths beyond what the caller supplied.
+ */
+export function errorMessage(err: unknown): string {
+  if (isSandboxEscape(err)) {
+    return `sandbox_escape (${err.reason}): ${JSON.stringify(err.input)}`;
+  }
+  if (err instanceof WriteForbiddenError) return err.message;
+  if (err instanceof FileTooLargeError) return err.message;
+  return err instanceof Error ? err.message : String(err);
+}

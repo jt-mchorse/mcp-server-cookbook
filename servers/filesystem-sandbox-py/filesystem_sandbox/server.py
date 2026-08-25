@@ -105,18 +105,41 @@ def _build_tool_specs() -> list[dict[str, Any]]:
 def _error_message(err: BaseException) -> str:
     """Stringify a tool error for the MCP response.
 
-    The typed sandbox / tool errors carry messages that are already
-    safe to show — they never echo allow-list contents or absolute
-    paths beyond what the caller already supplied.
+    Byte-identical to the TypeScript port's ``errorMessage``, pinned by the
+    shared table in ``test-fixtures/error_message_parity.json`` (#148, D-010).
+    This is the only parity surface a client actually reads; the other four
+    shared tables cover internals. Before #148 all four arms diverged:
+
+        arm                TypeScript                     Python
+        SandboxEscape      sandbox refusal (r): <raw>     sandbox_escape (r): r: '<repr>'
+        generic error      <message>                      value_error: <message>
+
+    Two of those were defects on their own terms rather than parity
+    preferences. ``SandboxEscape.__init__`` already puts ``f"{reason}:
+    {input!r}"`` into the message, so formatting ``{err}`` after ``({err.reason})``
+    made the reason appear **twice**; format ``err.input`` instead. And the
+    ``value_error:`` prefix had no counterpart at all in the other port, whose
+    equivalent sites raise a plain ``Error`` with the *same message text* --
+    dropping the prefix makes the two identical rather than inventing a label
+    for the TypeScript side.
+
+    The input is JSON-quoted rather than interpolated raw. An unquoted path
+    carrying a space, a trailing separator, or a NUL is ambiguous in a refusal
+    message, and ambiguity is exactly what a sandbox refusal must not have.
+    ``json.dumps(..., ensure_ascii=False)`` and JavaScript's ``JSON.stringify``
+    agree on eight of nine awkward codepoints; the ninth is a lone surrogate,
+    which Python cannot encode to UTF-8 and so cannot reach this port at all.
+
+    The typed sandbox / tool errors carry messages that are already safe to
+    show — they never echo allow-list contents or absolute paths beyond what
+    the caller already supplied.
     """
     if isinstance(err, SandboxEscape):
-        return f"sandbox_escape ({err.reason}): {err}"
+        return f"sandbox_escape ({err.reason}): {json.dumps(err.input, ensure_ascii=False)}"
     if isinstance(err, WriteForbiddenError):
         return str(err)
     if isinstance(err, FileTooLargeError):
         return str(err)
-    if isinstance(err, ValueError):
-        return f"value_error: {err}"
     return str(err)
 
 
