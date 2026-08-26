@@ -1318,3 +1318,51 @@ debugging aid rather than a contract; deliberately left out of the table.
 same fixture. Reverting only the one formatting line in each port turns 8 red in
 TS and 9 in Python. TS 157 → 172 green, Python 192 → 209 green; eslint, tsc and
 build clean; README and architecture-doc checks green.
+
+## 2026-08-26 — right time, wrong diagnostic (#146)
+
+**What got done.** `github-gists` already refused to start on a bad
+`MCP_GITHUB_GISTS_*` value — `server.ts` reads the config at module scope,
+before any transport is attached. What it printed was a Node unhandled-throw
+block: a `dist/config.js:43` path, a code frame, a caret and a stack, wrapped
+around a message that was already good. It now prints one line, in the shape
+`internal-tools-bridge` uses.
+
+**A filed-but-unworked followup again** — `priority:low`, and the only actionable
+open issue. Second time tonight after `nextjs#107`. The followup list is a better
+first stop than a fresh hunt: a previous run already paid the measurement cost.
+
+**The split is why both halves got done properly.** `#145` was about *when* a
+server refuses; this is about *what the operator reads when it does*. Gists
+already had the timing right, so bundling them would have hidden this.
+
+**And in a cookbook, the diagnostic is part of the pattern being demonstrated.**
+Two servers failing two different ways is itself the defect. There is now a test
+asserting the stderr *shape* matches the bridge's — `<server>: refusing to
+start. <detail>. <what to do>`. A repo that teaches a pattern should lock the
+pattern, not only the behaviour.
+
+**Copy a sibling's shape, not its literals.** The bridge hardcodes
+`MCP_BRIDGE_CWD` in its message because it validates one variable. Gists
+validates three, so the wrapper hardcodes nothing and leans on the thrown
+message, which `#143` already made name the offender.
+
+**The test spawns the process,** for the reason `#145` recorded: all 103 existing
+gists tests call the config functions in process, so not one of them can observe
+what a module-scope throw prints. An in-process test structurally cannot see a
+process's own stderr.
+
+**And it asserts the absence of the stack, not just the presence of the line** —
+no `    at ` prefix, no `file:///`, no lone caret line, and stderr is *exactly one
+line*. A one-line claim needs a line-count assertion, or the stack can come back
+underneath it.
+
+**A memory note that paid off immediately.** I knew this repo has a static README
+test-count check that counts `it(` / `test(` occurrences rather than parametrized
+rows, so adding a file breaks it. Updated 77 → 84 (with `npm test` reporting 122)
+and ran the checker before pushing, instead of letting CI find it.
+
+**Tests.** 19 new. Reverting `server.ts` to the bare
+`const cfg = readGistsConfigFromEnv()` turns 7 of 19 red, with the good-config
+control and the `tools/list` assertions green. Suite 103 → 122, tsc clean, README
+check ok.
