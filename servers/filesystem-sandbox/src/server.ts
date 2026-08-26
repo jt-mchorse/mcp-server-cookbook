@@ -10,9 +10,7 @@ import {
 import { readSandboxConfigFromEnv } from "./config.js";
 import { Sandbox } from "./sandbox.js";
 import {
-  FileTooLargeError,
-  WriteForbiddenError,
-  isSandboxEscape,
+  errorMessage,
   listDirectory,
   readFile,
   writeFile,
@@ -107,13 +105,6 @@ server.setRequestHandler(CallToolRequestSchema, async (req): Promise<CallToolRes
     return { content: [{ type: "text" as const, text: errorMessage(err) }], isError: true };
   }
 });
-
-function errorMessage(err: unknown): string {
-  if (isSandboxEscape(err)) return `sandbox refusal (${err.reason}): ${err.input}`;
-  if (err instanceof WriteForbiddenError) return err.message;
-  if (err instanceof FileTooLargeError) return err.message;
-  return err instanceof Error ? err.message : String(err);
-}
 
 let sandboxPromise: Promise<Sandbox>;
 

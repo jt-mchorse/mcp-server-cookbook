@@ -32,7 +32,7 @@ failure).
 
 See [`docs/architecture.md`](docs/architecture.md) for the cross-server
 layout, the shared conventions, and the design decisions behind each
-one (D-002…D-009). Per-server design and threat model live next to the
+one (D-002…D-010). Per-server design and threat model live next to the
 server itself.
 
 ## Quickstart
@@ -107,10 +107,10 @@ Test suites are hermetic (no Docker / no network needed):
 
 ```bash
 cd servers/postgres-readonly      && npm install && npm test    # 171 SQL-guard (+ SELECT-INTO, comment-merged-keyword, backslash-quote-split & side-effect/admin-function guards incl. adminpack pg_file_*/pg_logdir_ls + signal/promote/wal-replay/log-backend-memory-contexts + backup/rotate-logfile/export-snapshot + replication-slot advance/consume/copy + pg_sync_replication_slots + catalog/index-maintenance pg_import_system_collations/brin/gin/pg_prewarm/autoprewarm/pg_truncate_visibility_map + XID-assigning txid_current/pg_current_xact_id + large-object lowrite/loread) + public-surface + cfg-validation + describe_schema type-resolution + non-string-identifier guards + handler isError-contract tests
-cd servers/filesystem-sandbox     && npm install && npm test    # 79 sandbox (+ leaf-symlink write-path guard) + tool (+ non-string content typeof guard) + config (+ MAX_BYTES grammar parity) + max-bytes value-domain parity (shared table with the Python port) + config trim-set parity (shared codepoint table with the Python port) + resolve() parity (shared path table with the Python port) + public-surface + atomic-write (+ NAME_MAX-basename temp-name) tests
+cd servers/filesystem-sandbox     && npm install && npm test    # 83 sandbox (+ leaf-symlink write-path guard) + tool (+ non-string content typeof guard) + config (+ MAX_BYTES grammar parity) + max-bytes value-domain parity (shared table with the Python port) + config trim-set parity (shared codepoint table with the Python port) + resolve() parity (shared path table with the Python port) + error-message parity (shared table with the Python port) + public-surface + atomic-write (+ NAME_MAX-basename temp-name) tests
 cd servers/github-gists           && npm install && npm test    # 77 config + client (redaction + rate-limit diag + cfg validation + filename-trim + non-string gist_id/filename/description typeof guard + single-read-Response error body + capped JSON error message) + timeoutMs setTimeout-clamp upper bound (env grammar + programmatic) + error-message-format + tool + public-surface tests
 cd servers/internal-tools-bridge  && npm install && npm test    # 49 bridge + tool + public-surface + repo-stats-readme-lock + timeoutMs setTimeout-clamp upper bound + spawned-server boot-config tests (no shell, env scrub, output cap, wall-clock-bound timeout, validateConfig at boot AND at first use)
-cd servers/filesystem-sandbox-py  && pip install -e '.[dev]' && pytest  # 115 sandbox + tool (+ non-string content typeof guard) + config (+ MAX_BYTES grammar parity) + max-bytes value-domain parity (shared table with the TS port) + config trim-set parity (shared codepoint table with the TS port) + resolve() parity (shared path table with the TS port) + public-surface + atomic-write (+ NAME_MAX-basename temp-name) + isError-parity (wire-level, SDK-major-stable) + ruff-config-scope tests
+cd servers/filesystem-sandbox-py  && pip install -e '.[dev]' && pytest  # 121 sandbox + tool (+ non-string content typeof guard) + config (+ MAX_BYTES grammar parity) + max-bytes value-domain parity (shared table with the TS port) + config trim-set parity (shared codepoint table with the TS port) + resolve() parity (shared path table with the TS port) + error-message parity (shared table with the TS port) + public-surface + atomic-write (+ NAME_MAX-basename temp-name) + isError-parity (wire-level, SDK-major-stable) + ruff-config-scope tests
 ```
 
 Wiring into Claude Desktop, the Claude Code CLI, or your own MCP client is
@@ -176,6 +176,12 @@ See [`MEMORY/core_decisions_human.md`](MEMORY/core_decisions_human.md). Notable:
   `NODE_OPTIONS` only), a 1 MiB per-stream output cap, and a per-call
   timeout — every layer enforced by regression tests. The MCP tool's
   input is structured args, never a raw command string.
+- **D-010.** The refusal string `filesystem-sandbox` returns is a
+  client-visible contract, identical in both ports and pinned by a
+  shared table (`test-fixtures/error_message_parity.json`). The path is
+  JSON-quoted: an unquoted path carrying a space, a trailing separator,
+  or a NUL is ambiguous in a refusal message, and ambiguity is exactly
+  what a sandbox refusal must not have.
 
 ## License
 
