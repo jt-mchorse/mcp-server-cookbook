@@ -14,10 +14,48 @@ import {
   TokenRequiredError,
   formatGithubApiError,
 } from "./client.js";
-import { hasToken, readGistsConfigFromEnv } from "./config.js";
+import { type GistsConfig, hasToken, readGistsConfigFromEnv } from "./config.js";
 import { defaultToolDeps, getGist, updateGistFile } from "./tools.js";
 
-const cfg = readGistsConfigFromEnv();
+// Boot-time configuration failure, as one actionable line (#146).
+//
+// `readGistsConfigFromEnv` already fails at the right *time* -- module scope,
+// before any transport is attached -- which is the property #145 gave the
+// bridge. The remaining gap was the diagnostic. Uncaught, this printed a Node
+// unhandled-throw block: a `dist/config.js:43` file path, a code frame, a caret
+// and a stack, wrapped around a message that was already good. That path is
+// noise to someone who mistyped an environment variable, and it arrives through
+// an MCP client that may surface only the first line or two of stderr.
+//
+// Measured before this change, `MCP_GITHUB_GISTS_TIMEOUT_MS=abc`:
+//
+//   file:///.../servers/github-gists/dist/config.js:43
+//               throw new Error(`MCP_GITHUB_GISTS_TIMEOUT_MS must be a ...
+//                     ^
+//   Error: MCP_GITHUB_GISTS_TIMEOUT_MS must be a positive integer; got "abc"
+//       at readGistsConfigFromEnv (file:///.../dist/config.js:43:19)
+//
+// The message is kept verbatim -- #143 made sure it names the variable and the
+// bound, and it is the good part. Only the framing changes, to the shape
+// `internal-tools-bridge` now uses: "<server>: refusing to start. <detail>."
+// plus what to do about it. Unlike the bridge, no variable name is hardcoded
+// here: this server validates three (`MCP_GITHUB_GISTS_BASE_URL`,
+// `_USER_AGENT`, `_TIMEOUT_MS`) and the thrown message already names whichever
+// one is at fault.
+//
+// `test/boot-config-failure.test.ts` spawns the real process, because no
+// in-process test can observe what a module-scope throw prints.
+let cfg: GistsConfig;
+try {
+  cfg = readGistsConfigFromEnv();
+} catch (e) {
+  const detail = e instanceof Error ? e.message : String(e);
+  console.error(
+    `github-gists: refusing to start. ${detail}. ` +
+      `Unset that variable to use its default, or set a value meeting the requirement above.`,
+  );
+  process.exit(1);
+}
 
 const server = new Server(
   {
