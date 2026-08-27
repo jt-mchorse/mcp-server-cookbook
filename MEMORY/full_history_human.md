@@ -1366,3 +1366,50 @@ and ran the checker before pushing, instead of letting CI find it.
 `const cfg = readGistsConfigFromEnv()` turns 7 of 19 red, with the good-config
 control and the `tools/list` assertions green. Suite 103 → 122, tsc clean, README
 check ok.
+
+
+## 2026-08-27 - #151: two of four, announced in the fix's own comment
+
+`#145` fixed when `internal-tools-bridge` validates its environment; `#146` fixed
+how `github-gists` reports the failure. What made the third and fourth sites easy
+to find was `#146`'s own comment: "Only the framing changes, to the shape
+`internal-tools-bridge` now uses." A comment announcing that it is adopting a
+sibling's pattern is an announcement that a pattern exists, and a question about
+who else has it. Four TypeScript servers, two adopters.
+
+The other two printed eleven stderr lines - a compiled `dist/` path, a code
+frame, a caret and seven stack frames - and the road to that is easier here than
+it was for `github-gists`. There the trigger was a typo in an optional variable;
+here it is the *missing required* one, because `MCP_FS_SANDBOX_ALLOWLIST` and
+`DATABASE_URL` have no defaults by design. That is the ordinary first-run
+experience of someone following the README, arriving through an MCP client that
+may show only the first line or two of stderr. When propagating a fix, it is
+worth asking whether the new site has an easier road to the same failure than the
+original did.
+
+The most transferable part is that my structural check was wrong first. It used a
+"no unindented config read" heuristic and flagged `internal-tools-bridge`, which
+is correct - it builds its config at module scope and validates it in a separate
+`try` a few lines down. A source check that fails on code that is right is worse
+than no check at all, so the rule is stated positively - what must be present -
+rather than negatively, and the false positive is pinned as a test. The check
+also refuses an empty servers directory instead of passing vacuously, and hard-
+pins the four-server list, because a check over a discovered population has to
+assert the population.
+
+Two smaller things. Setting an environment variable to the empty string is not
+unsetting it: `parseIntEnv` falls back to its default only for `undefined`, so
+blanking a numeric variable made `parseInt("")` NaN and threw, and my "a good
+config boots" case failed for a reason unrelated to the change. And when
+reverting one server's wrapper turned only a single spawned assertion red, I
+nearly read that as weak coverage - but an uncaught throw also exits 1 and also
+never advertises a tool, so the framing assertion is the only one that *should*
+move. A low red count can be evidence that the tests are well targeted.
+
+Widening the parametrization also turned up a separate defect:
+`STATEMENT_TIMEOUT_MS=5s` is accepted as five milliseconds, because
+`Number.parseInt` stops at the first character it cannot consume. A duration is
+exactly the field people write with a unit. That is the TypeScript form of the
+`int(k)` class two other repos fixed this month, and it went to its own issue
+with the current behaviour pinned here and a pointer - the second time today I
+recorded a gap rather than deleting the evidence for it.
