@@ -55,8 +55,10 @@ function rpc(id: number, method: string, params: unknown): string {
 
 async function boot(env: Record<string, string>): Promise<BootResult> {
   return await new Promise<BootResult>((resolvePromise) => {
+    const baseEnv: Record<string, string | undefined> = { ...process.env };
+    for (const key of CONFIG_KEYS) delete baseEnv[key];
     const child = spawn(process.execPath, [TSX_CLI, SERVER], {
-      env: { ...process.env, ...env },
+      env: { ...baseEnv, ...env },
       stdio: ["pipe", "pipe", "pipe"],
     });
     let stdout = "";
@@ -96,7 +98,20 @@ async function boot(env: Record<string, string>): Promise<BootResult> {
   });
 }
 
-const GOOD_ENV: Record<string, string> = { DATABASE_URL: "postgres://u:p@localhost:5432/d" };
+const DSN = "postgres://u:p@localhost:5432/d";
+
+const GOOD_ENV: Record<string, string> = { DATABASE_URL: DSN };
+
+/**
+ * The variables this server reads. `boot` DELETES these from the child's
+ * environment before applying a case, rather than setting them to `""`.
+ * An empty string is not `undefined`: `parseIntEnv` returns its default only
+ * for `undefined`, so blanking a numeric variable makes `Number.parseInt("")`
+ * NaN and throws -- which would have made the "a good config boots" case fail
+ * for the wrong reason, and a developer's own shell could otherwise decide
+ * whether a "missing required variable" case is really missing.
+ */
+const CONFIG_KEYS: ReadonlyArray<string> = ["DATABASE_URL", "MAX_ROWS", "STATEMENT_TIMEOUT_MS"];
 
 const TIMEOUT = 30_000;
 
@@ -105,13 +120,16 @@ const TIMEOUT = 30_000;
 // environment cannot make a "missing required variable" case pass by accident.
 const BAD_ENVS: ReadonlyArray<readonly [string, Record<string, string>]> = [
   ["missing required DATABASE_URL", {}],
+  ["non-numeric MAX_ROWS", { DATABASE_URL: DSN, MAX_ROWS: "abc" }],
+  ["zero MAX_ROWS", { DATABASE_URL: DSN, MAX_ROWS: "0" }],
+  ["negative STATEMENT_TIMEOUT_MS", { DATABASE_URL: DSN, STATEMENT_TIMEOUT_MS: "-1" }],
 ];
 
 describe("postgres-readonly refuses a bad boot config with one line", () => {
   it.each(BAD_ENVS)(
     "%s: exits 1 and never advertises a tool",
     async (_label, env) => {
-      const result = await boot({ DATABASE_URL: "", MCP_PG_MAX_ROWS: "", MCP_PG_STATEMENT_TIMEOUT_MS: "", ...env });
+      const result = await boot(env);
       expect(result.exited, "server kept running with a rejected config").toBe(true);
       expect(result.code).toBe(1);
       expect(result.stdout).not.toContain("run_select");
@@ -122,7 +140,7 @@ describe("postgres-readonly refuses a bad boot config with one line", () => {
   it.each(BAD_ENVS)(
     "%s: stderr is one actionable line, not a stack trace",
     async (_label, env) => {
-      const result = await boot({ DATABASE_URL: "", MCP_PG_MAX_ROWS: "", MCP_PG_STATEMENT_TIMEOUT_MS: "", ...env });
+      const result = await boot(env);
       const lines = result.stderr.trim().split("\n").filter(Boolean);
       expect(lines, result.stderr).toHaveLength(1);
       expect(lines[0]).toMatch(/^postgres-readonly: refusing to start\./);
@@ -137,7 +155,7 @@ describe("postgres-readonly refuses a bad boot config with one line", () => {
   it(
     "the underlying message is preserved verbatim, not replaced",
     async () => {
-      const result = await boot({ DATABASE_URL: "", MCP_PG_MAX_ROWS: "", MCP_PG_STATEMENT_TIMEOUT_MS: "", ...BAD_ENVS[0][1] });
+      const result = await boot(BAD_ENVS[0][1]);
       // #143-era work made these messages name the variable and the bound. The
       // framing must wrap that, not paraphrase it.
       expect(result.stderr).toContain("READ-ONLY role");
@@ -148,7 +166,27 @@ describe("postgres-readonly refuses a bad boot config with one line", () => {
   it(
     "a good config still boots and serves",
     async () => {
-      const result = await boot({ DATABASE_URL: "", MCP_PG_MAX_ROWS: "", MCP_PG_STATEMENT_TIMEOUT_MS: "", ...GOOD_ENV });
+      const result = await boot(GOOD_ENV);
+      expect(result.stderr).not.toContain("refusing to start");
+      expect(result.stdout).toContain("run_select");
+    },
+    TIMEOUT,
+  );
+});
+
+describe("a unit-suffixed duration is NOT refused (#152)", () => {
+  it(
+    "STATEMENT_TIMEOUT_MS=5s boots, as five milliseconds",
+    async () => {
+      // Pinned at CURRENT behaviour, not desired. `parseIntEnv` uses
+      // `Number.parseInt`, which stops at the first character it cannot consume,
+      // so "5s" is accepted as 5 -- a timeout 1000x tighter than the operator
+      // asked for, silently, while the config file still reads "5s". Found while
+      // widening this file's parametrization; filed as #152 rather than folded in
+      // here, because it is a different defect at the same seam. This assertion
+      // records the gap so closing #152 is a deliberate edit to this file rather
+      // than an unexplained change in a neighbouring test.
+      const result = await boot({ DATABASE_URL: DSN, STATEMENT_TIMEOUT_MS: "5s" });
       expect(result.stderr).not.toContain("refusing to start");
       expect(result.stdout).toContain("run_select");
     },

@@ -62,8 +62,10 @@ function rpc(id: number, method: string, params: unknown): string {
 
 async function boot(env: Record<string, string>): Promise<BootResult> {
   return await new Promise<BootResult>((resolvePromise) => {
+    const baseEnv: Record<string, string | undefined> = { ...process.env };
+    for (const key of CONFIG_KEYS) delete baseEnv[key];
     const child = spawn(process.execPath, [TSX_CLI, SERVER], {
-      env: { ...process.env, ...env },
+      env: { ...baseEnv, ...env },
       stdio: ["pipe", "pipe", "pipe"],
     });
     let stdout = "";
@@ -105,6 +107,17 @@ async function boot(env: Record<string, string>): Promise<BootResult> {
 
 const GOOD_ENV: Record<string, string> = { MCP_FS_SANDBOX_ALLOWLIST: TMP };
 
+/**
+ * The variables this server reads. `boot` DELETES these from the child's
+ * environment before applying a case, rather than setting them to `""`.
+ * An empty string is not `undefined`: `parseIntEnv` returns its default only
+ * for `undefined`, so blanking a numeric variable makes `Number.parseInt("")`
+ * NaN and throws -- which would have made the "a good config boots" case fail
+ * for the wrong reason, and a developer's own shell could otherwise decide
+ * whether a "missing required variable" case is really missing.
+ */
+const CONFIG_KEYS: ReadonlyArray<string> = ["MCP_FS_SANDBOX_ALLOWLIST", "MCP_FS_SANDBOX_MAX_BYTES", "MCP_FS_SANDBOX_READ_ONLY"];
+
 const TIMEOUT = 30_000;
 
 // (label, env). `env` REPLACES the inherited values for the keys it names; the
@@ -120,7 +133,7 @@ describe("filesystem-sandbox refuses a bad boot config with one line", () => {
   it.each(BAD_ENVS)(
     "%s: exits 1 and never advertises a tool",
     async (_label, env) => {
-      const result = await boot({ MCP_FS_SANDBOX_ALLOWLIST: "", MCP_FS_SANDBOX_MAX_BYTES: "", MCP_FS_SANDBOX_READ_ONLY: "", ...env });
+      const result = await boot(env);
       expect(result.exited, "server kept running with a rejected config").toBe(true);
       expect(result.code).toBe(1);
       expect(result.stdout).not.toContain("read_file");
@@ -131,7 +144,7 @@ describe("filesystem-sandbox refuses a bad boot config with one line", () => {
   it.each(BAD_ENVS)(
     "%s: stderr is one actionable line, not a stack trace",
     async (_label, env) => {
-      const result = await boot({ MCP_FS_SANDBOX_ALLOWLIST: "", MCP_FS_SANDBOX_MAX_BYTES: "", MCP_FS_SANDBOX_READ_ONLY: "", ...env });
+      const result = await boot(env);
       const lines = result.stderr.trim().split("\n").filter(Boolean);
       expect(lines, result.stderr).toHaveLength(1);
       expect(lines[0]).toMatch(/^filesystem-sandbox: refusing to start\./);
@@ -146,7 +159,7 @@ describe("filesystem-sandbox refuses a bad boot config with one line", () => {
   it(
     "the underlying message is preserved verbatim, not replaced",
     async () => {
-      const result = await boot({ MCP_FS_SANDBOX_ALLOWLIST: "", MCP_FS_SANDBOX_MAX_BYTES: "", MCP_FS_SANDBOX_READ_ONLY: "", ...BAD_ENVS[0][1] });
+      const result = await boot(BAD_ENVS[0][1]);
       // #143-era work made these messages name the variable and the bound. The
       // framing must wrap that, not paraphrase it.
       expect(result.stderr).toContain("colon-separated absolute paths");
@@ -157,7 +170,7 @@ describe("filesystem-sandbox refuses a bad boot config with one line", () => {
   it(
     "a good config still boots and serves",
     async () => {
-      const result = await boot({ MCP_FS_SANDBOX_ALLOWLIST: "", MCP_FS_SANDBOX_MAX_BYTES: "", MCP_FS_SANDBOX_READ_ONLY: "", ...GOOD_ENV });
+      const result = await boot(GOOD_ENV);
       expect(result.stderr).not.toContain("refusing to start");
       expect(result.stdout).toContain("read_file");
     },
