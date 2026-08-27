@@ -7,7 +7,7 @@ import {
   ListToolsRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
 
-import { readSandboxConfigFromEnv } from "./config.js";
+import { type SandboxConfig, readSandboxConfigFromEnv } from "./config.js";
 import { Sandbox } from "./sandbox.js";
 import {
   errorMessage,
@@ -16,7 +16,43 @@ import {
   writeFile,
 } from "./tools.js";
 
-const cfg = readSandboxConfigFromEnv();
+// Boot-time configuration failure, as one actionable line (#151).
+//
+// `readSandboxConfigFromEnv` already fails at the right *time* -- module scope,
+// before any transport is attached -- which is the property #145 gave the
+// bridge. The remaining gap was the diagnostic. Uncaught, this printed a Node
+// unhandled-throw block: a `dist/` file path, a code frame, a caret and a
+// seven-frame stack, wrapped around a message that was already good. Measured,
+// 11 stderr lines against the 1 that `github-gists` prints since #146.
+//
+// `MCP_FS_SANDBOX_ALLOWLIST` has no default on purpose -- an allowlist that
+// defaulted to something would be a sandbox that defaults to unsafe -- so the
+// *missing required variable* is the ordinary first-run path, not a corner.
+// That path is noise to someone following the README for the first time, and it
+// arrives through an MCP client that may surface only the first line or two of
+// stderr -- here, a compiled path and a fragment of source.
+//
+// The message is kept verbatim: it already names the variable and the bound,
+// and that is the good part. Only the framing changes, to the shape #145
+// established and #146 propagated: "<server>: refusing to start. <detail>."
+// plus what to do about it. No variable name is hardcoded here:
+// this server validates three (`MCP_FS_SANDBOX_ALLOWLIST`,
+// `_MAX_BYTES`, `_READ_ONLY`) and the thrown message already names whichever
+// one is at fault.
+//
+// `test/boot-config-failure.test.ts` spawns the real process, because no
+// in-process test can observe what a module-scope throw prints (#145).
+let cfg: SandboxConfig;
+try {
+  cfg = readSandboxConfigFromEnv();
+} catch (e) {
+  const detail = e instanceof Error ? e.message : String(e);
+  console.error(
+    `filesystem-sandbox: refusing to start. ${detail} ` +
+      `Set that variable to a value meeting the requirement above, or unset it to use its default.`,
+  );
+  process.exit(1);
+}
 
 const server = new Server(
   {

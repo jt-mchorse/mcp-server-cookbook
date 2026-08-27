@@ -160,6 +160,10 @@ jobs:
         run: node tools/check-claude-desktop-config.mjs
       - name: Run the claude_desktop_config check script's own unit tests
         run: node --test tools/check-claude-desktop-config.test.mjs
+      - name: Verify every TypeScript server refuses a bad boot config with one line
+        run: node tools/check-boot-config-guard.mjs
+      - name: Run the boot-config guard's own unit tests
+        run: node --test tools/check-boot-config-guard.test.mjs
 
   architecture-doc-check:
     runs-on: ubuntu-latest
