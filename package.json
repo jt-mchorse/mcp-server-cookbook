@@ -5,6 +5,8 @@
   "description": "Root-level tooling for mcp-server-cookbook. Each server under servers/ is its own Node project; this package.json exists only to hold dev-only dependencies that the tools/ scripts use (notably the workflow YAML parseability lock — issue #46).",
   "type": "module",
   "scripts": {
+    "check:boot-config-guard": "node tools/check-boot-config-guard.mjs",
+    "test:boot-config-guard": "node --test tools/check-boot-config-guard.test.mjs",
     "check:workflow-yaml": "node tools/check-workflow-yaml.mjs",
     "test:workflow-yaml": "node --test tools/check-workflow-yaml.test.mjs",
     "check:workflow-timeout": "node tools/check-workflow-timeout.mjs",
