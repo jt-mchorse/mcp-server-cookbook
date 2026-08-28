@@ -174,21 +174,22 @@ describe("postgres-readonly refuses a bad boot config with one line", () => {
   );
 });
 
-describe("a unit-suffixed duration is NOT refused (#152)", () => {
+describe("a unit-suffixed duration IS refused (#152)", () => {
   it(
-    "STATEMENT_TIMEOUT_MS=5s boots, as five milliseconds",
+    "STATEMENT_TIMEOUT_MS=5s refuses the boot instead of meaning five milliseconds",
     async () => {
-      // Pinned at CURRENT behaviour, not desired. `parseIntEnv` uses
-      // `Number.parseInt`, which stops at the first character it cannot consume,
-      // so "5s" is accepted as 5 -- a timeout 1000x tighter than the operator
-      // asked for, silently, while the config file still reads "5s". Found while
-      // widening this file's parametrization; filed as #152 rather than folded in
-      // here, because it is a different defect at the same seam. This assertion
-      // records the gap so closing #152 is a deliberate edit to this file rather
-      // than an unexplained change in a neighbouring test.
+      // This assertion was inverted by #152, deliberately. #151 pinned it at
+      // CURRENT behaviour -- `parseIntEnv` used `Number.parseInt`, which stops
+      // at the first character it cannot consume, so "5s" was accepted as 5: a
+      // timeout 1000x tighter than the operator asked for, silently, with the
+      // config file still reading "5s". The pin existed so that closing #152
+      // would be a deliberate edit here rather than an unexplained change in a
+      // neighbouring test. This is that edit.
       const result = await boot({ DATABASE_URL: DSN, STATEMENT_TIMEOUT_MS: "5s" });
-      expect(result.stderr).not.toContain("refusing to start");
-      expect(result.stdout).toContain("run_select");
+      expect(result.stderr).toContain("refusing to start");
+      expect(result.stderr).toContain("STATEMENT_TIMEOUT_MS");
+      expect(result.stderr).toContain('"5s"');
+      expect(result.stdout).not.toContain("run_select");
     },
     TIMEOUT,
   );

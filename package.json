@@ -2,7 +2,7 @@
   "name": "mcp-server-cookbook-root",
   "private": true,
   "version": "0.0.1",
-  "description": "Root-level tooling for mcp-server-cookbook. Each server under servers/ is its own Node project; this package.json exists only to hold dev-only dependencies that the tools/ scripts use (notably the workflow YAML parseability lock — issue #46).",
+  "description": "Root-level tooling for mcp-server-cookbook. Each server under servers/ is its own Node project; this package.json exists only to hold dev-only dependencies that the tools/ scripts use (notably the workflow YAML parseability lock \u2014 issue #46).",
   "type": "module",
   "scripts": {
     "check:boot-config-guard": "node tools/check-boot-config-guard.mjs",
@@ -12,7 +12,9 @@
     "check:workflow-timeout": "node tools/check-workflow-timeout.mjs",
     "test:workflow-timeout": "node --test tools/check-workflow-timeout.test.mjs",
     "check:workflow-concurrency": "node tools/check-workflow-concurrency.mjs",
-    "test:workflow-concurrency": "node --test tools/check-workflow-concurrency.test.mjs"
+    "test:workflow-concurrency": "node --test tools/check-workflow-concurrency.test.mjs",
+    "check:numeric-env-grammar": "node tools/check-numeric-env-grammar.mjs",
+    "test:numeric-env-grammar": "node --test tools/check-numeric-env-grammar.test.mjs"
   },
   "devDependencies": {
     "yaml": "^2.5.0"

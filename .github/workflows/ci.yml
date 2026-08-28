@@ -213,3 +213,24 @@ jobs:
         run: node tools/check-workflow-timeout.mjs
       - name: Run the workflow-timeout check script's own unit tests
         run: node --test tools/check-workflow-timeout.test.mjs
+
+  numeric-env-grammar-check:
+    # Every numeric environment variable across the cookbook parses one
+    # grammar (#152). Each server is a standalone copy-pasteable package, so
+    # the three parsers cannot share a module -- they share a checked
+    # contract, the same role check-boot-config-guard.mjs plays for the
+    # boot-failure contract (#151). The population is discovered from
+    # servers/, so a fifth server inherits the rule.
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+      - run: npm ci
+      - name: Verify every numeric env parser shares one grammar
+        run: node tools/check-numeric-env-grammar.mjs
+      - name: Run the numeric-env-grammar check script's own unit tests
+        run: node --test tools/check-numeric-env-grammar.test.mjs

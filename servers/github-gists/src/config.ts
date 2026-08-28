@@ -56,11 +56,31 @@ export function readGistsConfigFromEnv(env: NodeJS.ProcessEnv = process.env): Gi
 
   const timeoutRaw = env.MCP_GITHUB_GISTS_TIMEOUT_MS;
   let timeoutMs = DEFAULT_TIMEOUT_MS;
+  // `timeoutRaw !== ""` deliberately, NOT `timeoutRaw.trim() !== ""`. An empty
+  // value meaning "use the default" is this variable's documented behaviour and
+  // predates #152. Widening that to whitespace-only would silently turn a value
+  // that used to fail the boot into the default — the reverse of the bug this
+  // issue is about, slipped in as a convenience. A whitespace-only value now
+  // falls through to the grammar gate below and is refused loudly, matching
+  // `postgres-readonly`.
   if (timeoutRaw !== undefined && timeoutRaw !== "") {
-    const parsed = Number(timeoutRaw);
+    // `Number()` alone accepts literal forms that are not "a positive
+    // integer": `Number("0x10")` is 16 and `Number("1e3")` is 1000, and
+    // `Number.isInteger` is true for both, so hex and scientific notation
+    // passed every check here. `filesystem-sandbox`'s config names those exact
+    // two forms as ones `Number()` wrongly accepts — #98 unified the grammar
+    // across its two *ports* and never reached this server (#152). The explicit
+    // regex gate is that grammar; the `BigInt` bound stops `Number` losing
+    // precision above `MAX_SAFE_INTEGER` before the checks below can see it.
+    const trimmed = timeoutRaw.trim();
+    const withinSafeRange =
+      /^[+-]?\d+$/.test(trimmed) && BigInt(trimmed) <= BigInt(Number.MAX_SAFE_INTEGER);
+    const parsed = withinSafeRange ? Number(trimmed) : Number.NaN;
     if (!Number.isFinite(parsed) || parsed <= 0 || !Number.isInteger(parsed)) {
       throw new Error(
-        `MCP_GITHUB_GISTS_TIMEOUT_MS must be a positive integer; got ${JSON.stringify(timeoutRaw)}`,
+        `MCP_GITHUB_GISTS_TIMEOUT_MS must be a positive integer written in plain base-10 ` +
+          `digits (no unit suffix, no scientific notation, no separators); ` +
+          `got ${JSON.stringify(timeoutRaw)}`,
       );
     }
     // Above the 32-bit timer limit `setTimeout` clamps to 1 ms, so the abort
