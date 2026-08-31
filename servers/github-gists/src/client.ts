@@ -112,10 +112,86 @@ export function extractGithubDiagnostics(headers: HeadersLike): GithubApiErrorDi
   };
 }
 
+/**
+ * Parse an integer response header, or `null` when it is absent or not a plain
+ * base-10 integer (#154).
+ *
+ * ### The grammar, shared; the contract, deliberately not
+ *
+ * `Number.parseInt(raw, 10)` stops at the first character it cannot consume and
+ * returns what it has. Run #152's table against it:
+ *
+ *     "1000"                ->  1000    ok
+ *     "5s"                  ->  5
+ *     "1e3"                 ->  1
+ *     "1_000"               ->  1
+ *     "10.9"                ->  10
+ *     "0x10"                ->  0
+ *     "9007199254740993"    ->  9007199254740992   (silently one lower)
+ *     "abc" / ""            ->  null    ok
+ *
+ * The gate below is the one #152 settled for this cookbook's numeric
+ * *environment* variables — trim, `^[+-]?\d+$`, bound the magnitude with
+ * `BigInt` before `Number` can lose precision — and the same gate is right
+ * here, because "what counts as an integer" is not where these two sites
+ * differ.
+ *
+ * What they differ on is what an unreadable value *means*. An env var is
+ * operator config: a malformed one should refuse the boot, so those parsers
+ * throw. A response header is **remote input on an error path**, and an
+ * observability helper must not be the thing that fails a request that
+ * otherwise worked — so this one returns `null` and never throws. `BigInt()`
+ * is called only inside the gate, after the regex has proved the string is
+ * digits, so it cannot be the exception that escapes.
+ *
+ * ### Why `0x10 -> 0` was the row that mattered
+ *
+ * These three fields are diagnostics: `extractGithubDiagnostics` fills them on
+ * `GithubApiError` and `describeGithubApiError` renders the non-null ones into
+ * the client-visible line. Nothing retries or backs off on them. So the old
+ * behaviour did not change what the client *did* — it changed what the client
+ * was *told*, and `rate-limit-remaining: 0` reads as "you are rate limited",
+ * which is the most consequential reading of a header the parser could not
+ * actually read. A wrong diagnostic on an error path is worse than an absent
+ * one, because it is the line someone debugs from.
+ *
+ * ### `Retry-After`'s HTTP-date form is unsupported, by decision
+ *
+ * RFC 9110 allows `Retry-After: Wed, 21 Oct 2026 07:28:00 GMT` as well as a
+ * delay in seconds. That maps to `null` here, and it did before — but by
+ * accident, because `parseInt` returned `NaN`. It is now by choice: converting
+ * a date to `retryAfterSeconds` needs a clock, which makes a pure parser
+ * time-dependent and untestable without injecting one, and it buys nothing
+ * while no caller consumes the field for backoff. **If one ever does, the date
+ * form has to be revisited before that lands**, or a server answering with a
+ * date will look like a server that sent no `Retry-After` at all.
+ *
+ * ### The sign is accepted
+ *
+ * `+5` and `-1` parse, because the grammar is shared and this is a diagnostic:
+ * a well-formed but nonsensical number is reported as-is rather than hidden.
+ * A negative `X-RateLimit-Remaining` is visibly wrong to whoever reads the
+ * line, where a silently-null one is not.
+ *
+ * ### Not in `check-numeric-env-grammar.mjs`'s population, on purpose
+ *
+ * That checker discovers files that coerce a value which came from the
+ * *environment*; this one reads headers, so it is out of scope by the
+ * predicate rather than by an exemption. It is nonetheless written in the
+ * spelling that checker recognizes — `BigInt(trimmed) <= BigInt(Number.MAX_SAFE_INTEGER)`
+ * rather than an equivalent rearrangement — so that if this file ever does
+ * acquire an environment read, it joins the population already passing instead
+ * of failing on a cosmetic difference.
+ */
 function _parseIntHeader(raw: string | null): number | null {
   if (raw === null) return null;
-  const n = Number.parseInt(raw, 10);
-  return Number.isFinite(n) ? n : null;
+  const trimmed = raw.trim();
+  if (!/^[+-]?\d+$/.test(trimmed)) return null;
+  const withinSafeRange =
+    BigInt(trimmed) <= BigInt(Number.MAX_SAFE_INTEGER) &&
+    BigInt(trimmed) >= -BigInt(Number.MAX_SAFE_INTEGER);
+  if (!withinSafeRange) return null;
+  return Number(trimmed);
 }
 
 /**
