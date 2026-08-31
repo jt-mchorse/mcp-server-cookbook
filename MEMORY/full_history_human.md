@@ -1413,3 +1413,46 @@ exactly the field people write with a unit. That is the TypeScript form of the
 `int(k)` class two other repos fixed this month, and it went to its own issue
 with the current behaviour pinned here and a pointer - the second time today I
 recorded a gap rather than deleting the evidence for it.
+
+## 2026-08-28 - issue #152: three parsers, three grammars
+
+The issue was filed against one server's numeric environment parsing, and it asked
+for its table to be run against every server that parses a numeric variable. Doing
+that is what found the second bug. The gists server used a bare numeric coercion,
+which takes hexadecimal as sixteen and scientific notation as a thousand, and
+reports both as integers.
+
+The uncomfortable part is that the correct answer was already written down here.
+The filesystem sandbox's config names those exact two forms as ones the bare
+coercion wrongly accepts, and gates on an explicit digit regex. That work unified
+the grammar across its two language ports and never reached the other servers - a
+fix scoped to ports is not a fix scoped to servers.
+
+The architecture changed the shape of the fix in a way the issue could not have
+known. Every server here is a standalone, copy-pasteable package with its own
+lockfile and no cross-server imports, which is the entire point of a cookbook. So
+the three parsers cannot share a module. They share a checked contract instead, in
+the tools directory, which is exactly what an issue I closed yesterday built for the
+boot-failure contract. The population is discovered from the servers directory
+rather than listed, because a written list is how the gists server drifted from a
+rule this repo had already settled.
+
+Two things I got wrong and caught. My check's first draft demanded a literal trim
+call and flagged the reference implementation, which trims with a deliberately
+widened character class for cross-language parity. A check that fails on code that
+is right is worse than no check - and rather than forcing that widened class
+everywhere, which would be inventing a requirement for servers with no second port,
+I made the check accept either and recorded why they differ.
+
+Then, while hardening the gists parser, I quietly changed a whitespace-only value
+from a boot failure into a silent use of the default. That is the inverse of the bug
+I was fixing, and it looked like part of the fix. My own new test caught it.
+
+I also deviated from the issue's proposed one-line fix on a single row - it would
+refuse a value with surrounding whitespace, which dotenv files and YAML blocks
+produce routinely - and said so explicitly rather than silently satisfying or
+ignoring that acceptance criterion.
+
+Finally, the pin I shipped yesterday earned itself within a day. That test recorded
+the defect as current behaviour precisely so that closing this issue would be a
+deliberate edit, and it went red the moment I fixed the parser.

@@ -60,12 +60,25 @@ describe("env parser", () => {
     expect(() => readGistsConfigFromEnv(envWith(raw))).toThrow(/2\*\*31 - 1/);
   });
 
-  it("rejects 1e10 — the scientific-notation route that made this reachable", () => {
+  it("rejects 1e10 — now at the grammar gate rather than the magnitude bound", () => {
     // Pin the premise as well as the rejection: this value really does pass
-    // `Number.isFinite`, `> 0` and `Number.isInteger`, so the pre-existing
-    // checks could never have caught it.
+    // `Number.isFinite`, `> 0` and `Number.isInteger`, so the checks that
+    // predate #143 could never have caught it.
     expect(Number.isInteger(Number("1e10"))).toBe(true);
-    expect(() => readGistsConfigFromEnv(envWith("1e10"))).toThrow(/2\*\*31 - 1/);
+
+    // #143 caught it on magnitude, with the `2**31 - 1` message. #152 refuses
+    // scientific notation outright, so it is now rejected one step earlier and
+    // the message changed accordingly. Asserting the *rejection* rather than
+    // the message that happens to carry it — the guarantee is that `1e10`
+    // cannot become a timeout, not which guard says so.
+    expect(() => readGistsConfigFromEnv(envWith("1e10"))).toThrow(
+      /must be a positive integer written in plain base-10 digits/,
+    );
+
+    // And the magnitude bound is still live for a value that passes the
+    // grammar, so #152 did not displace #143 — the `it.each` above covers the
+    // plain-digit forms, this pins the pairing here where the reason is stated.
+    expect(() => readGistsConfigFromEnv(envWith("10000000000"))).toThrow(/2\*\*31 - 1/);
   });
 
   it("still accepts the boundary value", () => {

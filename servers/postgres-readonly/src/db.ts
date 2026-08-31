@@ -21,12 +21,55 @@ export function readDbConfigFromEnv(): DbConfig {
   return { connectionString, maxRows, statementTimeoutMs };
 }
 
+/**
+ * Parse a positive-integer environment variable, or return `fallback`.
+ *
+ * `Number.parseInt` stops at the first character it cannot consume and returns
+ * what it has, so it accepts a far larger language than "a positive integer" —
+ * and the old message claimed the value *was* one when it wasn't (#152):
+ *
+ * ```
+ * "5s"        -> 5        "1e3"   -> 1     "10.9"  -> 10
+ * "30m"       -> 30       "1e10"  -> 1     "1_000" -> 1
+ * "1000ms"    -> 1000     "5 seconds" -> 5
+ * "9007199254740993" -> 9007199254740992   (silently one lower)
+ * ```
+ *
+ * The top rows are the dangerous ones because `STATEMENT_TIMEOUT_MS` is a
+ * *duration*, and the natural way to write a duration is with a unit. An
+ * operator writing `5s` means five seconds and gets **five milliseconds** — a
+ * bound 1000x tighter than intended, with every query then failing and the
+ * config file still reading `5s`. `1000ms` happening to be correct is worse
+ * than the others, because it teaches that the suffix is understood.
+ * `MAX_ROWS` is a security-relevant cap and takes `10.9` as `10`, `1_000` as 1.
+ *
+ * The grammar here is `filesystem-sandbox`'s, which #98/#137 already settled
+ * and which survived a Python-parity review: trim, gate on an explicit
+ * `^[+-]?\d+$`, bound the magnitude with `BigInt` *before* `Number` can lose
+ * precision, then parse. Each server in this cookbook is a standalone,
+ * copy-pasteable package, so the three parsers cannot share a module — they
+ * share a grammar, enforced across servers by
+ * `tools/check-numeric-env-grammar.mjs`.
+ *
+ * Whitespace is trimmed rather than rejected. #152 proposed
+ * `String(n) !== raw`, which is exact and needs no grammar, but would refuse
+ * `" 7 "` — and a value read from a `.env` line or a YAML block routinely
+ * carries whitespace. Trimming first reopens none of the rows above (`" 5s"`
+ * still throws), and it matches what `filesystem-sandbox` already does.
+ */
 function parseIntEnv(name: string, fallback: number): number {
   const raw = process.env[name];
   if (raw === undefined) return fallback;
-  const n = Number.parseInt(raw, 10);
-  if (!Number.isFinite(n) || n <= 0) {
-    throw new Error(`env ${name} must be a positive integer; got ${JSON.stringify(raw)}`);
+  const trimmed = raw.trim();
+  const withinSafeRange =
+    /^[+-]?\d+$/.test(trimmed) && BigInt(trimmed) <= BigInt(Number.MAX_SAFE_INTEGER);
+  const n = withinSafeRange ? Number(trimmed) : Number.NaN;
+  if (!Number.isFinite(n) || !Number.isInteger(n) || n <= 0) {
+    throw new Error(
+      `env ${name} must be a positive integer no greater than ${Number.MAX_SAFE_INTEGER} ` +
+        `written in plain base-10 digits (no unit suffix, no scientific notation, no ` +
+        `separators); got ${JSON.stringify(raw)}`,
+    );
   }
   return n;
 }
