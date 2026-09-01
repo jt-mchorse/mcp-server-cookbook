@@ -10,7 +10,31 @@ export interface DbConfig {
 }
 
 export function readDbConfigFromEnv(): DbConfig {
-  const connectionString = process.env.DATABASE_URL;
+  // Trim before gating, and gate on *content* rather than falsiness (#157).
+  //
+  // `if (!process.env.DATABASE_URL)` accepts a whitespace-only value, and
+  // nothing trimmed a padded one — which is the shape a `.env` line or a YAML
+  // block routinely produces. `pg` does not tolerate it: one leading space and
+  // the string is no longer parsed as a URL at all, so keyword/value parsing
+  // takes over. Measured on `new Client({ connectionString }).connectionParameters`
+  // in a clean environment:
+  //
+  //   "postgres://u:p@h:5432/db"    -> host "h",    database "db",  user "u"
+  //   " postgres://u:p@h:5432/db "  -> host "base", database " postgres://u:p@h:5432/db "
+  //   "   "                         -> host "base", database "   "
+  //   ""                            -> host "localhost"
+  //
+  // A different host, the whole connection string as the database name, and no
+  // user — so it authenticates as the process's OS user. The message below
+  // calls the read-only role "your defense-in-depth"; with a stray space the
+  // role is not used at all. (The `""` row is the one `validateDbConfig`
+  // already documents as worth guarding, and it is the *least* dangerous of the
+  // four.)
+  //
+  // `parseIntEnv` below already trims, and says why: "a value read from a
+  // `.env` line or a YAML block routinely carries whitespace". Same function,
+  // same argument, and the string read was the one that skipped it.
+  const connectionString = (process.env.DATABASE_URL ?? "").trim();
   if (!connectionString) {
     throw new Error(
       "DATABASE_URL is required. Use a connection string for a READ-ONLY role; this server enforces query-level read-only on top, but the role enforcement is your defense-in-depth.",
@@ -98,7 +122,12 @@ function parseIntEnv(name: string, fallback: number): number {
  * the same class of failure being closed here on a sibling `Config`.
  */
 export function validateDbConfig(cfg: DbConfig): void {
-  if (typeof cfg.connectionString !== "string" || cfg.connectionString.length === 0) {
+  // `length === 0` was the falsiness check one layer down, and carried the same
+  // gap (#157): a whitespace-only string has non-zero length and reaches
+  // `new Client`, where `pg` resolves it to `host: "base"` with the string as
+  // the database name — strictly worse than the `""` case this guard's own
+  // comment above is written about. Gate on content.
+  if (typeof cfg.connectionString !== "string" || cfg.connectionString.trim().length === 0) {
     throw new Error(
       `DbConfig.connectionString must be a non-empty string; got ${JSON.stringify(cfg.connectionString)}`,
     );
