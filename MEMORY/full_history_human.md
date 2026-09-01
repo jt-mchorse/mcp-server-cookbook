@@ -1471,3 +1471,35 @@ deliberate edit, and it went red the moment I fixed the parser.
 **Open questions / blockers:** none.
 
 **Next session:** no open issues remain in this repo.
+
+## 2026-09-01 — Issue #157: one space, a different database
+**Branch:** `session/2026-09-01-0812-issue-157`
+
+- `postgres-readonly` checked `DATABASE_URL` for falsiness and never trimmed it,
+  and the programmatic guard behind it checked for zero length. A connection
+  string with one stray leading space — what a `.env` line or a YAML block
+  routinely produces — passes both, and `pg` then stops parsing it as a URL:
+  the connection goes to a different host, with the entire connection string as
+  the database name and no user at all, so it authenticates as whoever the
+  process is running as. The server's own error message calls the read-only
+  role "your defense-in-depth"; with a stray space, the role is not used.
+- The argument for the fix was already in the file. The numeric env parser ten
+  lines down trims before validating, and explains that env values routinely
+  carry whitespace. Within a single call, the two numeric settings were
+  normalised and the one that decides which database you reach was not.
+- The tests assert where the connection would have gone rather than that an
+  error was raised, since "it threw" was never the point. They also pin `pg`'s
+  own behaviour separately, so if a future version starts trimming, that shows
+  up as a moved row rather than as this fix quietly becoming decorative.
+
+**Why this work, this session:** the repo had no open issues. Ranking files by
+issue traffic put `handler.ts` first — sixty lines, twelve mentions in the
+repo's entire issue history — and a claim in its docstring about what `pg`'s
+error messages contain is what sent me into `db.ts`.
+
+**Open questions / blockers:** none for this issue. The cross-server version of
+the rule is filed as #158; the hard part there is telling a required string
+setting from a defaulted one across four different config shapes, and a rule
+that cannot is worse than none.
+
+**Next session:** #158 is the durable follow-up.
