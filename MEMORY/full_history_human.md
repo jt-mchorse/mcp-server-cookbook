@@ -1456,3 +1456,18 @@ ignoring that acceptance criterion.
 Finally, the pin I shipped yesterday earned itself within a day. That test recorded
 the defect as current behaviour precisely so that closing this issue would be a
 deliberate edit, and it went red the moment I fixed the parser.
+
+## 2026-08-31 — Issue #154: one integer grammar for the diagnostic response headers
+**Duration:** ~1 session block · **Branch:** `session/2026-08-31-0811-issue-154`
+
+- `_parseIntHeader` used `Number.parseInt`, which stops at the first character it cannot consume: `5s` → 5, `1e3` → 1, `0x10` → 0, and `9007199254740993` silently one lower. It now shares #152's grammar and keeps its own contract — `null`, never a throw — because the two sites do not disagree about what a number *is*, only about what an unreadable value *means*.
+- **Corrected the issue's own severity before implementing it.** Grepping the servers for the three field names finds no consumer that retries or backs off on them: they are filled on `GithubApiError` and rendered into the message. So `0x10 → 0` changed what the client was *told*, not what it *did*. Still worth fixing — a wrong `rate-limit-remaining: 0` on an error path is the line someone debugs from — but a smaller claim than the body's.
+- `Retry-After`'s HTTP-date form is now unsupported **by decision** rather than by accident. It mapped to `null` before because `parseInt` returned `NaN`; it maps to `null` now because it fails the gate. The test is named after that distinction and records what would have to change first if anything ever consumes the field for backoff.
+- The magnitude bound is written in the exact spelling `check-numeric-env-grammar.mjs` recognizes. This file is outside that checker's population by its predicate (headers, not env), but if it ever gains an environment read it joins already passing rather than failing on a cosmetic difference.
+- 10 new tests (23 cases), github-gists 144 → 167 green; all four servers and all ten repo checks green. Restoring `Number.parseInt` turns 8 red.
+
+**Why this work, this session:** it was the repo's only open issue, and it was the half #152 deliberately measured and split out.
+
+**Open questions / blockers:** none.
+
+**Next session:** no open issues remain in this repo.
