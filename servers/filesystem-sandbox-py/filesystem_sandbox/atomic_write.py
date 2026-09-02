@@ -42,19 +42,70 @@ from pathlib import Path
 MAX_TEMP_BASE_BYTES = 200
 
 
+def _name_bytes(base: str) -> int:
+    """Length of *base* in the bytes the filesystem actually sees.
+
+    ``os.fsencode``, not ``base.encode("utf-8")`` (#160). The budget being
+    enforced is NAME_MAX, which limits the bytes handed to the kernel — that is
+    ``sys.getfilesystemencoding()`` together with
+    ``sys.getfilesystemencodeerrors()``, i.e. ``surrogateescape`` on POSIX. The
+    docstring below used to promise "UTF-8 bytes", which is the same number for
+    every name that is valid UTF-8 and a different thing entirely for the rest:
+    strict ``str.encode("utf-8")`` *raises* on a lone surrogate rather than
+    counting it.
+
+    The road in is a lone surrogate through legal JSON. MCP tool arguments
+    arrive as JSON, ``"\\udcff"`` is legal escape syntax, and ``json.loads``
+    decodes it happily (RFC 8259 section 8.2 names unpaired surrogates as
+    non-interoperable; they reach real traffic from broken UTF-16 handling
+    upstream). Measured through ``_dispatch_tool("write_file", ...)`` with an
+    in-sandbox path, the client got back ``'utf-8' codec can't encode character
+    ... surrogates not allowed`` — a bare complaint about this helper's internal
+    measurement, naming neither the tool nor the path, on a call whose *content*
+    was pure ASCII. The server did not crash (``UnicodeEncodeError`` is a
+    ``ValueError``, which is in the dispatch's clean-error tuple), so the only
+    symptom was a misleading message.
+
+    The range matters, and it is narrower than "any lone surrogate".
+    ``surrogateescape`` only round-trips **U+DC80..U+DCFF** — the codepoints it
+    manufactures for the raw bytes 0x80..0xFF — so those are the names the
+    kernel can actually hold. Every other surrogate (``U+D800`` and friends) has
+    no ``os.fsencode`` representation either, and refusing it is correct both
+    before and after this change. A test written against ``U+D800`` would pass
+    identically either way; the falsifying input is ``U+DCFF``.
+
+    That also broke the property the TS twin states outright: "the atomic
+    helper must accept every name the filesystem does (#96)". ``capBaseForTemp``
+    measures with ``Buffer.byteLength(base, "utf8")``, which never throws — it
+    counts a lone surrogate as the 3-byte replacement — so the two sides
+    disagreed on exactly the input the TS comment says must work.
+
+    ``os.fsencode`` never raises: ``surrogateescape`` on POSIX,
+    ``surrogatepass`` on Windows, so every ``str`` a ``Path`` can hold
+    round-trips, and the Python side is total over the same domain the TS side
+    is. For a name that is valid UTF-8 it returns exactly the old number, so the
+    budget is unchanged for every name that worked before.
+    """
+    return len(os.fsencode(base))
+
+
 def _cap_base_for_temp(base: str) -> str:
-    """Trim ``base`` to at most ``MAX_TEMP_BASE_BYTES`` UTF-8 bytes.
+    """Trim ``base`` to at most ``MAX_TEMP_BASE_BYTES`` filesystem bytes.
+
+    "Filesystem bytes", not "UTF-8 bytes": NAME_MAX is a limit on what the
+    kernel receives, which is ``os.fsencode`` — see :func:`_name_bytes` for why
+    the distinction is load-bearing and not pedantry (#160).
 
     The temp name only needs to be a recognizable, collision-free sibling;
     ``NamedTemporaryFile``'s random token guarantees uniqueness, so truncating
-    the cosmetic base is safe. Trims by whole characters so the result stays
-    valid UTF-8 (a byte-slice could split a multi-byte codepoint). Mirrors the
-    TS ``capBaseForTemp``.
+    the cosmetic base is safe. Trims by whole characters so no codepoint is
+    ever split. Mirrors the TS ``capBaseForTemp``, including its stated
+    property that the helper accepts every name the filesystem does.
     """
-    if len(base.encode("utf-8")) <= MAX_TEMP_BASE_BYTES:
+    if _name_bytes(base) <= MAX_TEMP_BASE_BYTES:
         return base
     out = base
-    while out and len(out.encode("utf-8")) > MAX_TEMP_BASE_BYTES:
+    while out and _name_bytes(out) > MAX_TEMP_BASE_BYTES:
         out = out[:-1]
     return out
 
