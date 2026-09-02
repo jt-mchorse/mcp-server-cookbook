@@ -1804,3 +1804,31 @@ context_for_next_session:
 decisions_made: []
 followups: ["#158"]
 ---
+
+---
+session: 2026-09-02T07:56Z
+issue: 160
+focus: the_temp_name_byte_budget_was_measured_in_strict_utf8_breaking_the_accept_every_name_the_filesystem_does_property_the_ts_twin_states
+phase: night_session_multi_issue_loop_issue_9
+delta:
+  files_changed: 3
+  tests_added: 17
+  suite: 209_to_226_green
+measured:
+  range_correction: "RAN IT INSTEAD OF REASONING: surrogateescape only round-trips U+DC80..U+DCFF, the codepoints it manufactures for raw bytes 0x80..0xFF. os.fsencode('note\\ud800.txt') RAISES TOO. So my first example U+D800 fails IDENTICALLY before and after the fix - a test written against it would have been VACUOUS. The falsifying input is U+DCFF"
+  dispatch: "_dispatch_tool('write_file', {path: <sandbox>/note<U+DCFF>.txt}) -> BEFORE: (\"'utf-8' codec can't encode character ...\", True); AFTER: OSError [Errno 92] naming the path on APFS, write succeeds on ext4"
+  ts_twin: "node -e Buffer.byteLength('note\\ud800.txt','utf8') -> 11, NO THROW. The TS capBaseForTemp is total over every string; the python side was not"
+  host: "verified on a THROWAWAY venv running CI's exact 'pip install -e .[server,dev]' line under python 3.11, because the local interpreter is 3.14 and CI runs 3.11/3.12"
+  anti_vacuous: "reverting the single measurement line turns 10 red and leaves BOTH the encodable-name rows AND the U+D800 out-of-scope control green"
+context_for_next_session:
+  - PORTFOLIO_CLASS_COMPLETE_NINE_OF_NINE_leh_226_lco_205_rag_199_csl_178_prs_159_ems_135_vsas_137_pyasync_104_and_this_ONE_SHARED_LINE_NINE_REPOS_NINE_DIFFERENT_CONSEQUENCES_the_grep_that_found_the_population_was_MAX_TEMP_BASE
+  - THE_BIGGEST_LESSON_OF_THE_RUN_AND_IT_ALMOST_SHIPPED_VACUOUS_I_WROTE_THE_ISSUE_USING_U_PLUS_D800_because_that_is_the_lone_surrogate_the_portfolios_representability_docs_use_AND_IT_IS_THE_WRONG_ONE_surrogateescape_ONLY_ROUND_TRIPS_U_PLUS_DC80_TO_DCFF_so_os_fsencode_REFUSES_D800_TOO_and_the_case_fails_IDENTICALLY_BEFORE_AND_AFTER_A_TEST_USING_D800_WOULD_HAVE_PASSED_ON_UNFIXED_CODE_i_only_caught_it_because_the_post_fix_dispatch_PRINTED_THE_SAME_MESSAGE_AS_THE_PRE_FIX_ONE_WHEN_A_FIX_CHANGES_NOTHING_THE_INPUT_IS_WRONG_NOT_THE_FIX
+  - AND_THE_REPAIR_IS_TO_PIN_BOTH_HALVES_the_variant_table_uses_U_PLUS_DCFF_AND_a_named_control_test_asserts_U_PLUS_D800_IS_STILL_REFUSED_so_the_population_split_is_RECORDED_rather_than_re_derived_PARTITION_ON_THE_PROPERTY_not_on_the_first_member_you_reach_for
+  - THE_TS_TWINS_COMMENT_STATED_THE_PROPERTY_OUTRIGHT_THE_ATOMIC_HELPER_MUST_ACCEPT_EVERY_NAME_THE_FILESYSTEM_DOES_96_and_Buffer_byteLength_NEVER_THROWS_so_the_TS_side_HAS_that_property_and_the_python_side_did_not_A_PARITY_PORTS_TWIN_IS_A_FREE_ORACLE_read_the_other_sides_comment_for_the_invariant_yours_is_supposed_to_have
+  - AND_I_ASSERTED_IT_AS_A_PROPERTY_NOT_A_PARITY_SHELL_OUT_test_cap_base_for_temp_is_total_over_every_name_os_fsencode_accepts_walks_ALL_128_bytes_0x80_TO_0xFF_which_is_the_python_side_STATEMENT_of_the_TS_sides_totality_no_node_subprocess_needed
+  - THE_ROOT_README_TEST_COUNT_LOCK_CAUGHT_THE_DELTA_IMMEDIATELY_121_TO_129_as_designed_AND_THE_PER_SERVER_README_IS_NOT_LOCKED_AND_HAS_DRIFTED_TO_60_vs_A_MEASURED_206_ON_MAIN_filed_as_161_WITHOUT_guessing_a_replacement_because_the_claims_SCOPE_IS_AMBIGUOUS_the_number_sits_on_a_pytest_line_that_runs_12_files_while_the_next_paragraph_names_4_A_NUMBER_NOTHING_CHECKS_IS_A_NUMBER_THAT_WILL_BE_WRONG_AGAIN
+  - PROCESS_MY_OWN_DOCSTRING_BROKE_THE_IMPORT_i_wrote_a_LITERAL_backslash_ud800_into_a_python_docstring_which_the_parser_turns_into_a_REAL_lone_surrogate_in_the_module_and_the_import_died_ESCAPE_IT_AS_DOUBLE_BACKSLASH_same_class_as_the_literal_control_char_lesson
+  - PROCESS_THIS_REPO_HAS_NO_LOCAL_VENV_and_CI_RUNS_3_11_AND_3_12_while_the_machine_python_is_3_14_BUILD_THE_THROWAWAY_VENV_WITH_CIS_EXACT_INSTALL_LINE_pip_install_e_dot_server_dev
+decisions_made: []
+followups: ["#161"]
+---
