@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import re
 import sys
 from dataclasses import asdict
 from typing import Any
@@ -102,6 +103,41 @@ def _build_tool_specs() -> list[dict[str, Any]]:
     ]
 
 
+_LONE_SURROGATE_RE = re.compile(r"[\ud800-\udfff]")
+
+
+def _json_wellformed(value: str) -> str:
+    r"""``json.dumps`` with JavaScript's ES2019 *well-formed* semantics.
+
+    `JSON.stringify` escapes a lone surrogate rather than emitting it (the
+    "well-formed JSON.stringify" proposal, ES2019). Python's `json.dumps` has
+    no equivalent mode: `ensure_ascii=False` writes the raw codepoint, which
+    has no UTF-8 encoding, so the refusal message this builds cannot be written
+    to the stdio transport at all (#163)::
+
+        JSON.stringify("\uD800bad.txt")                 -> '"\ud800bad.txt"'  (survives)
+        json.dumps("\ud800bad.txt", ensure_ascii=False)  -> raw U+D800         (UnicodeEncodeError)
+
+    And it arrives by an ordinary road, not an exotic one: a lone surrogate is
+    legal **JSON escape syntax**, so `json.loads('"\ud800bad.txt"')` on an
+    incoming JSON-RPC argument produces one with no filesystem or `argv`
+    involved. The docstring below used to say it "cannot reach this port at
+    all"; it reaches it in one hop.
+
+    `ensure_ascii=True` is not the fix. It matches JS on this codepoint and
+    diverges on every other non-ASCII one -- `café.txt` would become
+    `"caf\u00e9.txt"` while the TS port still emits `"café.txt"`, trading one
+    diverging codepoint for all of them. Escaping *only* surrogates is exactly
+    what ES2019 specified, and it leaves the eight-of-nine agreement intact.
+
+    A valid surrogate **pair** is not a lone surrogate: it is a single astral
+    codepoint by then, so the regex cannot see it and JS does not escape it
+    either. `test-fixtures/error_message_parity.json` carries that control.
+    """
+    dumped = json.dumps(value, ensure_ascii=False)
+    return _LONE_SURROGATE_RE.sub(lambda m: f"\\u{ord(m.group()):04x}", dumped)
+
+
 def _error_message(err: BaseException) -> str:
     """Stringify a tool error for the MCP response.
 
@@ -127,15 +163,18 @@ def _error_message(err: BaseException) -> str:
     carrying a space, a trailing separator, or a NUL is ambiguous in a refusal
     message, and ambiguity is exactly what a sandbox refusal must not have.
     ``json.dumps(..., ensure_ascii=False)`` and JavaScript's ``JSON.stringify``
-    agree on eight of nine awkward codepoints; the ninth is a lone surrogate,
-    which Python cannot encode to UTF-8 and so cannot reach this port at all.
+    agree on eight of nine awkward codepoints. The ninth is a lone surrogate,
+    and this docstring used to say it "cannot reach this port at all" -- it
+    reaches it in one hop, because a lone surrogate is legal JSON escape syntax
+    and this is a JSON-RPC server (#163). ``_json_wellformed`` above closes it
+    by reproducing ES2019's well-formed ``JSON.stringify``, so all nine agree.
 
     The typed sandbox / tool errors carry messages that are already safe to
     show — they never echo allow-list contents or absolute paths beyond what
     the caller already supplied.
     """
     if isinstance(err, SandboxEscape):
-        return f"sandbox_escape ({err.reason}): {json.dumps(err.input, ensure_ascii=False)}"
+        return f"sandbox_escape ({err.reason}): {_json_wellformed(err.input)}"
     if isinstance(err, WriteForbiddenError):
         return str(err)
     if isinstance(err, FileTooLargeError):
