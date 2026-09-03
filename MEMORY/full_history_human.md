@@ -1503,3 +1503,82 @@ setting from a defaulted one across four different config shapes, and a rule
 that cannot is worse than none.
 
 **Next session:** #158 is the durable follow-up.
+
+## 2026-09-02 — #160: the last copy, and the one where I nearly shipped a vacuous test
+
+`filesystem-sandbox-py`'s `_cap_base_for_temp` shortens a destination's
+basename before it goes into the temp filename `.{base}.{random}.tmp`. Its
+docstring promised to trim to "at most `MAX_TEMP_BASE_BYTES` **UTF-8 bytes**".
+The budget it is actually enforcing is NAME_MAX, which limits the bytes handed
+to the *kernel* — `os.fsencode`, i.e. `sys.getfilesystemencoding()` together
+with `sys.getfilesystemencodeerrors()`. Those are the same number for every
+name that is valid UTF-8 and a different thing entirely for the rest, because
+strict `str.encode("utf-8")` *raises* on a lone surrogate instead of counting
+it.
+
+That broke a property the TS twin states outright, one file over:
+
+> ...client-supplied path, that spurious failure is reachable; **the atomic
+> helper must accept every name the filesystem does (#96)**.
+
+`capBaseForTemp` measures with `Buffer.byteLength(base, "utf8")`, which never
+throws — measured, `Buffer.byteLength("note\ud800.txt", "utf8")` is 11. So the
+TS side has the property and the Python side did not, on exactly the input the
+TS comment says must work. A parity port's twin is a free oracle: read the
+other side's comment for the invariant yours is supposed to have.
+
+The road in is a lone surrogate through legal JSON. MCP arguments arrive as
+JSON, `json.loads` decodes the escape happily, and the client got back
+`'utf-8' codec can't encode character …` — a complaint about this helper's
+internal measurement, on a call whose *content* was pure ASCII, naming neither
+the tool nor the path. The server never crashed; `UnicodeEncodeError` is a
+`ValueError` and was already in the dispatch's clean-error tuple. The symptom
+was purely a misleading message.
+
+**And then the part that matters most.** I wrote the issue using `U+D800`,
+because that is the lone surrogate this portfolio's representability work
+always uses. It is the wrong one. `surrogateescape` only round-trips
+**U+DC80–U+DCFF** — the codepoints it manufactures for the raw bytes 0x80–0xFF
+— so `os.fsencode("note\ud800.txt")` raises too. That case fails *identically*
+before and after the fix, and a test written against it would have passed
+against the unfixed code. I only caught it because I re-ran the dispatch after
+applying the fix and the message came back **byte-for-byte the same**. When a
+fix changes nothing, suspect the input before the fix.
+
+The repair is to pin both halves rather than just correcting the example: the
+variant table uses U+DCFF, and a separate named control test asserts U+D800 is
+*still* refused and says why it is out of scope. The population split is now
+recorded instead of waiting to be re-derived by the next reader. Partition on
+the property, not on the first member you reach for.
+
+The parity assertion is stated as a property rather than a shell-out to node:
+`test_cap_base_for_temp_is_total_over_every_name_os_fsencode_accepts` walks all
+128 bytes 0x80–0xFF, which is the Python-side statement of the TS side's
+totality.
+
+Reverting the single measurement line turns 10 assertions red and leaves both
+the encodable-name rows *and* the U+D800 control green.
+
+**Two process notes.** My own docstring broke the import: I wrote a literal
+`\ud800` into a Python docstring, the parser turned it into a real lone
+surrogate inside the module, and the import died. Escape it. And this repo has
+no local venv while CI runs Python 3.11/3.12 against a 3.14 machine
+interpreter, so everything here was verified on a throwaway venv built with
+CI's exact `pip install -e '.[server,dev]'` line: 226 passed, ruff clean.
+
+The root README's test-count lock caught the delta immediately (121 → 129),
+which is exactly what it is for. The per-server README is *not* locked and has
+drifted to "60 tests" against a measured 206 on `main` — filed as #161 without
+guessing a replacement, because the claim's scope is ambiguous: the number sits
+on a `pytest` line that runs twelve files while the next paragraph names four.
+
+**Why this work, this session:** the last of nine repos carrying a verbatim copy
+of this helper, found by grepping the portfolio for `_MAX_TEMP_BASE_BYTES` after
+hitting the same defect in `llm-eval-harness#226`. One shared line, nine
+different consequences; the work each time was establishing what the local
+callers actually catch.
+
+**Open questions / blockers:** none.
+
+**Next session:** #161 (per-server README count drift, and locking it), and
+#158 (the string-env grammar checker) is still open and unworked.
