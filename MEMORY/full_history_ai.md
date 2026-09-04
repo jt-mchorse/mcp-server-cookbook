@@ -1832,3 +1832,29 @@ context_for_next_session:
 decisions_made: []
 followups: ["#161"]
 ---
+
+---
+session: 2026-09-03T08:35Z
+issue: 163
+focus: a_lone_surrogate_DOES_reach_the_python_port_via_a_legal_JSON_escape_and_the_two_ports_disagreed_on_exactly_that_codepoint
+phase: night_session_multi_issue_loop_issue_7
+delta:
+  files_changed: 4
+  tests_added: 8
+  suite: python_port_129_to_132
+measured:
+  reachability: "json.loads('\"\\\\ud800bad.txt\"') -> a lone surrogate, NO filesystem and NO argv needed. _dispatch_tool('read_file', {'path': BAD}) returns a CORRECT refusal whose .encode('utf-8') raises - so the refusal cannot be written to the stdio transport at all"
+  parity: "JSON.stringify has been WELL-FORMED since ES2019 and escapes it; json.dumps(ensure_ascii=False) emits the raw codepoint. TS survives, Python does not - on the one codepoint the docstring said could not arrive"
+  byte_for_byte: "verified _json_wellformed against NODE over 10 inputs - lone high/low/DC80-range surrogates, astral pair, CJK, accented latin, NUL, tab/newline, quote/backslash: ALL TEN IDENTICAL"
+  anti_vacuous: "unfixed 6 red (3 parity + 3 encodability); ensure_ascii=True neighbour 3 red on the non-ASCII rows INCLUDING A PRE-EXISTING ONE"
+context_for_next_session:
+  - A_REACHABILITY_CLAIM_IS_A_TEST_CASE_AND_THIS_ONE_WAS_WRONG_TWICE_cannot_reach_this_port_at_all_was_reasoning_about_the_FILESYSTEM_road_while_the_server_is_JSON_RPC_and_a_lone_surrogate_is_LEGAL_JSON_ESCAPE_SYNTAX_ASK_WHICH_ROADS_EXIST_not_whether_the_one_you_thought_of_is_closed
+  - AND_THE_SAME_SENTENCE_CARRIED_THE_PARITY_CLAIM_agree_on_eight_of_nine_the_NINTH_is_where_they_diverge_and_it_was_dismissed_IN_THE_SAME_BREATH_AS_THE_REACHABILITY_a_comment_that_excuses_a_case_from_a_table_is_the_row_to_add
+  - ES2019_WELL_FORMED_JSON_stringify_IS_A_REAL_CROSS_LANGUAGE_ASYMMETRY_js_escapes_lone_surrogates_python_json_dumps_HAS_NO_SUCH_MODE_ensure_ascii_True_is_NOT_the_equivalent_it_escapes_EVERYTHING_non_ascii_ESCAPE_SURROGATES_ONLY_and_the_cafe_plus_astral_pair_CONTROL_ROWS_are_what_separate_the_two_fixes
+  - THE_MISSING_PROPERTY_WAS_ENCODABILITY_NOT_EQUALITY_comparing_a_message_to_an_expected_STRING_cannot_catch_this_because_BOTH_SIDES_HELD_THE_SAME_UNENCODABLE_TEXT_AND_COMPARED_EQUAL_the_assertion_that_catches_it_is_message_encode_utf_8_over_every_row
+  - A_JSON_FIXTURE_FILE_CANNOT_HOLD_A_RAW_LONE_SURROGATE_writing_it_with_ensure_ascii_False_TRUNCATED_THE_FILE_mid_write_store_the_input_as_a_uXXXX_ESCAPE_which_is_ALSO_the_exact_road_the_defect_arrives_by
+  - FOURTH_TIME_TONIGHT_A_NON_RAW_DOCSTRING_ATE_A_BACKSLASH_u_AND_MADE_THE_MODULE_UNIMPORTABLE_write_docstrings_containing_backslash_u_as_r_TRIPLE_QUOTE_FROM_THE_START
+  - README_TEST_COUNT_IS_STATIC_AND_IT_TRIPPED_EXACTLY_AS_MEMORY_SAID_3_new_def_test_functions_129_to_132_run_node_tools_check_readme_mjs_BEFORE_pushing_and_all_18_tools_check_scripts_are_runnable_locally_in_one_loop
+decisions_made: []
+followups: []
+---

@@ -40,7 +40,24 @@
     "",
     "WriteForbiddenError and FileTooLargeError were ALREADY byte-identical and",
     "are pinned anyway -- a parity table that lists only what was broken cannot",
-    "notice one of them breaking later."
+    "notice one of them breaking later.",
+    "",
+    "#163 added the lone-surrogate rows. The Python port's docstring used to say a",
+    "lone surrogate 'cannot reach this port at all'; it reaches it in one hop,",
+    "because a lone surrogate is legal JSON escape syntax and this is a JSON-RPC",
+    "server. The two ports then DISAGREED on it: JavaScript's JSON.stringify has",
+    "been well-formed since ES2019 and escapes it, while Python's",
+    "json.dumps(ensure_ascii=False) emitted the raw codepoint, which has no UTF-8",
+    "encoding -- so the Python refusal could not be written to the transport.",
+    "",
+    "The two CONTROL rows are load-bearing: ensure_ascii=True would fix the",
+    "surrogate rows and break these, which is why the fix escapes surrogates ONLY.",
+    "A valid astral pair is a single codepoint by then and neither port escapes it.",
+    "",
+    "NOTE: the surrogate rows' `input` is stored as a \\uXXXX JSON escape, because",
+    "a JSON FILE must itself be valid UTF-8 and a raw lone surrogate is not. Both",
+    "ports decode it back to the lone codepoint on load -- which is precisely the",
+    "road the defect arrives by."
   ],
   "cases": [
     {
@@ -122,6 +139,41 @@
       "kind": "generic",
       "message": "file is not valid UTF-8 text: /r/x.bin",
       "expected": "file is not valid UTF-8 text: /r/x.bin"
+    },
+    {
+      "name": "sandbox escape, input carries a lone HIGH surrogate",
+      "kind": "sandbox_escape",
+      "reason": "input_relative_disallowed",
+      "input": "\ud800bad.txt",
+      "expected": "sandbox_escape (input_relative_disallowed): \"\\ud800bad.txt\""
+    },
+    {
+      "name": "sandbox escape, input carries a lone LOW surrogate",
+      "kind": "sandbox_escape",
+      "reason": "input_relative_disallowed",
+      "input": "x\udfff",
+      "expected": "sandbox_escape (input_relative_disallowed): \"x\\udfff\""
+    },
+    {
+      "name": "sandbox escape, lone surrogate in the surrogateescape range",
+      "kind": "sandbox_escape",
+      "reason": "input_relative_disallowed",
+      "input": "\udc80lead.txt",
+      "expected": "sandbox_escape (input_relative_disallowed): \"\\udc80lead.txt\""
+    },
+    {
+      "name": "sandbox escape, CONTROL valid astral pair is NOT escaped",
+      "kind": "sandbox_escape",
+      "reason": "input_relative_disallowed",
+      "input": "🎉.txt",
+      "expected": "sandbox_escape (input_relative_disallowed): \"🎉.txt\""
+    },
+    {
+      "name": "sandbox escape, CONTROL non-ASCII stays raw",
+      "kind": "sandbox_escape",
+      "reason": "input_relative_disallowed",
+      "input": "café.txt",
+      "expected": "sandbox_escape (input_relative_disallowed): \"café.txt\""
     }
   ]
 }

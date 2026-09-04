@@ -1582,3 +1582,53 @@ callers actually catch.
 
 **Next session:** #161 (per-server README count drift, and locking it), and
 #158 (the string-env grammar checker) is still open and unworked.
+
+## 2026-09-03 — #163: "cannot reach this port at all" reached it in one hop
+
+`_error_message`'s docstring ended with a reachability claim: `json.dumps` and
+`JSON.stringify` "agree on eight of nine awkward codepoints; the ninth is a
+lone surrogate, which Python cannot encode to UTF-8 and so cannot reach this
+port at all."
+
+Both halves were wrong, and they failed in opposite directions.
+
+**It reaches the port trivially.** A lone surrogate is legal *JSON escape
+syntax*, and this is a JSON-RPC server. `json.loads('"\ud800bad.txt"')` on an
+incoming argument produces one — no filesystem, no `sys.argv`, nothing exotic.
+The claim was reasoning about the filesystem road while the server's actual
+input road is JSON. Driven through the repo's own dispatch, the refusal was
+built correctly and then could not be encoded to UTF-8, so it could not be
+written to the stdio transport: the client gets no refusal at all, which is the
+one outcome a sandbox refusal path must not have.
+
+**And the ports do not agree on it.** `JSON.stringify` has been *well-formed*
+since ES2019 and escapes lone surrogates; `json.dumps(ensure_ascii=False)`
+emits the raw codepoint. So the ninth codepoint — the one dismissed in the same
+breath as the reachability claim — is exactly where D-010's parity broke, and
+the shared table had no row for it. A comment that excuses a case from a table
+is the row to add.
+
+`ensure_ascii=True` is not the fix. It matches JS on this codepoint and
+diverges on every other non-ASCII one, turning `café.txt` into an escape while
+the TS port still emits it raw — trading one diverging codepoint for all of
+them. Escaping *surrogates only* is what ES2019 specified, and the two CONTROL
+rows (`café.txt`, an astral pair) are what separate the two fixes. Verified
+byte-for-byte against Node over ten inputs; all ten identical.
+
+**The missing property was encodability, not equality.** Comparing a message to
+an `expected` string could never have caught this: both sides held the same
+unencodable text and compared equal. The assertion that catches it is
+`message.encode("utf-8")` over every row, with an arm asserting the table
+actually contains an unencodable input so the property is not vacuous.
+
+Two mechanical notes. A JSON *file* cannot hold a raw lone surrogate — writing
+the fixture with `ensure_ascii=False` truncated it mid-write; the input is
+stored as a `\uXXXX` escape, which is also precisely the road the defect
+arrives by. And for the fourth time tonight a non-raw docstring ate a `\u`
+escape and made the module unimportable.
+
+The README's static test count tripped exactly as expected (3 new `def test_`
+functions, 129 → 132); all 18 `tools/check-*.mjs` gates run locally in one loop
+and are green.
+
+**Next session:** the TS port needed no change — it was already correct here.

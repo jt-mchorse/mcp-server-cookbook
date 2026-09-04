@@ -128,3 +128,58 @@ def test_a_generic_error_carries_no_type_label() -> None:
     corresponding sites, so a label here is a pure divergence."""
     assert _error_message(ValueError("content must be a string")) == "content must be a string"
     assert _error_message(RuntimeError("boom")) == "boom"
+
+
+# --- #163: the property the transport actually needs -------------------------
+
+
+@pytest.mark.parametrize("case", _CASES, ids=[c["name"] for c in _CASES])
+def test_every_message_can_be_written_to_the_stdio_transport(case: dict[str, Any]) -> None:
+    """A refusal that cannot be encoded is a refusal the client never sees.
+
+    No test stated this before #163, and it is what the defect actually was:
+    `_error_message` built a correct message containing a raw lone surrogate,
+    and the response then failed at serialization instead of reaching the
+    caller. Comparing the message to an `expected` string cannot catch that --
+    both sides held the same unencodable text and compared equal.
+    """
+    message = _error_message(_build_error(case))
+    message.encode("utf-8")
+
+
+def test_the_table_contains_an_unencodable_input() -> None:
+    """Anti-vacuous arm for the test above.
+
+    Every row was UTF-8-safe before the surrogate rows were added, so the
+    property held vacuously over the whole table. Assert the population
+    actually contains the hazard it exists to check.
+    """
+    hazardous = [
+        c
+        for c in _CASES
+        if isinstance(c.get("input"), str) and any(0xD800 <= ord(ch) <= 0xDFFF for ch in c["input"])
+    ]
+    assert len(hazardous) >= 3, (
+        "the parity table carries no lone-surrogate input, so "
+        "test_every_message_can_be_written_to_the_stdio_transport proves nothing"
+    )
+    for case in hazardous:
+        with pytest.raises(UnicodeEncodeError):
+            case["input"].encode("utf-8")
+
+
+def test_the_controls_are_non_ascii_but_encodable() -> None:
+    """The rows that kill the `ensure_ascii=True` neighbour.
+
+    That flag fixes the surrogate rows and escapes every other non-ASCII
+    codepoint, so the ports would diverge on `café.txt` instead. These rows
+    must be non-ASCII *and* encodable, or they cannot separate the two fixes.
+    """
+    controls = [c for c in _CASES if "CONTROL" in c["name"]]
+    assert len(controls) >= 2, [c["name"] for c in _CASES]
+    for case in controls:
+        text = case["input"]
+        assert not text.isascii(), case["name"]
+        text.encode("utf-8")
+        # And the expected message must carry the character raw, not escaped.
+        assert text in case["expected"], case["name"]
