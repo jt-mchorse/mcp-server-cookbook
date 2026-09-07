@@ -1632,3 +1632,40 @@ functions, 129 → 132); all 18 `tools/check-*.mjs` gates run locally in one loo
 and are green.
 
 **Next session:** the TS port needed no change — it was already correct here.
+
+## 2026-09-07 — Issue #158: a string-env grammar checker
+**Duration:** ~34 min · **Branch:** `session/2026-09-07-0822-issue-158`
+
+- Shipped `tools/check-string-env-grammar.mjs`, the cross-server sibling of the
+  numeric grammar checker, wired into `package.json` and its own CI job.
+- **The issue called the classification the hard part, and the answer was that
+  you don't need one.** Required and defaulted string settings share a single
+  invariant: *a whitespace-only value is indistinguishable from the setting
+  being absent*. Required throws for both; defaulted defaults for both. The
+  sketched classification (by `?? DEFAULT` versus a throw) is a proxy for the
+  contract rather than the contract, and a wrong proxy fails on correct code.
+- Prototyping the classifier against the real files *before* writing the plan is
+  what surfaced the two reads that kill a same-statement rule: `rawToken` →
+  `token` and `raw` → `parts` are trimmed one binding downstream of where they
+  are read. The trace is a fixpoint because of them.
+- The same fixpoint was needed in the other direction. The first version flagged
+  `MCP_GITHUB_GISTS_TIMEOUT_MS`'s deliberate `!== ""` against the real file,
+  because its `BigInt` coercion is two bindings away and a single backward pass
+  missed it — a rule failing on correct code, caught before it shipped.
+- **The trim decision, written into the tool.** Either spelling is accepted,
+  matching the numeric sibling — but that sibling's stated reason ("differ in
+  strictness, never in safety") relies on a grammar gate following the trim, and
+  for a string setting nothing follows. The asymmetry is recorded rather than
+  papered over: the residue case is a value that is *mostly* whitespace rather
+  than *blank*, strictly smaller than the defect the rule exists for.
+
+**Why this work, this session:** it was the one open, unblocked, non-gated issue
+across the portfolio after four repos' worth of hunting, and it was fully
+specified — deliverable, constraints, and acceptance criteria.
+
+**Open questions / blockers:** none. #161 (per-server README test counts) still
+wants a maintainer's call on scope; I did not guess a replacement count.
+
+**Next session:** a sixth server inherits both env rules automatically — the
+populations are discovered, and the discovery test derives the expected server
+set from the tree rather than a list.
