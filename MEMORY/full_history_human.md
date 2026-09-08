@@ -1669,3 +1669,52 @@ wants a maintainer's call on scope; I did not guess a replacement count.
 **Next session:** a sixth server inherits both env rules automatically — the
 populations are discovered, and the discovery test derives the expected server
 set from the tree rather than a list.
+
+## 2026-09-08 — Issue #166: the lock pinned the wrong unit
+**Duration:** ~40 min · **Branch:** `session/2026-09-08-1509-issue-166`
+
+- Started on #161 — one per-server README claiming 60 tests against a real 250 —
+  and found the root cause one level up. `tools/check-readme.mjs` compared every
+  claim to a **static** count: test functions, times a parametrize factor it can
+  only sometimes resolve. The README sentence those numbers annotate is a
+  **command**, and what a command prints is test **cases**.
+- All five claims were roughly half the truth, measured from each server's own
+  command on `main`: 87 vs 185, 132 vs 250, 98 vs 167, 49 vs 67, 190 vs 276.
+- **The lock is why nobody noticed.** It made each claim self-consistent with an
+  approximation and froze it there. The script's own header said *static*, and
+  the README is not making a static claim. A green lock on a wrong number is
+  worse than no lock: it answers the question nobody will ask again.
+- **The tell was already in the repo.** `internal-tools-bridge`'s README carries
+  the one per-server claim anyone kept current, and it says 67 — the runtime
+  count, exactly. The one nobody maintained said 60. When two readings compete,
+  look for the instance a human actually maintained.
+- `tools/test-counts.json` records the unit now, and three checks hold it: the
+  README comparison (root *and* per-server, which nothing covered before); a
+  `static ≤ runtime` floor, a real invariant, so a hand-lowered entry cannot
+  pass without running anything; and a step in each server's own CI job that
+  re-measures from the suite that job already runs — one flag, no sixth job,
+  nothing executed twice.
+- **A check cannot lock itself against its own deletion.** Deleting the
+  per-server block from `check-readme.mjs` leaves `check-readme.mjs` green, so
+  the assertion that catches it lives in `check-test-count.test.mjs`, which
+  reads the real tree.
+- **The rejection arm that matters** asserts the recorded count is *strictly*
+  greater than the static one for every server — because equality *is* the bug,
+  and a lock that only checks equality to a recorded number would happily
+  re-freeze it.
+- Four neighbours built and run: the counts file set to the static values with
+  the README following (both checks red), one count hand-lowered below the
+  static count (both red), and the per-server block deleted with the claim
+  reverted (`check-readme` green, the independent test red).
+- D-011 recorded; `docs/architecture.md` and the README decision range updated.
+
+**Why this work, this session:** mcp-server-cookbook's only actionable open
+issue was #161, and reproducing its measurement is what surfaced the unit
+mismatch behind it.
+
+**Open questions / blockers:** none.
+
+**Next session:** the static counter's `it.each(TABLE)` / `parametrize(<non-literal>)`
+under-count is documented as a lower bound rather than fixed — resolving it
+needs partial evaluation of the module and is no longer load-bearing now that
+the counter is a floor.

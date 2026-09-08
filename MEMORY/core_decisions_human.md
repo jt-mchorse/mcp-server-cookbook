@@ -181,3 +181,72 @@ would be picking one port as correct by default rather than by argument.
 
 **Reversibility.** Cheap, but it changes a string a client may match on, which is
 why it is written down. Both ports changed.
+
+---
+
+## D-011 — The README's test counts are runtime case counts, held by three checks
+**Date:** 2026-09-08
+
+**Decision.** Every test-count claim in the root README and in the per-server
+READMEs is the **runtime case count** — the number the command beside it prints.
+`tools/test-counts.json` records it, and three independent checks hold it there.
+
+**Why.** `tools/check-readme.mjs` compared each claim to a *static* count: test
+functions, times a `@pytest.mark.parametrize` / `it.each` factor it can only
+sometimes resolve. The README sentence those numbers annotate is a **command**,
+and what a command prints is test *cases*. All five claims were roughly half the
+truth:
+
+| server | claimed (locked) | actually printed |
+|---|---|---|
+| `filesystem-sandbox` | 87 | 185 |
+| `filesystem-sandbox-py` | 132 | 250 |
+| `github-gists` | 98 | 167 |
+| `internal-tools-bridge` | 49 | 67 |
+| `postgres-readonly` | 190 | 276 |
+
+**The lock is why nobody noticed.** It made each claim self-consistent with an
+approximation and froze it there. The script's own header even said *static* —
+and the README is not making a static claim.
+
+**The evidence for the unit.** `servers/internal-tools-bridge/README.md` carries
+the only per-server claim anyone kept current, and it says 67 — the runtime
+count, exactly. `servers/filesystem-sandbox-py/README.md` said 60 against a real
+250 (#161). The one claim somebody maintained is in the runtime unit, because
+that is the one a reader can check by running the line above it.
+
+**Three checks one stale number cannot satisfy.**
+1. `check-readme.mjs` holds every root *and* per-server claim to
+   `tools/test-counts.json`.
+2. It also enforces `static ≤ runtime` — a real invariant, since every `it(` /
+   `def test_` yields at least one case — so a counts file hand-lowered to match
+   a stale README cannot pass.
+3. Each server's own CI job asserts its measured count equals the entry, after
+   running the suite it already runs (`vitest --reporter=json`,
+   `pytest --junitxml`). Nothing is executed twice and there is no sixth job.
+
+**The wrong-unit rejection arm.** `tools/check-test-count.test.mjs` asserts the
+recorded count is *strictly greater* than the static count for every server, so
+an edit that swaps the number back to the static one fails loudly rather than
+being frozen by a self-consistent lock — the exact failure being fixed.
+
+**Skips are excluded.** The unit is executed, non-skipped cases: a skipped test
+is not one a reader counts in the terminal, and counting it would make the claim
+depend on which optional extras the runner happened to have. This repo's Python
+suite skips its MCP-SDK round-trip tests without the `[server]` extra.
+
+**Alternatives considered.**
+- Keep the static count and reword the README to say "test functions" —
+  rejected: it puts a true number beside a command that prints a different one,
+  in a repo whose premise is that the tests prove the threat model.
+- Drop the numbers — rejected: they are the most concrete signal in that block.
+- Make the static counter exact — rejected: `it.each(TABLE)` and
+  `parametrize(<non-literal>)` are only resolvable by partially evaluating the
+  module, and the counter is no longer load-bearing once it is a floor rather
+  than the claim. Documented as a lower bound with the reason.
+- A sixth CI job re-running every suite — rejected: each server's job already
+  runs its suite, so the marginal cost is a flag, not compute.
+
+**Reversibility:** Cheap. One JSON file, one comparison, one step per job.
+
+**Related issues:** #166, #161
