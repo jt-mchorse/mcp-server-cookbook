@@ -118,12 +118,19 @@ on macOS):
 
 ```bash
 pip install -e '.[dev]'      # no [server] needed — primitive tests don't import mcp
-pytest                        # 60 tests, ~60 ms
+pytest                        # 250 tests, ~0.5 s
 ruff check . && ruff format --check .
 ```
 
-The test suite (`tests/test_sandbox.py` + `tests/test_tools.py` +
-`tests/test_config.py` + `tests/test_public_surface.py`) pins **every
+That number is the whole `pytest` run above — every test file, every
+parametrized case — which is the unit the root README uses for all five
+servers and the one `tools/check-readme.mjs` holds this line to (#166).
+It is not a count of the four files named next; the previous value, `60`,
+was ambiguous between the two readings and wrong under both (#161).
+
+The security core of the suite (`tests/test_sandbox.py` +
+`tests/test_tools.py` + `tests/test_config.py` +
+`tests/test_public_surface.py`) pins **every
 security invariant** the TS suite pins, plus a few Python-idiomatic
 ones (control-char parametrize over boundary code points; sibling-prefix
 attack via two fresh tmp dirs) and a public-surface snapshot that locks

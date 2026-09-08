@@ -155,6 +155,21 @@ model from a second language ecosystem.
   pinned by `test-fixtures/error_message_parity.json` — the fifth
   shared parity table, and the first covering a surface a client
   actually reads rather than an internal.
+- **README test counts are runtime case counts (D-011, #166, #161).**
+  `tools/check-readme.mjs` held every claim to a *static* count — test
+  functions times a parametrize factor it can only sometimes resolve —
+  while the README sentence annotates a **command**, and what a command
+  prints is *cases*. All five claims were roughly half the truth (87 vs
+  185, 132 vs 250, 98 vs 167, 49 vs 67, 190 vs 276), and the lock is why
+  nobody noticed: it made each claim self-consistent with an
+  approximation and froze it there. `tools/test-counts.json` now records
+  the unit, and three checks hold it: the README comparison, a
+  `static ≤ runtime` floor (a real invariant, so a hand-lowered entry
+  cannot pass), and a per-server CI step that re-measures from the suite
+  that job already runs. `tools/check-test-count.test.mjs` carries the
+  wrong-unit rejection arm — the recorded count must be *strictly* above
+  the static one, so swapping the number back fails loudly instead of
+  being frozen again.
 - **`servers/filesystem-sandbox-py/`** — Python parity port of
   `servers/filesystem-sandbox/` against the official `mcp` Python SDK.
   Same threat model, same primitive shape, dep-free security core.

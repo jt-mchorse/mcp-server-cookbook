@@ -29,7 +29,15 @@ jobs:
       - run: npm ci
       - run: npm run lint
       - run: npm run typecheck
-      - run: npm test
+      # `--reporter=json` alongside the default one, so the count is measured
+      # from the run this job already performs rather than re-running the suite
+      # (#166). The freshness half of the README test-count lock: the static
+      # checks in `check-readme.mjs` cannot tell a stale recorded count from a
+      # current one, because they only read files.
+      - run: npm test -- --reporter=default --reporter=json --outputFile.json=/tmp/vitest-report.json
+      - name: README test count matches what ran
+        working-directory: .
+        run: node tools/check-test-count.mjs postgres-readonly /tmp/vitest-report.json
       - run: npm run build
 
   github-gists:
@@ -48,7 +56,15 @@ jobs:
       - run: npm ci
       - run: npm run lint
       - run: npm run typecheck
-      - run: npm test
+      # `--reporter=json` alongside the default one, so the count is measured
+      # from the run this job already performs rather than re-running the suite
+      # (#166). The freshness half of the README test-count lock: the static
+      # checks in `check-readme.mjs` cannot tell a stale recorded count from a
+      # current one, because they only read files.
+      - run: npm test -- --reporter=default --reporter=json --outputFile.json=/tmp/vitest-report.json
+      - name: README test count matches what ran
+        working-directory: .
+        run: node tools/check-test-count.mjs github-gists /tmp/vitest-report.json
       - run: npm run build
 
   internal-tools-bridge:
@@ -67,7 +83,15 @@ jobs:
       - run: npm ci
       - run: npm run lint
       - run: npm run typecheck
-      - run: npm test
+      # `--reporter=json` alongside the default one, so the count is measured
+      # from the run this job already performs rather than re-running the suite
+      # (#166). The freshness half of the README test-count lock: the static
+      # checks in `check-readme.mjs` cannot tell a stale recorded count from a
+      # current one, because they only read files.
+      - run: npm test -- --reporter=default --reporter=json --outputFile.json=/tmp/vitest-report.json
+      - name: README test count matches what ran
+        working-directory: .
+        run: node tools/check-test-count.mjs internal-tools-bridge /tmp/vitest-report.json
       - run: npm run build
 
   filesystem-sandbox:
@@ -86,7 +110,15 @@ jobs:
       - run: npm ci
       - run: npm run lint
       - run: npm run typecheck
-      - run: npm test
+      # `--reporter=json` alongside the default one, so the count is measured
+      # from the run this job already performs rather than re-running the suite
+      # (#166). The freshness half of the README test-count lock: the static
+      # checks in `check-readme.mjs` cannot tell a stale recorded count from a
+      # current one, because they only read files.
+      - run: npm test -- --reporter=default --reporter=json --outputFile.json=/tmp/vitest-report.json
+      - name: README test count matches what ran
+        working-directory: .
+        run: node tools/check-test-count.mjs filesystem-sandbox /tmp/vitest-report.json
       - run: npm run build
 
   filesystem-sandbox-py:
@@ -114,7 +146,15 @@ jobs:
       - run: pip install -e '.[server,dev]'
       - run: ruff check .
       - run: ruff format --check .
-      - run: pytest
+      # `--junitxml` alongside the normal output, so the count comes from the
+      # run this job already performs (#166). `check-test-count.mjs` subtracts
+      # skips, which matters here: the MCP-SDK round-trip tests skip without the
+      # `[server]` extra, so the collected total moves with the install line
+      # while the number a reader sees printed does not.
+      - run: pytest --junitxml=/tmp/pytest-report.xml
+      - name: README test count matches what ran
+        working-directory: .
+        run: node tools/check-test-count.mjs filesystem-sandbox-py /tmp/pytest-report.xml
 
   memory-check:
     runs-on: ubuntu-latest
@@ -156,6 +196,14 @@ jobs:
         run: node tools/check-readme.mjs
       - name: Run the README check script's own unit tests
         run: node --test tools/check-readme.test.mjs
+      # The unit lock (#166). `check-readme.mjs` holds the READMEs to
+      # tools/test-counts.json and enforces `static <= runtime`; this suite
+      # holds the counts file to a *different* unit from the static counter,
+      # so a future edit that quietly swaps the recorded number back to the
+      # static one fails here instead of being frozen in place by a
+      # self-consistent lock. The freshness half runs in each server's own job.
+      - name: Run the test-count check script's own unit tests
+        run: node --test tools/check-test-count.test.mjs
       - name: Verify every server README ships a claude_desktop_config snippet
         run: node tools/check-claude-desktop-config.mjs
       - name: Run the claude_desktop_config check script's own unit tests
