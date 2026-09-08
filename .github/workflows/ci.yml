@@ -234,3 +234,26 @@ jobs:
         run: node tools/check-numeric-env-grammar.mjs
       - name: Run the numeric-env-grammar check script's own unit tests
         run: node --test tools/check-numeric-env-grammar.test.mjs
+
+  string-env-grammar-check:
+    # Every *string* environment setting across the cookbook honours one rule
+    # (#158): a whitespace-only value is indistinguishable from the setting
+    # being absent. postgres-readonly's DATABASE_URL was neither trimmed nor
+    # blank-checked, so one stray space silently redirected the connection to
+    # host "base" as the process's OS user (#157). The sibling of the numeric
+    # grammar check above -- same discovered population, same exit-code
+    # contract, and the two partition the env surface rather than overlapping:
+    # a numeric read's blankness belongs to its grammar gate.
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+      - run: npm ci
+      - name: Verify every string env setting honours the blank rule
+        run: node tools/check-string-env-grammar.mjs
+      - name: Run the string-env-grammar check script's own unit tests
+        run: node --test tools/check-string-env-grammar.test.mjs

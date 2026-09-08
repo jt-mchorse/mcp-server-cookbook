@@ -51,6 +51,32 @@ The runtime contract:
   handles, etc. are opened per tool call so the blast radius of leaked
   state stays one statement.
 
+The **configuration** contract, enforced across servers by two checkers
+in `tools/` rather than by a shared module — each server is a
+standalone copy-pasteable package, so the config readers cannot import
+one another; they share a checked rule:
+
+- **Numeric settings parse one grammar** (`check-numeric-env-grammar.mjs`,
+  #152): trim, gate on `/^[+-]?\d+$/`, bound with `BigInt` against
+  `MAX_SAFE_INTEGER`, then `Number`.
+- **String settings honour one rule** (`check-string-env-grammar.mjs`,
+  #157/#158): *a whitespace-only value is indistinguishable from the
+  setting being absent.* Required settings throw for both; defaulted
+  ones return the default for both. Stating it that way is what lets
+  the check skip classifying settings as required or defaulted — the
+  answer is the same either way, and a classification by source
+  pattern would be a proxy that fails on correct code. Two of the seven
+  real reads are trimmed a binding *downstream* of where they are read
+  (`rawToken` → `token`, `raw` → `parts`), which is why the check
+  traces bindings to a fixpoint rather than matching a statement.
+  `postgres-readonly`'s `DATABASE_URL` was neither trimmed nor
+  blank-checked, and `pg` stops parsing a space-padded value as a URL
+  at all — one stray space connected to host `base` as the process's
+  OS user.
+
+Both populations are **discovered** from `servers/`, so a sixth server
+inherits both rules without anyone remembering to add it to a list.
+
 ## How `postgres-readonly` fits the pattern
 
 ```mermaid

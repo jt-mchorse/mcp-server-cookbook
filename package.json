@@ -14,7 +14,9 @@
     "check:workflow-concurrency": "node tools/check-workflow-concurrency.mjs",
     "test:workflow-concurrency": "node --test tools/check-workflow-concurrency.test.mjs",
     "check:numeric-env-grammar": "node tools/check-numeric-env-grammar.mjs",
-    "test:numeric-env-grammar": "node --test tools/check-numeric-env-grammar.test.mjs"
+    "test:numeric-env-grammar": "node --test tools/check-numeric-env-grammar.test.mjs",
+    "check:string-env-grammar": "node tools/check-string-env-grammar.mjs",
+    "test:string-env-grammar": "node --test tools/check-string-env-grammar.test.mjs"
   },
   "devDependencies": {
     "yaml": "^2.5.0"
