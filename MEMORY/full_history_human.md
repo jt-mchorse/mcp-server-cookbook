@@ -1718,3 +1718,56 @@ mismatch behind it.
 under-count is documented as a lower bound rather than fixed — resolving it
 needs partial evaluation of the module and is no longer load-bearing now that
 the counter is a floor.
+
+## 2026-09-09 — Issue #168: "across the cookbook", scanning one language
+**Branch:** `session/2026-09-09-0852-issue-168`
+
+`check-string-env-grammar.mjs` opens with "Every string environment setting
+across the cookbook honours one rule", and explains that its population is
+discovered rather than listed because a hand-written list is how `github-gists`
+drifted: "nothing was looking at it". It discovers servers, then filters to
+`.ts`, and within a file only sees a read bound to a variable. Both filters were
+silent.
+
+Its sibling `check-boot-config-guard.mjs` excludes the Python port too — but in
+a function named `typescriptServers`, with the reason written down. Three checks
+sharing a population, and one of them says what it is doing.
+
+The two reasons are not equally strong, and the code now says so. The boot
+guard's exclusion is about semantics: a Python traceback is not a Node
+unhandled-throw block. The grammar rule is language-independent, so its
+exclusion is only about the matcher reading TypeScript idioms. A weaker reason
+stated honestly is worth more than a stronger one borrowed.
+
+So the scope is declared *and* the gap is closed a different way.
+`check-config-port-parity.mjs` compares the set of settings the two
+`filesystem-sandbox` ports read, keyed on the variable *name* rather than on
+either language's access syntax — which is exactly what differs between them. A
+matcher keyed on the thing that is the same needs to know neither language. That
+is also the drift the behavioural parity tests structurally cannot see:
+`test_config_trim_parity.py` and its TS mirror are excellent and enumerate the
+three settings by hand, so a fourth in one port only gets nothing from them.
+
+The most useful result came from falsifying. Reverting the new coverage arm from
+`check()` left all 32 tests green, because every coverage test called the
+predicate directly. A predicate with no test of its call site is one the next
+edit can orphan. Two tests now plant a tree and go through `check()`, including
+a file whose only read is unbound — which is why the loop runs over the scoped
+files and not over the recognised readers.
+
+The arm also false-positived on its first run, flagging a setting named only in
+a trailing comment. Widening the comment stripper needed quote-awareness,
+because `github-gists` has `const DEFAULT_BASE = "https://api.github.com"` and a
+naive `//` scan truncates that line at the protocol separator.
+
+Both gaps are latent today and the issue says so rather than dressing it up:
+every current TypeScript read is bound, and the Python port honours the rule
+correctly — reached by hand through four parity fixes, with nothing checking it
+stays there.
+
+**Why this work, this session:** the repo had zero open issues, so the hunt was
+the work, and the surface was the checker shipped in the PR this run merged
+during Phase A.
+
+**Next session:** nothing outstanding. If a Python-only setting ever appears,
+the port-parity check is what will say so.
