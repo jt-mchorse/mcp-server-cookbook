@@ -16,7 +16,9 @@
     "check:numeric-env-grammar": "node tools/check-numeric-env-grammar.mjs",
     "test:numeric-env-grammar": "node --test tools/check-numeric-env-grammar.test.mjs",
     "check:string-env-grammar": "node tools/check-string-env-grammar.mjs",
-    "test:string-env-grammar": "node --test tools/check-string-env-grammar.test.mjs"
+    "test:string-env-grammar": "node --test tools/check-string-env-grammar.test.mjs",
+    "check:config-port-parity": "node tools/check-config-port-parity.mjs",
+    "test:config-port-parity": "node --test tools/check-config-port-parity.test.mjs"
   },
   "devDependencies": {
     "yaml": "^2.5.0"
