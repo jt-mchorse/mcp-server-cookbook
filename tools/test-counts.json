@@ -1,0 +1,29 @@
+{
+  "_comment": [
+    "Runtime test-case counts, one per server: the number each server's own",
+    "test command prints. This is the unit the root README's Quickstart block",
+    "claims, and `tools/check-readme.mjs` compares those claims against this",
+    "file (#166).",
+    "",
+    "Why a committed file rather than a static count of the source: the README",
+    "annotates a *command*, and what a command prints is test CASES. The static",
+    "counter in check-readme.mjs counts test FUNCTIONS times a parametrize",
+    "factor it can only sometimes resolve, so it is a lower bound — and locking",
+    "the README to it froze all five numbers at roughly half the truth.",
+    "",
+    "Freshness is not on the honour system: each server's own CI job asserts,",
+    "after running the suite it already runs, that its measured count equals",
+    "the entry here. And check-readme.mjs enforces `static <= runtime`, a real",
+    "invariant (every `it(` / `def test_` yields at least one case), so a",
+    "hand-lowered entry cannot pass either.",
+    "",
+    "To update: run the server's test command and copy the number it printed."
+  ],
+  "counts": {
+    "filesystem-sandbox": 185,
+    "filesystem-sandbox-py": 250,
+    "github-gists": 167,
+    "internal-tools-bridge": 67,
+    "postgres-readonly": 276
+  }
+}

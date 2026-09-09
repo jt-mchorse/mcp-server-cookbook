@@ -6,11 +6,28 @@
 //   1. Server-dir references: every `servers/<name>/` referenced in README.md
 //      points to an existing directory.
 //   2. Per-server test-count quotes: every line in the Quickstart's "Test
-//      suites are hermetic" block that quotes a number of tests for a
-//      named server matches the static count of test cases (`it(`, `test(`
-//      for vitest, `def test_` for pytest) in that server's test files.
+//      suites are hermetic" block that quotes a number of tests for a named
+//      server matches that server's entry in `tools/test-counts.json` — the
+//      RUNTIME CASE COUNT, i.e. the number the command on that very line
+//      prints (#166).
 //
-// Both invariants are static: this script reads files, doesn't run them.
+//      The unit is the whole point and it used to be wrong. This check
+//      compared the claims against the *static* count below — test functions
+//      times a parametrize factor it can only sometimes resolve — while the
+//      README sentence annotates a command, and what a command prints is
+//      cases. All five claims were roughly half the truth (87 vs 185, 132 vs
+//      250, 98 vs 167, 49 vs 67, 190 vs 276), and the lock is why nobody
+//      noticed: it made each claim self-consistent with an approximation and
+//      froze it there.
+//
+//   3. Static floor: the static count must be <= the runtime count for every
+//      server. That is a real invariant — every `it(` / `def test_` yields at
+//      least one case — so a hand-lowered `test-counts.json` cannot pass. The
+//      freshness half lives in each server's own CI job, which asserts its
+//      measured count equals its entry after running the suite it already
+//      runs. Two independent checks that one stale number cannot satisfy.
+//
+// This script is still static: it reads files, doesn't run them.
 // It runs in CI on every PR with a dedicated `readme-check` job.
 //
 // Exit codes:
@@ -28,6 +45,7 @@ const REPO_ROOT = path.resolve(__dirname, "..");
 const README_PATH = path.join(REPO_ROOT, "README.md");
 const SERVERS_DIR = path.join(REPO_ROOT, "servers");
 const DECISIONS_PATH = path.join(REPO_ROOT, "MEMORY/core_decisions_ai.md");
+const TEST_COUNTS_PATH = path.join(REPO_ROOT, "tools/test-counts.json");
 
 /**
  * Parse `MEMORY/core_decisions_ai.md` and return the highest active
@@ -279,6 +297,61 @@ export function countTestsInServer(serverDir) {
   return { total, files: files.length };
 }
 
+/**
+ * Read `tools/test-counts.json` and return its `counts` map.
+ *
+ * Throws rather than returning an empty map on a missing or malformed file:
+ * an empty map would make every claim report "no entry" — noisy but survivable
+ * — while a silently-empty one under a future refactor would make the floor
+ * check vacuous. Bad input is exit 2, not exit 1; it is not drift.
+ */
+export function readRuntimeCounts() {
+  if (!existsSync(TEST_COUNTS_PATH)) {
+    throw new Error(`test-counts.json not found at ${TEST_COUNTS_PATH}`);
+  }
+  const parsed = JSON.parse(readFileSync(TEST_COUNTS_PATH, "utf-8"));
+  const counts = parsed?.counts;
+  if (!counts || typeof counts !== "object" || Array.isArray(counts)) {
+    throw new Error("test-counts.json must have an object `counts` field");
+  }
+  for (const [server, n] of Object.entries(counts)) {
+    if (!Number.isInteger(n) || n < 0) {
+      throw new Error(
+        `test-counts.json: ${server} must be a non-negative integer, got ${JSON.stringify(n)}`,
+      );
+    }
+  }
+  return counts;
+}
+
+/**
+ * Find test-count claims inside a single server's own README.
+ *
+ * Shape: a shell line whose trailing `#` comment quotes a number of tests —
+ * `pytest  # 250 tests, ~60 ms`, `npm test  # 67 tests (30 bridge, ...)`.
+ * Same unit as the root README: what the command on that line prints.
+ *
+ * Nothing checked these until #166. `servers/filesystem-sandbox-py`'s said
+ * **60** against a real 250 — off by more than 4x and drifting for a long time
+ * (#161) — while `servers/internal-tools-bridge`'s said 67 and was exactly
+ * right. That is not a coincidence worth ignoring: the one claim somebody kept
+ * current is in the runtime unit, which is the unit a reader can check by
+ * running the line above it.
+ *
+ * Returns `{ count, line }` records; a README with no claim yields none, which
+ * is the case for three of the five servers and is fine — the check is that a
+ * claim that exists is true, not that every server makes one.
+ */
+export function serverReadmeTestCountClaims(markdown) {
+  const out = [];
+  for (const raw of markdown.split(/\r?\n/)) {
+    const m = raw.match(/#\s*(\d+)\s+tests?\b/);
+    if (!m) continue;
+    out.push({ count: Number(m[1]), line: raw });
+  }
+  return out;
+}
+
 function listServerDirs() {
   if (!existsSync(SERVERS_DIR)) return [];
   return readdirSync(SERVERS_DIR)
@@ -298,6 +371,13 @@ function main() {
   const refs = readmeServerRefs(readme);
   const claims = readmeTestCountClaims(readme);
   const serverDirs = new Set(listServerDirs());
+  let runtimeCounts;
+  try {
+    runtimeCounts = readRuntimeCounts();
+  } catch (e) {
+    process.stderr.write(`${e.message}\n`);
+    return 2;
+  }
 
   if (serverDirs.size === 0) {
     process.stderr.write(`no server directories found under ${SERVERS_DIR}\n`);
@@ -328,14 +408,77 @@ function main() {
       );
       continue;
     }
-    const counted = countTestsInServer(serverPath);
-    if (counted.total !== claim.count) {
+    const expected = runtimeCounts[claim.server];
+    if (expected === undefined) {
+      errors.push(
+        `README quotes a test count for \`servers/${claim.server}/\` but ` +
+          `tools/test-counts.json has no entry for it. Every claimed server ` +
+          `needs a runtime count, or the claim is unlocked.`,
+      );
+      continue;
+    }
+    if (expected !== claim.count) {
       errors.push(
         `README quotes ${claim.count} tests for \`servers/${claim.server}/\` ` +
-          `but ${counted.total} were found in ${counted.files} test file(s). ` +
-          `Update the README's "${claim.line.trim()}" line or audit the server's tests.`,
+          `but tools/test-counts.json records ${expected}. The claim is the ` +
+          `number that server's own test command prints; update the README's ` +
+          `"${claim.line.trim()}" line, or re-measure and update the counts file.`,
       );
     }
+    // The floor. A `test-counts.json` edited down to match a stale README
+    // would satisfy the equality above and nothing else, so compare it to
+    // something derived from the source: every `it(` / `def test_` yields at
+    // least one case, so the static count can never exceed the runtime one.
+    const counted = countTestsInServer(serverPath);
+    if (counted.total > expected) {
+      errors.push(
+        `tools/test-counts.json records ${expected} runtime cases for ` +
+          `\`servers/${claim.server}/\`, but ${counted.total} test ` +
+          `functions were counted statically across ${counted.files} file(s). ` +
+          `A runtime count below the static count is impossible — the counts ` +
+          `file is stale or was edited to match the README.`,
+      );
+    }
+  }
+
+  // Per-server README claims (#161, #166). The root README was locked and the
+  // five server READMEs were not, so a claim there could drift indefinitely —
+  // and one had, by more than 4x. Same unit, same source of truth.
+  let serverClaimCount = 0;
+  for (const server of [...serverDirs].sort()) {
+    const readmePath = path.join(SERVERS_DIR, server, "README.md");
+    if (!existsSync(readmePath)) continue;
+    const claims = serverReadmeTestCountClaims(readFileSync(readmePath, "utf-8"));
+    serverClaimCount += claims.length;
+    const expected = runtimeCounts[server];
+    for (const claim of claims) {
+      if (expected === undefined) {
+        errors.push(
+          `servers/${server}/README.md quotes ${claim.count} tests but ` +
+            `tools/test-counts.json has no entry for that server.`,
+        );
+        continue;
+      }
+      if (claim.count !== expected) {
+        errors.push(
+          `servers/${server}/README.md quotes ${claim.count} tests but ` +
+            `tools/test-counts.json records ${expected}. The claim is the ` +
+            `number the command on that line prints. Line: "${claim.line.trim()}"`,
+        );
+      }
+    }
+  }
+  // Anti-vacuous floor. The parser above matches a shell comment, so a reword
+  // that stops matching would make this whole section silently check nothing —
+  // which is exactly the state that let a 4x-wrong claim sit unnoticed. Two
+  // servers carry a claim today; if one is deliberately removed, lower this
+  // and say why rather than letting the check quietly become a no-op.
+  if (serverClaimCount < 2) {
+    errors.push(
+      `only ${serverClaimCount} per-server README test-count claim(s) were ` +
+        `discovered; at least 2 are expected. Either a claim was removed ` +
+        `(lower the floor deliberately) or the parser stopped matching.`,
+    );
   }
 
   // Decision-range upper-bound check (#38). The README's architecture-
@@ -370,7 +513,9 @@ function main() {
   }
 
   process.stdout.write(
-    `README check ok: ${refs.length} server references, ${claims.length} test-count claims, ${serverDirs.size} server directories.\n`,
+    `README check ok: ${refs.length} server references, ${claims.length} root ` +
+      `test-count claims, ${serverClaimCount} per-server claim(s), ` +
+      `${serverDirs.size} server directories.\n`,
   );
   return 0;
 }
