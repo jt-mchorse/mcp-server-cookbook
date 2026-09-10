@@ -41,6 +41,12 @@
 
 import { readdirSync, readFileSync, existsSync, statSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
+import { stripComments, stripLineComments } from "./lib/strip-comments.mjs";
+// Re-exported: `check-string-env-grammar.test.mjs` imports both from here, and
+// #169's reasoning for the quote-aware widening lives with the definition now
+// (tools/lib/strip-comments.mjs, #170).
+export { stripComments, stripLineComments };
+
 import { fileURLToPath } from "node:url";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -106,56 +112,6 @@ const EMPTINESS_TESTS = [
   /\b([A-Za-z_$][\w$]*)\s*\|\|/g,
 ];
 
-/** Strip comments so prose *describing* the old shape is not read as code. */
-export function stripComments(src) {
-  return stripLineComments(src.replace(/\/\*[\s\S]*?\*\//g, ""));
-}
-
-/**
- * Remove `//` comments, including ones that TRAIL code on the same line.
- *
- * The previous rule matched comment-only lines: a line-start anchor, optional
- * whitespace, then a double slash. That is conservative
- * for a "this must not appear" check (leaving comment text in only ever makes
- * it flag MORE), which is why it was fine for the two rules below. It is not
- * fine for the coverage arm added in #168, which asks whether a setting name
- * appears AT ALL: a name mentioned in a trailing comment was reported as an
- * uncovered access, and a check that fails on correct code is worse than no
- * check -- this repo says so in three separate files.
- *
- * Quote-aware, because `github-gists` has
- * `const DEFAULT_BASE = "https://api.github.com"` and a naive scan for `//`
- * truncates that line at the protocol separator. Tracking quote state is what
- * distinguishes a comment from a URL; a `:` lookbehind would be a proxy for the
- * question, and this repo's notes are explicit that a wrong proxy fails on
- * correct code.
- *
- * Template literals count as quotes. Their `${...}` interpolations cannot carry
- * a `//` comment in any code this scan looks at, and modelling that nesting
- * would be a JS parser.
- */
-export function stripLineComments(src) {
-  return src
-    .split("\n")
-    .map((line) => {
-      let quote = null;
-      for (let i = 0; i < line.length; i++) {
-        const ch = line[i];
-        if (quote) {
-          if (ch === "\\") i++;
-          else if (ch === quote) quote = null;
-          continue;
-        }
-        if (ch === '"' || ch === "'" || ch === "`") {
-          quote = ch;
-          continue;
-        }
-        if (ch === "/" && line[i + 1] === "/") return line.slice(0, i);
-      }
-      return line;
-    })
-    .join("\n");
-}
 
 /** `const`/`let`/`var` bindings as `{ name, init }`, initializer text only. */
 function bindingsOf(code) {

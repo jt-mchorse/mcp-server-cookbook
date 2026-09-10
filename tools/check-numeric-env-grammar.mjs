@@ -29,6 +29,8 @@
 
 import { readdirSync, readFileSync, existsSync, statSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
+import { stripComments } from "./lib/strip-comments.mjs";
+
 import { fileURLToPath } from "node:url";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -59,10 +61,15 @@ export const SAFE_RANGE_BOUND = /BigInt\(\s*trimmed\s*\)\s*<=\s*BigInt\(\s*Numbe
  */
 const TRIMS = /configTrim\(|\.trim\(\)/;
 
-/** Strip comments so prose *describing* the old shape is not read as code. */
-export function stripComments(src) {
-  return src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
-}
+// `stripComments` comes from `tools/lib/strip-comments.mjs` since #170. The
+// local copy stripped comment-ONLY lines, so a trailing comment survived and
+// was read as code -- and every rule in `violationsOf` below is stated as "must
+// be PRESENT", so that made it flag FEWER, not more. Measured on one ungated
+// function: 3 violations bare, 1 with trailing comments naming the rules.
+//
+// Re-exported because `check-numeric-env-grammar.test.mjs` imports it from
+// here.
+export { stripComments };
 
 /**
  * A source file parses a numeric env var when it coerces a value that came
@@ -92,18 +99,56 @@ export function violationsOf(code) {
   return problems;
 }
 
-/** Every TypeScript source file under `servers/` that parses a numeric env var. */
-export function numericEnvParsers(serversDir = SERVERS_DIR) {
+/**
+ * Every source file this check can read, with the scope DECLARED (#170).
+ *
+ * TypeScript only, and the reason is written down here rather than left as an
+ * unexplained `.ts` in a loop -- which is exactly what
+ * `check-string-env-grammar.mjs` called out about its own filter in #168, under
+ * a header that says "across the cookbook". This one had the same bare filter
+ * under the same kind of header, and #168 fixed only the sibling.
+ *
+ * The reason is the same as that sibling's and just as weak, so it is stated
+ * the same way. The rule is language-independent: a numeric setting should
+ * accept one grammar in any language. The exclusion is purely about the
+ * MATCHER, which reads TypeScript coercions (`Number(`, `Number.parseInt(`)
+ * and TypeScript idioms; teaching it Python would be a second matcher for a
+ * second language, and pointing these regexes at `config.py` would be worse
+ * than the gap -- a check that fails on correct code is worse than no check.
+ *
+ * So the Python port is covered by three other things instead, and the gap is
+ * closed rather than merely declared:
+ * `tools/check-config-port-parity.mjs` asserts the two `filesystem-sandbox`
+ * ports read the same set of settings;
+ * `servers/filesystem-sandbox-py/tests/test_max_bytes_parity.py` pins the
+ * numeric grammar row for row against the TS port; and
+ * `servers/filesystem-sandbox-py/filesystem_sandbox/config.py` documents the
+ * grammar it implements (#98, #137).
+ *
+ * What none of those gives is what this file gives the TS servers: a rule that
+ * a NEW Python server would inherit without anyone remembering. That is a real
+ * remaining gap and it is named rather than papered over -- there is one Python
+ * server today, and if a second arrives this reason expires.
+ */
+export function scopedSourceFiles(serversDir = SERVERS_DIR) {
   const found = [];
   for (const server of readdirSync(serversDir)) {
     const srcDir = join(serversDir, server, "src");
     if (!existsSync(srcDir) || !statSync(srcDir).isDirectory()) continue;
     for (const name of readdirSync(srcDir)) {
       if (!name.endsWith(".ts")) continue;
-      const file = join(srcDir, name);
-      const code = stripComments(readFileSync(file, "utf8"));
-      if (parsesNumericEnv(code)) found.push(relative(ROOT, file));
+      found.push(join(srcDir, name));
     }
+  }
+  return found.sort();
+}
+
+/** Every TypeScript source file under `servers/` that parses a numeric env var. */
+export function numericEnvParsers(serversDir = SERVERS_DIR) {
+  const found = [];
+  for (const file of scopedSourceFiles(serversDir)) {
+    const code = stripComments(readFileSync(file, "utf8"));
+    if (parsesNumericEnv(code)) found.push(relative(ROOT, file));
   }
   return found.sort();
 }

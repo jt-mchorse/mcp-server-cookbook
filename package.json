@@ -18,7 +18,9 @@
     "check:string-env-grammar": "node tools/check-string-env-grammar.mjs",
     "test:string-env-grammar": "node --test tools/check-string-env-grammar.test.mjs",
     "check:config-port-parity": "node tools/check-config-port-parity.mjs",
-    "test:config-port-parity": "node --test tools/check-config-port-parity.test.mjs"
+    "test:config-port-parity": "node --test tools/check-config-port-parity.test.mjs",
+    "test:strip-comments": "node --test tools/lib/strip-comments.test.mjs",
+    "test:tools-test-registration": "node --test tools/check-tools-test-registration.test.mjs"
   },
   "devDependencies": {
     "yaml": "^2.5.0"
