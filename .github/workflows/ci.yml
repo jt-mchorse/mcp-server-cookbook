@@ -305,3 +305,26 @@ jobs:
         run: node tools/check-string-env-grammar.mjs
       - name: Run the string-env-grammar check script's own unit tests
         run: node --test tools/check-string-env-grammar.test.mjs
+
+  config-port-parity-check:
+    # The two filesystem-sandbox ports read the same SET of env settings (#168).
+    # The two grammar checks above scan `.ts` only, so the Python port is
+    # outside both -- a scope they now declare rather than leave implied. And
+    # the behavioural parity tests (test_config_trim_parity.py and its TS
+    # mirror) enumerate the three settings BY HAND, so a fourth setting added
+    # to one port only gets no coverage from them either. This check is that
+    # one question and only that one; this pair has already had four
+    # divergences fixed by hand (#52, #98, #137, #139).
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+      - run: npm ci
+      - name: Verify both filesystem-sandbox ports read the same settings
+        run: node tools/check-config-port-parity.mjs
+      - name: Run the config-port-parity check script's own unit tests
+        run: node --test tools/check-config-port-parity.test.mjs

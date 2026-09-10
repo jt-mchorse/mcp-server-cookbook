@@ -108,7 +108,53 @@ const EMPTINESS_TESTS = [
 
 /** Strip comments so prose *describing* the old shape is not read as code. */
 export function stripComments(src) {
-  return src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+  return stripLineComments(src.replace(/\/\*[\s\S]*?\*\//g, ""));
+}
+
+/**
+ * Remove `//` comments, including ones that TRAIL code on the same line.
+ *
+ * The previous rule matched comment-only lines: a line-start anchor, optional
+ * whitespace, then a double slash. That is conservative
+ * for a "this must not appear" check (leaving comment text in only ever makes
+ * it flag MORE), which is why it was fine for the two rules below. It is not
+ * fine for the coverage arm added in #168, which asks whether a setting name
+ * appears AT ALL: a name mentioned in a trailing comment was reported as an
+ * uncovered access, and a check that fails on correct code is worse than no
+ * check -- this repo says so in three separate files.
+ *
+ * Quote-aware, because `github-gists` has
+ * `const DEFAULT_BASE = "https://api.github.com"` and a naive scan for `//`
+ * truncates that line at the protocol separator. Tracking quote state is what
+ * distinguishes a comment from a URL; a `:` lookbehind would be a proxy for the
+ * question, and this repo's notes are explicit that a wrong proxy fails on
+ * correct code.
+ *
+ * Template literals count as quotes. Their `${...}` interpolations cannot carry
+ * a `//` comment in any code this scan looks at, and modelling that nesting
+ * would be a JS parser.
+ */
+export function stripLineComments(src) {
+  return src
+    .split("\n")
+    .map((line) => {
+      let quote = null;
+      for (let i = 0; i < line.length; i++) {
+        const ch = line[i];
+        if (quote) {
+          if (ch === "\\") i++;
+          else if (ch === quote) quote = null;
+          continue;
+        }
+        if (ch === '"' || ch === "'" || ch === "`") {
+          quote = ch;
+          continue;
+        }
+        if (ch === "/" && line[i + 1] === "/") return line.slice(0, i);
+      }
+      return line;
+    })
+    .join("\n");
 }
 
 /** `const`/`let`/`var` bindings as `{ name, init }`, initializer text only. */
@@ -230,6 +276,69 @@ export function violationsOf(code) {
   return [...new Set(problems)];
 }
 
+/**
+ * Every source file this check can read, with the scope DECLARED (#168).
+ *
+ * TypeScript only, and the reason is written down here rather than left as an
+ * unexplained `.ts` in a loop -- which is what it was, under a header that says
+ * "across the cookbook". `check-boot-config-guard.mjs` is the model: it
+ * excludes the Python port in a function named `typescriptServers` and says
+ * why.
+ *
+ * The reason here is different from that one, and weaker, so it is stated
+ * honestly. The boot guard's exclusion is about SEMANTICS -- a Python traceback
+ * is not a Node unhandled-throw block. This rule is language-independent: a
+ * whitespace-only value should be indistinguishable from an absent one in any
+ * language. The exclusion is purely about the MATCHER, which reads TypeScript
+ * idioms (`env.NAME ?? ""`, `.trim()`), and teaching it Python would be a
+ * second matcher for a second language.
+ *
+ * So the Python port is covered by two other things instead, and the gap is
+ * closed rather than merely declared: `tools/check-config-port-parity.mjs`
+ * asserts the two `filesystem-sandbox` ports read the same set of settings, and
+ * `servers/filesystem-sandbox-py/tests/test_config_trim_parity.py` and its TS
+ * mirror pin how each of those settings behaves, row for row.
+ */
+export function scopedSourceFiles(serversDir = SERVERS_DIR) {
+  const found = [];
+  for (const server of readdirSync(serversDir)) {
+    const srcDir = join(serversDir, server, "src");
+    if (!existsSync(srcDir) || !statSync(srcDir).isDirectory()) continue;
+    for (const name of readdirSync(srcDir)) {
+      if (!name.endsWith(".ts")) continue;
+      found.push(join(srcDir, name));
+    }
+  }
+  return found.sort();
+}
+
+/**
+ * Every `env.NAME` / `env["NAME"]` occurrence in *code*, by setting name.
+ *
+ * The population the matcher below is supposed to cover, found independently of
+ * it. `stringEnvReads` only sees a read BOUND to a variable, so four ordinary
+ * spellings were not merely unchecked -- they were not counted as reads at all
+ * (#168):
+ *
+ *     const raw = env.MCP_X ?? "d";        reads=1  violations=1
+ *     return env.MCP_X ?? "d";             reads=0  violations=0
+ *     return env["MCP_X"] ?? "d";          reads=0  violations=0
+ *     return { label: env.MCP_X ?? "d" };  reads=0  violations=0
+ *     return use(env.MCP_X ?? "d");        reads=0  violations=0
+ *
+ * The `readers.length === 0` guard in `main` protects against the scan finding
+ * NOTHING; it cannot see the scan finding LESS. This is the arm that can.
+ */
+export function envAccessNames(code) {
+  const stripped = stripComments(code);
+  const names = new Set();
+  for (const m of stripped.matchAll(/\benv\s*\.\s*([A-Z][A-Z0-9_]*)\b/g)) names.add(m[1]);
+  for (const m of stripped.matchAll(/\benv\s*\[\s*["'`]([A-Z][A-Z0-9_]*)["'`]\s*\]/g)) {
+    names.add(m[1]);
+  }
+  return [...names].sort();
+}
+
 /** Every TypeScript source file under `servers/` that reads a string env setting. */
 export function stringEnvReaders(serversDir = SERVERS_DIR) {
   const found = [];
@@ -245,12 +354,45 @@ export function stringEnvReaders(serversDir = SERVERS_DIR) {
   return found.sort();
 }
 
+/**
+ * Setting names accessed in *code* that the matcher did not turn into a read.
+ *
+ * Numeric settings are excluded here for the same reason they are excluded from
+ * the rule: they belong to `check-numeric-env-grammar.mjs`, and reporting them
+ * would make the two tools disagree about one setting.
+ */
+export function uncoveredAccesses(code) {
+  const accessed = envAccessNames(code);
+  if (accessed.length === 0) return [];
+  const seen = new Set(stringEnvReads(code).map((r) => r.setting));
+  const numeric = new Set(
+    [...envBindings(stripComments(code)).values()]
+      .filter((v) => v.numeric)
+      .map((v) => v.init.match(NAMED_ENV_READ)?.[1])
+      .filter(Boolean),
+  );
+  return accessed.filter((n) => !seen.has(n) && !numeric.has(n));
+}
+
 export function check(serversDir = SERVERS_DIR) {
   const failures = [];
   const readers = stringEnvReaders(serversDir);
   for (const rel of readers) {
     for (const p of violationsOf(readFileSync(join(ROOT, rel), "utf8"))) {
       failures.push(`${rel}: ${p}`);
+    }
+  }
+  // Coverage, over every scoped file rather than only the ones the matcher
+  // recognised -- a file whose single env read is unbound produces no readers
+  // at all, so checking only `readers` would ask the question of exactly the
+  // files that cannot answer it wrongly (#168).
+  for (const file of scopedSourceFiles(serversDir)) {
+    const rel = relative(ROOT, file);
+    for (const name of uncoveredAccesses(readFileSync(file, "utf8"))) {
+      failures.push(
+        `${rel}: ${name} is accessed but the matcher produced no read for it — ` +
+          `it is bound to no variable, so the grammar rule was never applied to it`,
+      );
     }
   }
   return { readers, failures };

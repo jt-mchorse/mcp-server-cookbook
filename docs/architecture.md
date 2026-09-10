@@ -74,8 +74,30 @@ one another; they share a checked rule:
   at all — one stray space connected to host `base` as the process's
   OS user.
 
-Both populations are **discovered** from `servers/`, so a sixth server
-inherits both rules without anyone remembering to add it to a list.
+- **Both ports of `filesystem-sandbox` read the same settings**
+  (`check-config-port-parity.mjs`, #168). The two grammar checks above
+  scan `.ts`, so the Python port is outside both — a scope they now
+  *declare*, in named functions with a written reason, the way
+  `check-boot-config-guard.mjs` already excluded it. That leaves one
+  question nothing was answering: whether a setting exists in one port
+  and not the other. The behavioural parity tests
+  (`test_config_trim_parity.py` and its TS mirror) are thorough but
+  enumerate the three settings *by hand*, so a fourth landing in one
+  port only gets no coverage from them either. This pair has already
+  had four divergences fixed by hand (#52, #98, #137, #139); the check
+  compares the variable-name sets and nothing else, keyed on the name
+  rather than on either language's access syntax — which is exactly
+  what differs between them.
+
+Both grammar populations are **discovered** from `servers/`, so a sixth
+server inherits both rules without anyone remembering to add it to a
+list. Within a file, the string check also asserts **coverage**: every
+`env.NAME` access must be attributable to a read the matcher produced.
+It only ever recognised a read *bound to a variable*, so four ordinary
+spellings — a direct `return`, bracket access, an object literal, a
+call argument — were not merely unchecked but uncounted, and the
+`readers.length === 0` guard protects against the scan finding
+*nothing* while being blind to it finding *less* (#168).
 
 ## How `postgres-readonly` fits the pattern
 
