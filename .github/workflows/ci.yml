@@ -261,6 +261,15 @@ jobs:
         run: node tools/check-workflow-timeout.mjs
       - name: Run the workflow-timeout check script's own unit tests
         run: node --test tools/check-workflow-timeout.test.mjs
+      # Wired in #170. This checker had tests, an npm alias, and ZERO ci.yml
+      # references while its three siblings in this job had two or three each --
+      # the `stuck-registration` fingerprint portfolio-ops audits for, found by
+      # the registration lock added in the same change. It belongs in this job
+      # because it reads the same workflow YAML as the two checks above.
+      - name: Verify every workflow declares a concurrency group
+        run: node tools/check-workflow-concurrency.mjs
+      - name: Run the workflow-concurrency check script's own unit tests
+        run: node --test tools/check-workflow-concurrency.test.mjs
 
   numeric-env-grammar-check:
     # Every numeric environment variable across the cookbook parses one
@@ -305,6 +314,15 @@ jobs:
         run: node tools/check-string-env-grammar.mjs
       - name: Run the string-env-grammar check script's own unit tests
         run: node --test tools/check-string-env-grammar.test.mjs
+      # The comment-stripper both grammar checks now share (#170). Registered
+      # here rather than left as an unrun test file -- an unregistered test is
+      # the `stuck-registration` silent-rot fingerprint portfolio-ops audits
+      # for, and `tools/lib/strip-comments.test.mjs` is where the reason for
+      # the quote-awareness lives.
+      - name: Run the shared comment-stripper's own unit tests
+        run: node --test tools/lib/strip-comments.test.mjs
+      - name: Verify every tools test file is registered in package.json
+        run: node --test tools/check-tools-test-registration.test.mjs
 
   config-port-parity-check:
     # The two filesystem-sandbox ports read the same SET of env settings (#168).

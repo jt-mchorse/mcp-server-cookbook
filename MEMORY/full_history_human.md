@@ -1771,3 +1771,65 @@ during Phase A.
 
 **Next session:** nothing outstanding. If a Python-only setting ever appears,
 the port-parity check is what will say so.
+
+---
+
+## 2026-09-10 — the fix's own table named both checkers (#170)
+
+**Focus:** `tools/check-numeric-env-grammar.mjs`, and the comment-stripper both
+grammar checkers now share.
+
+**What got done.** #169, merged this morning, fixed three things in
+`check-string-env-grammar.mjs`. Its own measurement table names *both* grammar
+checkers side by side — 4 readers, 3 parsers, all `.ts` — and all three changes
+landed on the first one.
+
+The consequence in the sibling is a false pass. Every rule in its `violationsOf`
+is stated as "must be PRESENT" — gate on the grammar, bound with BigInt, trim
+before gating — and its `stripComments` removed comment-*only* lines, so a
+trailing comment survived and was read as code. The same ungated function scores
+3 violations bare and **1** with trailing comments naming the rules. And the
+comments that do it are "we used to gate on…" and "the old code called…", which
+is what someone writes *while removing a guard* — so the false pass lands at
+exactly the moment the checker is needed.
+
+That skip was not carelessness so much as a reason that stopped being true. The
+string checker's docstring explains why the old rule had been fine there:
+comment-only stripping is "conservative for a 'this must not appear' check
+(leaving comment text in only ever makes it flag MORE)". That is a claim about
+the *direction* of those rules, and every rule in the numeric checker points the
+other way. A true reason for a narrow rule is still a reason that does not cover
+the sibling.
+
+`stripComments` now lives once, lifted **verbatim** so the shared definition is
+byte-identical to the one #169 reviewed — including the quote-awareness that
+exists because `github-gists` has a `https://` URL a naive `//` scan would
+truncate. And the bare `.ts` filter becomes a named function whose reason is
+written down, naming both where the Python port *is* covered and the gap that
+remains: none of those covers a *new* Python server automatically, so the reason
+expires if a second one arrives.
+
+**The registration lock paid on its first run.** `tools/` has no glob runner —
+every test is named explicitly in `package.json` and `ci.yml` — so adding a test
+file, which this change does, is two edits away from being a test nobody runs.
+That is the `stuck-registration` fingerprint the portfolio audit exists to
+surface, so the lock came with the change. It immediately reported
+`check-workflow-concurrency.mjs` *and* its test with **zero** `ci.yml`
+references, while its three siblings in the same concern had two or three each.
+A checker with tests, an npm alias and no CI step passes locally forever and
+gates nothing. Wiring it is part of this change because the lock cannot go green
+without it.
+
+**And I did not assert a convention the repo does not have.** The lock initially
+wanted every test named in `package.json` too. Measured: 6 of 14 have no alias
+and CI invokes them directly. Requiring one would fail on correct code, so that
+arm is gone and the measurement is written down in its place. CI is what gates,
+so CI is what is asserted.
+
+**Why this was prioritized.** The repo has zero open issues, and the freshest
+surface is the PR merged at the top of the same run.
+
+**Open questions / blockers:** none. Noticed, not filed: `SAFE_RANGE_BOUND`'s
+regex is bound to the reference implementation's `trimmed` variable name, so any
+correct rewrite that names the variable differently reads as a violation. That
+caught one of my own control fixtures.
