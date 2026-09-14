@@ -1833,3 +1833,52 @@ surface is the PR merged at the top of the same run.
 regex is bound to the reference implementation's `trimmed` variable name, so any
 correct rewrite that names the variable differently reads as a violation. That
 caught one of my own control fixtures.
+
+## 2026-09-11 — the registration lock recursed in one assertion and not the other (#172)
+
+**What got done.** `tools/check-tools-test-registration.test.mjs` checks two
+populations: every `*.test.mjs` must be named in CI, and every `check-*.mjs` must be
+too. The test scan recursed, and its comment said exactly why — `#170` put a shared
+helper in `tools/lib/`, and a flat `readdirSync` would not have seen its test at all.
+The checker scan, fifty lines below that comment, was a flat scan of `tools/` alone.
+Same file, same hazard, opposite treatment, with the lesson stated in prose
+immediately above the place it was not applied.
+
+Nothing was hidden by it. I checked every entry point: all eleven checkers have CI
+references, and the two files with none — `capture-demo.mjs` and
+`tools/lib/strip-comments.mjs` — are a demo recorder and a library, neither of which
+owes CI a step of its own while its test does. So this was a latent gap in a guard.
+Closed anyway, because the precedent for putting a file in `tools/lib/` is `#170`
+itself, and this class has now been paid for four times across the portfolio.
+
+Both discoveries share one recursive walk parameterised by a predicate. A second
+corrected walk beside the first would be the copy-instead-of-share shape `#170` fixed
+for `stripComments`, and a suite cannot tell one definition from two identical ones.
+
+**The falsification changed the tests three times, which is the real content here.**
+My synthetic-tree arm calls the walk function directly, so it stayed *green* when I
+reverted the call site to a flat scan — the defect was caught only incidentally, by a
+`readdirSync` call-count going from 2 to 3. A predicate with no test of where it is
+called is one the next edit can orphan, which is the shape of this issue itself, so
+there is now a call-site arm that goes red by name. Second: the real `tools/` cannot
+prove recursion at all, because it holds no nested checker — which is precisely why
+the gap survived `#170` — so the proof is over a fixture tree, including a run of the
+old flat scan over that same tree to show it sees one file where the shared walk sees
+two. Third: dropping the `check-` prefix reports the recorder and the library as
+unwired checkers, so the prefix is load-bearing and is now written down as a decision.
+
+**And the self-referential trap fired for the second time tonight.** My new arm
+forbids a flat one-level scan of the tools directory, and my first assertion *message*
+contained that literal call — so the arm failed against its own failure text, and took
+the call-count arm with it. When a lock reads its own source, its messages and regex
+literals are part of that source.
+
+**Also verified clean, recorded so it reads as answered.** `tools/test-counts.json`
+claims that each server's own CI job asserts its measured count equals the entry
+there. That holds: all five servers are wired, against a `servers/` directory holding
+exactly those five. The claim is true and the population is complete.
+
+**Why this was prioritized.** `mcp-server-cookbook` has no open issues, so the work
+came from hunting, and the file added last night was the freshest surface in the repo.
+
+**Open questions / blockers:** none.

@@ -196,3 +196,49 @@ model from a second language ecosystem.
   `servers/filesystem-sandbox/` against the official `mcp` Python SDK.
   Same threat model, same primitive shape, dep-free security core.
   Closes #5.
+
+## The two populations of the registration lock (#172)
+
+`tools/` has no glob-based runner: every test and every checker is named
+explicitly in `package.json` and in `.github/workflows/ci.yml`, so adding
+one is two edits away from being a file nobody runs — the
+`stuck-registration` fingerprint. `tools/check-tools-test-registration.test.mjs`
+is the arm that catches it, over **two** populations: every
+`*.test.mjs` must be named in CI, and every `check-*.mjs` must be too.
+
+The two discoveries disagreed. The test scan recursed, and its comment
+said exactly why — `#170` put a shared helper in `tools/lib/`, and a flat
+`readdirSync` would not have seen its test at all, which is the
+one-level-scan defect `#168` had just fixed in the string grammar
+checker's own population. The checker scan, fifty lines below that
+comment, was a flat `readdirSync` of `tools/` alone. Same file, same
+directory, same hazard, opposite treatment, with the lesson stated in
+prose above the place it was not applied.
+
+Nothing was hidden by it: `tools/lib/` holds a helper rather than a
+checker, and every entry point was wired. It is closed anyway because the
+precedent for putting a file in `tools/lib/` is `#170` itself — the change
+that added the lock — and this class has been paid for four times across
+the portfolio.
+
+Both discoveries now share one recursive walk parameterised by a filename
+predicate, rather than two corrected copies: a second recursive walk beside
+the first is the copy-instead-of-share shape `#170` fixed for
+`stripComments`, and a suite cannot tell one definition from two identical
+ones.
+
+Three things the falsification established, and they are the reason the
+arms are shaped as they are:
+
+- A synthetic-tree test proves the *function* recurses and stays green when
+  the *call site* is reverted to a flat scan. A predicate with no test of
+  where it is called is one the next edit can orphan — so there is a
+  separate call-site arm, and reverting the call site is red on that arm by
+  name rather than incidentally on a call-count.
+- The real `tools/` cannot prove recursion at all, because it contains no
+  nested checker. That is precisely why the gap survived `#170`, and why
+  the proof is over a fixture.
+- The `check-` prefix is load-bearing, not decorative. Dropping it reports
+  `tools/capture-demo.mjs` and `tools/lib/strip-comments.mjs` as unwired
+  checkers — a demo recorder and a library, neither of which owes CI a step
+  of its own while its test does.
