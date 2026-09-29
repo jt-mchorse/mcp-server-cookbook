@@ -243,7 +243,7 @@ arms are shaped as they are:
   checkers — a demo recorder and a library, neither of which owes CI a step
   of its own while its test does.
 
-### The third file, and why the walk moved to `tools/lib/` (#174)
+### The third file, and why the walk moved to `tools/lib/` (#174, D-012)
 
 `#172` and `#173` both pinned "one definition" *within*
 `check-tools-test-registration.test.mjs`, where the walk was a private
