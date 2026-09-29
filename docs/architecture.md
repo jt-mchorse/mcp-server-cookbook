@@ -242,3 +242,37 @@ arms are shaped as they are:
   `tools/capture-demo.mjs` and `tools/lib/strip-comments.mjs` as unwired
   checkers — a demo recorder and a library, neither of which owes CI a step
   of its own while its test does.
+
+### The third file, and why the walk moved to `tools/lib/` (#174)
+
+`#172` and `#173` both pinned "one definition" *within*
+`check-tools-test-registration.test.mjs`, where the walk was a private
+function. Nothing asked the question across files — and
+`tools/lib/strip-comments.test.mjs` went on scanning `tools/` one level
+deep through both issues.
+
+That file carries the arm "no tool declares its own stripComments", whose
+own comment says only a structural arm catches the next re-paste. It saw
+**27 of 29** `.mjs` files, and the two it missed were `tools/lib/`'s — so
+**the arm had never once inspected the module it is about**. A re-paste
+under `tools/lib/`, the directory `#170` created, was invisible to the one
+arm written to catch a re-paste.
+
+The walk is now `tools/lib/tools-files.mjs`, imported by both files. A
+third copy was the alternative, and pasting one into the file that enforces
+"do not re-paste the shared helper" is self-refuting.
+
+Two things the fix had to get right, both measured rather than argued:
+
+- **The canonical module is exempted by path.** A recursive walk sees
+  `tools/lib/strip-comments.mjs` for the first time, and it genuinely does
+  `export function stripComments`. Exempting by basename or by substring
+  leaves the arm green while also forgiving a future
+  `strip-comments-v2.mjs` — so the exemption's *source* is asserted, not
+  just the constant it compares against. The first draft checked only the
+  constant and both wrong spellings passed.
+- **The separating arm is about the corpus, not the offenders.** Both hit
+  sets are empty today, so no assertion on `offenders` can distinguish the
+  flat walk from the recursive one. The scan records what it walked and
+  asserts `tools/lib/` is in it; a first draft compared two lists it built
+  itself and stayed green against the revert.
