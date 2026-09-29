@@ -1882,3 +1882,38 @@ exactly those five. The claim is true and the population is complete.
 came from hunting, and the file added last night was the freshest surface in the repo.
 
 **Open questions / blockers:** none.
+
+## 2026-09-29 — #174: the re-paste arm had never inspected the module it is about (~10 min)
+
+`#173` closed a flat-vs-recursive scan mismatch and its own comment said "same
+file, same directory, same hazard" — while fixing one file. Its sibling,
+`tools/lib/strip-comments.test.mjs`, had two more flat `readdirSync(TOOLS_DIR)`
+walks, and it is itself a file under `tools/lib/`.
+
+That file carries "no tool declares its own stripComments", the arm whose comment
+says only a structural check catches the next re-paste. It saw 27 of 29 `.mjs`
+files, and the two it missed were `tools/lib/`'s — including the canonical
+`strip-comments.mjs`. The arm had never once inspected the module it is about.
+Fifth payment of a class `#173` itself counted at four.
+
+A third copy of the walk would have been self-refuting — pasting a shared helper
+into the file that forbids pasting shared helpers — so it moved to
+`tools/lib/tools-files.mjs`, with its own test and a `ci.yml` entry, and the
+registration lock's arms inverted from "exactly one directory walk" to "no
+directory walk of its own".
+
+**The probe found two real gaps in my own arms.** The separating arm built its own
+flat and recursive lists and compared them — a true statement about the filesystem
+that never touches the loop it is about, and 0 red against the faithful revert.
+And because both hit sets are empty today, no assertion on `offenders` could ever
+separate the two walks; the only observable difference is *what was looked at*, so
+the scan now records its corpus and asserts its own subject is in it. Separately,
+the exemption arm asserted properties of the `CANONICAL` constant, which are true
+no matter what the guard does: swapping the path equality for `endsWith` or
+`includes` was 0 red both times, so the arm now reads its own source and pins the
+guard's shape.
+
+And a partial revert is not a revert, for the second time today — the first probe
+added a skip inside the loop instead of changing what the loop iterates.
+
+Recorded as D-012.

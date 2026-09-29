@@ -250,3 +250,61 @@ suite skips its MCP-SDK round-trip tests without the `[server]` extra.
 **Reversibility:** Cheap. One JSON file, one comparison, one step per job.
 
 **Related issues:** #166, #161
+
+---
+
+## D-012 — the `tools/` walk moves to `tools/lib/`, and an exemption is a path (2026-09-29)
+
+`#172` and `#173` both pinned "one definition" **within**
+`check-tools-test-registration.test.mjs`, where `toolsFiles` was a private
+function. Nothing asked the question across files — so
+`tools/lib/strip-comments.test.mjs` went on scanning `tools/` one level deep
+through both issues.
+
+That file carries the arm "no tool declares its own stripComments", whose own
+comment says only a structural arm catches the next re-paste. It saw **27 of 29**
+`.mjs` files, and the two it missed were `tools/lib/`'s. **The arm had never once
+inspected the module it is about.** A re-paste under `tools/lib/` — the directory
+`#170` created, and the precedent `#173` cites for putting a file there — was
+invisible to the one arm written to catch a re-paste.
+
+This is the fifth payment of a class `#173` itself counted at four (`#168`,
+`#170`, `#172`, `#173`, and `nextjs-streaming-ai-patterns` `#122`/`#123`). Every
+one is a walk that did not reach `tools/lib/`, and the reason the same directory
+keeps being missed is that a flat `readdirSync` is the shorter thing to write.
+
+**A third copy would have been self-refuting.** The file that needed the walk is
+the one enforcing "do not re-paste the shared helper", so the walk moved to
+`tools/lib/tools-files.mjs` and both files import it. The new module needed its
+own test and a `ci.yml` entry, because `tools/lib/*.mjs` is outside `isChecker` —
+"a library has no CI step of its own, and its test does".
+
+### Two things the probe found, and both were real
+
+**The separating arm has to be about the corpus, not the offenders.** Both hit
+sets are empty today — the flat walk found no offenders and neither does the
+recursive one — so no assertion on `offenders` can distinguish them. The first
+arm built its *own* flat and recursive lists and compared them, which never
+touches the scan it is about: **0 red** against the faithful revert. The scan now
+records what it walked and asserts `tools/lib/` is in it (2 red).
+
+**The exemption arm tested the constant, not the code.** Asserting that
+`CANONICAL` equals a path and contains a slash is true no matter what the guard
+does. Swapping `rel === CANONICAL` for `rel.endsWith("strip-comments.mjs")` or
+`rel.includes("strip-comments")` was **0 red both times**. The arm now reads its
+own source, requires the equality, and forbids a name-fragment test (1 red each).
+A text-keyed exemption would also forgive a future `strip-comments-v2.mjs`.
+
+And **a partial revert is not a revert**, for the second time in one day: the
+first probe added a skip *inside* the loop rather than changing what the loop
+iterates, so the recorded corpus still contained the lib files and the arm stayed
+green. Model the revert on the line the fix changed.
+
+The deferred half is asserted rather than left in prose: an arm forbids
+`readdirSync(TOOLS_DIR)` anywhere under `tools/` except once, in the falsification
+arm — exempted by path **and** by count, so a real flat scan cannot hide beside
+the deliberate one.
+
+**Reversibility:** Cheap.
+
+**Related issues:** #174, #173, #172, #170, #168
