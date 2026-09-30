@@ -122,3 +122,16 @@
   reversibility: cheap
   related_issues: ["#174", "#173", "#172", "#170", "#168"]
   superseded_by: null
+
+- id: D-013
+  date: 2026-09-30
+  decision: filesystem_sandbox_py_server_extra_is_BOUNDED_mcp_GREATER_OR_EQUAL_1_27_LESS_THAN_2_matching_the_TS_servers_caret_1_5_0_AND_the_server_is_BUILT_BY_A_TESTED_build_server_so_an_SDK_that_cannot_host_it_fails_in_CI
+  rationale: the_unbounded_mcp_GREATER_OR_EQUAL_1_27_RESOLVED_mcp_2_2_0_ON_A_FRESH_INSTALL_and_the_documented_mcp_filesystem_sandbox_py_CRASHED_ON_STARTUP_Server_has_no_attribute_list_tools_WHILE_CI_WAS_GREEN_because_CI_installs_server_dev_so_it_ALSO_resolved_2_2_0_and_NO_TEST_CONSTRUCTED_THE_SERVER_serve_built_and_ran_it_behind_stdio_in_one_function
+  READ_THE_SCOPE_THE_LAST_FIX_WROTE_DOWN: 134_made_the_isError_tests_SDK_MAJOR_STABLE_verified_against_1_29_0_and_2_0_0_and_wrote_mcp_1_x_is_still_inside_the_declared_range_TREATING_THE_RANGE_AS_GIVEN_it_verified_the_RESULT_WRAPPER_on_2_x_and_NEVER_THE_SERVER_THAT_USES_THE_DECORATOR_API
+  PIN_NOW_PORT_LATER: the_bound_is_reversible_and_matches_the_TS_major_porting_to_the_2_x_server_API_is_a_follow_up_issue_so_the_documented_install_works_TODAY
+  THE_TEST_IS_THE_DURABLE_HALF: test_server_builds_calls_the_REGISTERED_list_tools_and_call_tool_handlers_through_the_SDKs_own_request_table_and_FAILS_ON_mcp_2_2_0_WITH_THE_EXACT_STARTUP_ERROR_measured_so_a_future_unbounded_resolve_or_a_bump_past_the_bound_cannot_go_green
+  alternatives_rejected: ["PORT_TO_THE_2_x_API_NOW_DEFERRED_to_a_follow_up_the_documented_install_is_broken_today_and_the_pin_is_one_line", "PIN_WITHOUT_A_SERVER_BUILD_TEST_REJECTED_the_suite_would_stay_blind_to_the_next_incompatible_SDK", "EXACT_PIN_REJECTED_the_TS_servers_take_a_caret_range_and_a_minor_bump_is_not_the_hazard"]
+  measured: "fresh venv: .[server] -> mcp 2.2.0 -> AttributeError at startup. Bounded -> mcp 1.30.0 -> the real server answers initialize + tools/list over stdio with its 3 tools. New tests: 4 passed on 1.30.0 and 1.28.1, FAIL on 2.2.0 with the startup error. filesystem-sandbox-py 250 -> 254 (tools/test-counts.json and both READMEs); check-test-count, check-readme and all 14 tools tests green."
+  reversibility: cheap
+  related_issues: ["#176", "#134", "#88"]
+  superseded_by: null

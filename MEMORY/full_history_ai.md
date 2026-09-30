@@ -2019,3 +2019,24 @@ context_for_next_session:
   - mcp_HAS_NO_PRETTIER_CI_GATE_and_27_files_are_unformatted_on_the_unchanged_tree_do_not_read_npx_prettier_check_output_as_a_regression_here
 followups: []
 ---
+
+---
+session: 2026-09-30T09:14Z
+issue: 176
+focus: AN_UNBOUNDED_SDK_RANGE_RESOLVED_A_MAJOR_THE_SERVER_HAD_NEVER_RUN_ON_AND_NO_TEST_BUILT_THE_SERVER
+phase: shipped
+duration_min: 2   # computed from the plan comment timestamp and date -u
+delta:
+  files_changed: 8
+  tests_added: 4
+  suite: "filesystem-sandbox-py 250 -> 254; all 14 tools tests + check-readme + check-test-count green"
+decisions_made: ["D-013"]
+measured: "fresh .[server] -> mcp 2.2.0 -> startup AttributeError; bounded -> 1.30.0 -> real stdio server lists 3 tools; new tests fail on 2.2.0"
+context_for_next_session:
+  - FOUND_BY_THE_FRESH_CLONE_QUICKSTART_AUDIT_the_most_serious_finding_of_the_run_a_documented_server_that_crashed_on_startup_with_ci_green
+  - 134_VERIFIED_THE_WRAPPER_ON_BOTH_MAJORS_AND_TREATED_THE_RANGE_AS_GIVEN_read_the_scope_the_last_fix_wrote_down
+  - A_SERVER_BUILT_AND_RUN_IN_ONE_FUNCTION_BEHIND_STDIO_IS_UNTESTABLE_split_build_from_run
+  - FILED_177_port_to_mcp_2_x
+  - OTHER_AUDIT_FINDINGS_FOR_THIS_REPO_NOT_YET_WORKED_allow_list_dirs_must_exist_quickstart_lacks_mkdir_and_TS_prints_a_stack_github_gists_sample_calls_lack_jsonrpc_and_id_capture_demo_says_gistId_not_gist_id_two_per_server_test_counts_stale_38_and_28_repo_stats_counts_node_modules
+followups: ["#177"]
+---
