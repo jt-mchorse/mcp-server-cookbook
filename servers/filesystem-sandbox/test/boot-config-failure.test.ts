@@ -106,6 +106,8 @@ async function boot(env: Record<string, string>): Promise<BootResult> {
 }
 
 const GOOD_ENV: Record<string, string> = { MCP_FS_SANDBOX_ALLOWLIST: TMP };
+// A child of a fresh temp dir, never created, so it cannot exist.
+const MISSING_ROOT = `${TMP}/never-created`;
 
 /**
  * The variables this server reads. `boot` DELETES these from the child's
@@ -127,6 +129,9 @@ const BAD_ENVS: ReadonlyArray<readonly [string, Record<string, string>]> = [
   ["missing required allowlist", {}],
   ["non-numeric max bytes", { MCP_FS_SANDBOX_ALLOWLIST: TMP, MCP_FS_SANDBOX_MAX_BYTES: "abc" }],
   ["zero max bytes", { MCP_FS_SANDBOX_ALLOWLIST: TMP, MCP_FS_SANDBOX_MAX_BYTES: "0" }],
+  // Parses fine and fails later, in `Sandbox.create` inside `main()`: the
+  // root Quickstart's first run on a machine without `/tmp/scratch` (#181).
+  ["missing allow-list root", { MCP_FS_SANDBOX_ALLOWLIST: MISSING_ROOT }],
 ];
 
 describe("filesystem-sandbox refuses a bad boot config with one line", () => {
@@ -163,6 +168,17 @@ describe("filesystem-sandbox refuses a bad boot config with one line", () => {
       // #143-era work made these messages name the variable and the bound. The
       // framing must wrap that, not paraphrase it.
       expect(result.stderr).toContain("colon-separated absolute paths");
+    },
+    TIMEOUT,
+  );
+
+  it(
+    "a missing root's line names the root and says what to do",
+    async () => {
+      const result = await boot({ MCP_FS_SANDBOX_ALLOWLIST: `${TMP}:${MISSING_ROOT}` });
+      expect(result.code).toBe(1);
+      expect(result.stderr).toContain(`allow-list root does not exist: ${MISSING_ROOT}`);
+      expect(result.stderr).toContain("remove it from MCP_FS_SANDBOX_ALLOWLIST");
     },
     TIMEOUT,
   );

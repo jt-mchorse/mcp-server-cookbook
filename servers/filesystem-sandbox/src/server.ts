@@ -8,7 +8,7 @@ import {
 } from "@modelcontextprotocol/sdk/types.js";
 
 import { type SandboxConfig, readSandboxConfigFromEnv } from "./config.js";
-import { Sandbox } from "./sandbox.js";
+import { Sandbox, SandboxEscape } from "./sandbox.js";
 import {
   errorMessage,
   listDirectory,
@@ -154,6 +154,18 @@ async function main(): Promise<void> {
 }
 
 main().catch((e) => {
+  // An allow-list root is checked here, not in `readSandboxConfigFromEnv`,
+  // because checking it takes a `realpath`. A missing root is the root
+  // Quickstart's first run on a fresh machine, so it gets the same one-line
+  // refusal as a parse failure (#181). Anything else is unexpected and keeps
+  // its stack.
+  if (e instanceof SandboxEscape) {
+    console.error(
+      `filesystem-sandbox: refusing to start. ${e.message} ` +
+        `Create that directory, or remove it from MCP_FS_SANDBOX_ALLOWLIST.`,
+    );
+    process.exit(1);
+  }
   console.error("filesystem-sandbox MCP server failed:", e);
   process.exit(1);
 });
