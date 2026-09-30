@@ -2010,3 +2010,14 @@ It also started Postgres with `docker compose up -d`, which doesn't wait for the
 database to be ready. The Quickstart now waits (`--wait`) and exports `.env`
 before starting, so that file is the one place the settings live. A test pins
 both rules. Same class as rag#239.
+
+## 2026-09-30T10:09:42Z — #193: the demo script reported starting a database it never started
+
+`capture-demo --launch-postgres` started the demo database with `spawn()` inside a
+try/catch. `spawn()` never throws: a missing program shows up later as an event
+nothing was listening for. So with no docker installed, the script printed "docker
+compose started; healthcheck passes in ~5s" and exited successfully. Even with
+docker, the "~5s" was a guess printed while startup was still running. It now
+runs `docker compose up -d --wait` synchronously: success means the database
+really is up, and any failure prints the "failed" line. Three tests use a fake
+`docker` on the PATH to cover success, failure and a missing docker.
