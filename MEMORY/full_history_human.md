@@ -1978,3 +1978,13 @@ misses one or lists one nobody reads. It has to recognise four spellings of "rea
 an environment variable", including postgres's `parseIntEnv("MAX_ROWS")`, which
 a plain `process.env` search would miss. This finishes portfolio-ops#80 across
 the repos it named.
+
+## 2026-09-30T10:03:11Z — #187: the repo_stats example described a state you can't call it in
+
+The tools bridge's README example claimed its numbers ("16 files") were "real on a
+fresh clone". But the example is a call through the server, and the server
+needs an install and a build before it can run. At that point the tool, which
+skips nothing, also counts `node_modules/` and `dist/`: 1080 files when
+measured. The README now says which state its numbers describe and that the tool
+excludes nothing, and a new test pins that behaviour. Whether the tool should
+skip dependency and build folders is left as an open question for JT.
