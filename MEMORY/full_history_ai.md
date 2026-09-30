@@ -2078,3 +2078,22 @@ context_for_next_session:
   - servers_filesystem_sandbox_README_line_103_CONFLICTS_WITH_PR_180_which_sets_it_to_185_THIS_BRANCH_SETS_188_resolve_to_188_after_merging_both
   - the_github_gists_README_sample_requests_lack_jsonrpc_and_id_and_get_NO_response_filed_as_182
 followups: ["#182"]
+
+---
+session: 2026-09-30T09:34:20Z
+issue: 182
+focus: A_SAMPLE_REQUEST_WITHOUT_JSONRPC_AND_ID_IS_SILENTLY_UNANSWERED
+phase: shipped
+duration_min: 2
+delta:
+  files_changed: 6
+  tests_added: 8
+  suite: "github-gists vitest 172 passed; tools/capture-demo.test.mjs 17 passed; check-readme.mjs and every tools/*.test.mjs green"
+decisions_made: []
+measured: "the documented get_gist line printed only the boot line and no response; the same line with jsonrpc and id returned a result. Probes: README lines reverted 3 red of 5; gist_id renamed gistId in one README line 1 red; capture-demo reverted to gistId 1 red of 17."
+context_for_next_session:
+  - THE_SDK_SILENTLY_DROPS_A_LINE_THAT_IS_NOT_A_JSON_RPC_MESSAGE_no_error_no_response_so_a_doc_sample_missing_jsonrpc_or_id_LOOKS_LIKE_A_HUNG_SERVER_the_only_test_that_sees_it_PIPES_THE_DOC_LINE_VERBATIM
+  - THE_README_ARM_IS_HERMETIC_BY_POINTING_MCP_GITHUB_GISTS_BASE_URL_AT_127_0_0_1_PORT_9_a_call_past_validation_fails_fast_on_connect_and_still_produces_a_response
+  - capture_demo_STAGE_ARGS_ARE_CHECKED_AGAINST_A_SOURCE_READ_OF_EACH_TOOLS_properties_BLOCK_because_every_server_ts_starts_a_transport_on_import_the_block_parser_keys_on_8_space_indented_key_colon_brace_A_REFORMAT_WOULD_EMPTY_THE_SET_and_the_arm_would_go_red_not_vacuous
+  - servers_github_gists_README_line_178_CONFLICTS_WITH_PR_180_which_sets_167_THIS_BRANCH_SETS_172_resolve_to_172_and_tools_test_counts_json_conflicts_with_183_on_adjacent_lines
+followups: []

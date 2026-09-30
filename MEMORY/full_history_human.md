@@ -1951,3 +1951,18 @@ port already refused this in one line. The TS server now gives the same one-line
 Quickstart now runs `mkdir -p` first, and the boot test's table has the new row.
 Test count is 188. Merge note: #180 sets the filesystem-sandbox README's count to
 185 on the same line; resolve to 188.
+
+## 2026-09-30T09:34:20Z — #182: the gists README's sample requests got no answer
+
+The github-gists README's "Sample client invocation" piped
+`{"method":"tools/call",...}` into the server. With no `"jsonrpc":"2.0"` and no
+`"id"`, that isn't a JSON-RPC request, and the server silently printed nothing
+back, which looks exactly like a hang. Both lines now carry them. A new test
+starts the real server, pipes each documented line verbatim, and requires an
+answer to each (offline, with the API pointed at a closed local port). It also
+checks each line's tool name and argument names against what the server
+publishes. Separately, the capture-demo cheatsheet told the operator to pass
+`gistId`, but the argument is `gist_id`. It's fixed, and all three stages' printed
+arguments are now checked against the servers' declarations. Test count is 172.
+Merge note: #180 sets the gists README's count to 167 on the same line, so
+resolve it to 172.
