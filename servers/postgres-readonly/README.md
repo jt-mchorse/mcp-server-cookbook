@@ -111,11 +111,12 @@ Mirrors the `BridgeConfig` validation pattern in
 
 ```bash
 cd servers/postgres-readonly
-docker compose up -d                 # brings up Postgres on :5433 with seed data + mcp_reader role
+docker compose up -d --wait          # Postgres on :5433 with seed data + mcp_reader role; waits for pg_isready
 cp .env.example .env                 # uses mcp_reader credentials
+set -a; . ./.env; set +a             # nothing loads .env for you; this exports it
 npm install
 npm run build
-DATABASE_URL=postgresql://mcp_reader:mcp_reader@localhost:5433/bench npm start
+npm start
 ```
 
 **Tests (no DB needed for the guard suite):**
