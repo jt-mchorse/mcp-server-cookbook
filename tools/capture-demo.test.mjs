@@ -6,7 +6,8 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
 import os from "node:os";
 import path from "node:path";
 
@@ -234,3 +235,62 @@ for (const [label, render, serverPath] of STAGE_SERVERS) {
     }
   });
 }
+
+// --launch-postgres reports what actually happened (#193). The launch used to
+// be `spawn(...)` in a try/catch: spawn never throws, so with no docker on
+// PATH the script printed "docker compose started" and exited 0. These run
+// the real script with PATH reduced to `node`, `sleep` and (optionally) a
+// fake `docker` that records its arguments.
+function runLaunch(dockerExit) {
+  const bin = mkdtempSync(path.join(os.tmpdir(), "capture-launch-"));
+  const argsFile = path.join(bin, "docker-args");
+  try {
+    symlinkSync(process.execPath, path.join(bin, "node"));
+    symlinkSync("/bin/sleep", path.join(bin, "sleep"));
+    if (dockerExit !== null) {
+      writeFileSync(
+        path.join(bin, "docker"),
+        `#!/bin/sh\necho "$@" > "${argsFile}"\nexit ${dockerExit}\n`,
+      );
+      chmodSync(path.join(bin, "docker"), 0o755);
+    }
+    const proc = spawnSync(
+      path.join(bin, "node"),
+      [
+        path.join(REPO_ROOT, "tools/capture-demo.mjs"),
+        "--launch-postgres",
+        "--pause-seconds",
+        "0",
+        "--skip-stage-2",
+        "--skip-stage-3",
+      ],
+      { env: { PATH: bin }, encoding: "utf-8" },
+    );
+    const args = existsSync(argsFile) ? readFileSync(argsFile, "utf-8").trim() : null;
+    return { out: proc.stdout + proc.stderr, status: proc.status, args };
+  } finally {
+    rmSync(bin, { recursive: true, force: true });
+  }
+}
+
+const UP = "docker compose is up";
+const FAILED = "failed; cheat-sheet only";
+
+test("--launch-postgres: a launch that succeeds waited for the healthcheck", () => {
+  const r = runLaunch(0);
+  assert.equal(r.args, "compose up -d --wait");
+  assert.ok(r.out.includes(UP), r.out);
+  assert.ok(!r.out.includes(FAILED), r.out);
+});
+
+test("--launch-postgres: a launch that fails says so", () => {
+  const r = runLaunch(1);
+  assert.ok(r.out.includes(FAILED), r.out);
+  assert.ok(!r.out.includes(UP), r.out);
+});
+
+test("--launch-postgres: no docker on PATH says so", () => {
+  const r = runLaunch(null);
+  assert.ok(r.out.includes(FAILED), r.out);
+  assert.ok(!r.out.includes(UP), r.out);
+});
