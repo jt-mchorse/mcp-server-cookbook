@@ -45,7 +45,7 @@ SQL guard. Brings up a sample DB via Docker compose:
 
 ```bash
 cd servers/postgres-readonly
-docker compose up -d                                     # sample DB on :5433
+docker compose up -d --wait                              # sample DB on :5433; waits for pg_isready
 npm install && npm run build
 DATABASE_URL=postgresql://mcp_reader:mcp_reader@localhost:5433/bench npm start
 ```

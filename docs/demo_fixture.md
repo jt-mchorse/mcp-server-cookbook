@@ -13,7 +13,7 @@ sees what to fill in.
 ## STAGE 1 — `postgres-readonly`
 
 Seed file: `servers/postgres-readonly/sample-db/init.sql` (committed,
-load via `docker compose up -d` in that server's directory). The
+load via `docker compose up -d --wait` in that server's directory). The
 sha256 of the seed file is printed by `tools/capture-demo.mjs` so a
 re-capture can confirm the schema hasn't drifted.
 

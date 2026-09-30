@@ -15,6 +15,8 @@ import { describe, expect, it } from "vitest";
 const SERVER_DIR = resolve(__dirname, "..");
 const README = readFileSync(resolve(SERVER_DIR, "README.md"), "utf-8");
 const COMPOSE = readFileSync(resolve(SERVER_DIR, "docker-compose.yml"), "utf-8");
+// The root README's Quickstart starts this same compose file.
+const ROOT_README = readFileSync(resolve(SERVER_DIR, "..", "..", "README.md"), "utf-8");
 
 /** Every ```bash fence, as its command lines with trailing `#` comments dropped. */
 function bashFences(md: string): string[][] {
@@ -60,8 +62,11 @@ describe("README Quickstart (#191)", () => {
 
   it("compose up waits for the healthcheck the compose file declares", () => {
     expect(COMPOSE).toContain("healthcheck:");
-    const ups = fences.flat().filter((l) => /^docker compose up\b/.test(l));
-    expect(ups.length).toBeGreaterThan(0);
+    const ups = [...fences, ...bashFences(ROOT_README)]
+      .flat()
+      .filter((l) => /^docker compose up\b/.test(l));
+    // This README's and the root README's: a floor, so neither can drop out.
+    expect(ups.length).toBeGreaterThanOrEqual(2);
     for (const l of ups) expect(l.split(/\s+/), l).toContain("--wait");
   });
 });
