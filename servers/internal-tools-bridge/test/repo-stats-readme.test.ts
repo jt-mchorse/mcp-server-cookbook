@@ -1,8 +1,8 @@
 import { describe, it, expect } from "vitest";
 import { execFileSync } from "node:child_process";
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
-import { extname } from "node:path";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { dirname, extname, join, resolve } from "node:path";
 
 /**
  * Lock the README's `repo_stats` end-to-end example to reality (#91).
@@ -74,5 +74,33 @@ describe("README repo_stats example matches the tracked files (#91)", () => {
 
   it("documented by_ext histogram matches a fresh clone (no fabricated buckets)", () => {
     expect(documentedRepoStats().by_ext).toEqual(freshCloneStats().by_ext);
+  });
+});
+
+describe("the tool excludes nothing, as the README says (#187)", () => {
+  // The README's counts are what the CLI prints on an uninstalled clone. The
+  // call itself goes through the server, which needs `npm install && npm run
+  // build` first, and then `node_modules/` and `dist/` are inside the walk:
+  // 1080 files instead of 16 when this was written. The README now says so;
+  // this pins the behaviour that sentence describes. If repo-stats ever
+  // learns to skip these, this goes red and the README changes with it.
+  it("counts node_modules/, dist/ and dot-directories", () => {
+    const root = mkdtempSync(join(tmpdir(), "repo-stats-excl-"));
+    try {
+      for (const rel of ["a.ts", "node_modules/x.js", "dist/y.js", ".hidden/z.js"]) {
+        mkdirSync(dirname(join(root, rel)), { recursive: true });
+        writeFileSync(join(root, rel), "x");
+      }
+      const out = execFileSync(
+        process.execPath,
+        [resolve(SERVER_DIR, "bin", "repo-stats.mjs"), "--root", root, "--max-depth", "3"],
+        { encoding: "utf-8" },
+      );
+      const stats = JSON.parse(out) as RepoStatsDoc;
+      expect(stats.total_files).toBe(4);
+      expect(stats.by_ext).toEqual({ ".js": 3, ".ts": 1 });
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
   });
 });

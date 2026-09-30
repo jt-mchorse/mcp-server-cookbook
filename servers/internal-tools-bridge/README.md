@@ -137,7 +137,7 @@ Add to `claude_desktop_config.json` (path-substitute `$HOME/path/to/...`):
 }
 ```
 
-Returns (paths and counts are real on a fresh clone):
+Returns (paths and counts are what `bin/repo-stats.mjs` prints for this directory on an uninstalled clone; see below for the installed server):
 
 ```json
 {
@@ -159,10 +159,18 @@ Returns (paths and counts are real on a fresh clone):
 `test/repo-stats-readme.test.ts`; `total_bytes` is the tracked-content total
 at the time of writing (it shifts as files change).
 
+The call itself goes through the server, which needs `npm install && npm run
+build` first, and `repo-stats` excludes nothing: not `node_modules/`, not
+`dist/`, not dot-directories. So the same call on an installed checkout also
+counts the dependencies and the build output (1080 files when this
+was written). Whether the tool should skip them is an open question (#187);
+`test/repo-stats-readme.test.ts` pins today's behaviour, so the day it changes
+this paragraph has to change with it.
+
 ## Tests
 
 ```bash
-npm test          # 67 tests (30 bridge, 10 tools, 3 public-surface, 2 repo-stats-readme, 10 timeout-clamp, 12 server-boot-config) — ~5s
+npm test          # 68 tests (30 bridge, 10 tools, 3 public-surface, 3 repo-stats-readme, 10 timeout-clamp, 12 server-boot-config) — ~5s
 npm run lint
 npm run typecheck
 ```
