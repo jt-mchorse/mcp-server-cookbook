@@ -2058,3 +2058,23 @@ context_for_next_session:
   - postgres_readonly_MAKES_NO_PER_SERVER_CLAIM_the_pinned_set_is_four_not_five_if_one_is_added_to_its_README_the_set_arm_goes_red_by_design
   - MY_OWN_FIRST_MUST_NOT_PARSE_ARM_tilde_60_ms_per_100_tests_WAS_CLAIM_SHAPED_and_the_regex_rightly_read_100_a_negative_arm_must_be_a_line_that_is_NOT_a_claim_not_merely_one_that_looks_unusual
 followups: []
+
+---
+session: 2026-09-30T09:31:46Z
+issue: 181
+focus: THE_ONE_LINE_REFUSAL_COVERED_THE_PARSE_AND_NOT_THE_CHECK_THAT_RUNS_AFTER_IT
+phase: shipped
+duration_min: 1
+delta:
+  files_changed: 5
+  tests_added: 3
+  suite: "filesystem-sandbox vitest 188 passed; check-readme.mjs and every tools/*.test.mjs green"
+decisions_made: []
+measured: "MCP_FS_SANDBOX_ALLOWLIST=<missing> printed 8 stderr lines (SandboxEscape + 3 frames + the reason/input object); now 1. Revert of the main().catch branch: 2 red of 11 in boot-config-failure.test.ts."
+context_for_next_session:
+  - 151_SCOPED_THE_ONE_LINE_REFUSAL_TO_readSandboxConfigFromEnv_AT_MODULE_SCOPE_but_the_allow_list_ROOTS_are_checked_in_Sandbox_create_INSIDE_main_whose_catch_prints_the_error_object_THE_BAD_ENVS_TABLE_HELD_ONLY_PARSE_TIME_ROWS_so_it_could_not_see_it
+  - THE_MISSING_ROOT_IS_THE_QUICKSTARTS_FIRST_RUN_the_root_README_named_tmp_scratch_and_tmp_uploads_with_no_mkdir_the_py_port_already_refused_it_in_one_line_exit_2
+  - BOTH_PORTS_ACCEPT_A_REGULAR_FILE_AS_AN_ALLOW_LIST_ROOT_and_boot_consistent_across_ports_NOT_FILED_a_design_question_not_a_defect
+  - servers_filesystem_sandbox_README_line_103_CONFLICTS_WITH_PR_180_which_sets_it_to_185_THIS_BRANCH_SETS_188_resolve_to_188_after_merging_both
+  - the_github_gists_README_sample_requests_lack_jsonrpc_and_id_and_get_NO_response_filed_as_182
+followups: ["#182"]

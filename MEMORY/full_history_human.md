@@ -1939,3 +1939,15 @@ which the two other, well-worded READMEs satisfied on their own. The regex now
 allows up to three words before "tests", both READMEs carry the runtime counts,
 and the test pins *which* servers make a claim rather than how many parsed.
 Reverting the regex turns 2 of 11 tests red.
+
+## 2026-09-30T09:31:46Z — #181: a missing allow-list root printed a stack trace
+
+The one-line "refusing to start" framing (#151) wrapped only env-parsing failures.
+The allow-list roots are checked afterwards, when the sandbox is built, and that
+error went out as a raw stack. A missing root is exactly what the root Quickstart
+produces on a fresh machine, because it never created `/tmp/scratch`. The Python
+port already refused this in one line. The TS server now gives the same one-liner
+(naming the root and saying to create it or drop it from the allow-list). The
+Quickstart now runs `mkdir -p` first, and the boot test's table has the new row.
+Test count is 188. Merge note: #180 sets the filesystem-sandbox README's count to
+185 on the same line; resolve to 188.
