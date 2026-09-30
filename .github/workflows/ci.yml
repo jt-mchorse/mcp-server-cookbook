@@ -321,6 +321,14 @@ jobs:
       # the quote-awareness lives.
       - name: Run the shared comment-stripper's own unit tests
         run: node --test tools/lib/strip-comments.test.mjs
+      # The shared `tools/` walk (#174). Same reasoning as the line above: a
+      # library in `tools/lib/` has no CI step of its own -- it is not a checker
+      # -- so its test is the registration, and an unregistered test is the
+      # `stuck-registration` fingerprint. This one exists because the walk had
+      # been a private function in the registration lock, which is why a third
+      # file went on scanning `tools/` one level deep.
+      - name: Run the shared tools-walk's own unit tests
+        run: node --test tools/lib/tools-files.test.mjs
       - name: Verify every tools test file is registered in package.json
         run: node --test tools/check-tools-test-registration.test.mjs
 

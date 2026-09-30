@@ -27,49 +27,19 @@ import { fileURLToPath } from "node:url";
 import { test } from "node:test";
 
 import { stripComments } from "./lib/strip-comments.mjs";
-
-const TOOLS_DIR = dirname(fileURLToPath(import.meta.url));
-const ROOT = dirname(TOOLS_DIR);
-
-/**
- * Every file under `tools/` matching `predicate(basename)`, recursively, as a
- * repo-relative path.
- *
- * ONE walk, parameterised (#172). This file used to have two discoveries: the
- * test scan recursed -- with a comment saying exactly why, because #170 put a
- * shared helper in `tools/lib/` and "a flat `readdirSync` would not have seen
- * its test at all" -- and the checker scan fifty lines below it was a flat
- * `readdirSync(TOOLS_DIR)`. Same file, same directory, same hazard, opposite
- * treatment, with the lesson stated in prose above the place it was not applied.
- *
- * Nothing was hidden by it: `tools/lib/` holds `strip-comments.mjs`, a helper
- * rather than a checker, so every entry point was wired. It is closed anyway
- * because the precedent for putting a file in `tools/lib/` is #170 itself -- the
- * change that added this lock -- and this class has been paid for four times in
- * the portfolio (#168's one-level scan, #170's recursion,
- * nextjs-streaming-ai-patterns#122 and #123).
- *
- * Parameterised rather than copied: a second corrected recursive walk beside the
- * first is the copy-instead-of-share shape #170 fixed for `stripComments`, and a
- * suite cannot tell one definition from two identical ones. `the file has exactly
- * one directory walk` is the arm that pins it.
- */
-function toolsFiles(predicate, dir = TOOLS_DIR) {
-  const out = [];
-  for (const name of readdirSync(dir)) {
-    if (name === "node_modules" || name.startsWith(".")) continue;
-    const abs = join(dir, name);
-    if (statSync(abs).isDirectory()) {
-      out.push(...toolsFiles(predicate, abs));
-      continue;
-    }
-    if (predicate(name)) out.push(relative(ROOT, abs).split("\\").join("/"));
-  }
-  return out.sort();
-}
-
-/** A `tools/` test file. */
-const isTestFile = (name) => name.endsWith(".test.mjs");
+// The shared recursive walk, moved to `tools/lib/` by #174 so a THIRD file
+// could use it without a third copy. #172 parameterised it and #173 fixed the
+// second call site; both lived here, privately, which is why
+// `tools/lib/strip-comments.test.mjs` went on scanning `tools/` one level deep
+// for two more issues. `isChecker` stays local: it is this lock's definition of
+// a CI entry point, not a property of the filesystem.
+import {
+  REPO_ROOT as ROOT,
+  TOOLS_DIR,
+  isModule,
+  isTestFile,
+  toolsFiles,
+} from "./lib/tools-files.mjs";
 
 /**
  * A checker: a `tools/` entry point CI is expected to run.
@@ -82,7 +52,9 @@ const isTestFile = (name) => name.endsWith(".test.mjs");
  * and its test does.
  */
 const isChecker = (name) =>
-  name.startsWith("check-") && name.endsWith(".mjs") && !name.endsWith(".test.mjs");
+  name.startsWith("check-") &&
+  name.endsWith(".mjs") &&
+  !name.endsWith(".test.mjs");
 
 const TESTS = toolsFiles(isTestFile);
 const PACKAGE_JSON = readFileSync(join(ROOT, "package.json"), "utf8");
@@ -93,7 +65,10 @@ test("the discovery finds the tools tests, recursively", () => {
   // `tools/lib/`, and a flat `readdirSync` would not have seen its test at
   // all — which is the same one-level-scan defect #168 fixed in the string
   // grammar checker's own population.
-  assert.ok(TESTS.length >= 12, `found only ${TESTS.length} tools tests: ${TESTS}`);
+  assert.ok(
+    TESTS.length >= 12,
+    `found only ${TESTS.length} tools tests: ${TESTS}`,
+  );
   assert.ok(
     TESTS.includes("tools/lib/strip-comments.test.mjs"),
     `the recursive walk missed tools/lib/: ${TESTS}`,
@@ -135,7 +110,9 @@ test("the registration scan would notice an unregistered file", () => {
 test("this file is itself registered", () => {
   // A registration check that is not registered is the shape it exists to
   // prevent.
-  const self = relative(ROOT, fileURLToPath(import.meta.url)).split("\\").join("/");
+  const self = relative(ROOT, fileURLToPath(import.meta.url))
+    .split("\\")
+    .join("/");
   assert.ok(CI.includes(self), `${self} is not in ci.yml`);
 });
 
@@ -172,10 +149,19 @@ test("the checker discovery is recursive, proven on a synthetic tree", () => {
     mkdirSync(join(fixture, ".cache"));
     writeFileSync(join(fixture, "check-flat.mjs"), "// flat checker\n");
     writeFileSync(join(fixture, "check-flat.test.mjs"), "// its test\n");
-    writeFileSync(join(fixture, "lib", "check-nested.mjs"), "// NESTED checker\n");
+    writeFileSync(
+      join(fixture, "lib", "check-nested.mjs"),
+      "// NESTED checker\n",
+    );
     writeFileSync(join(fixture, "lib", "helper.mjs"), "// not a checker\n");
-    writeFileSync(join(fixture, "node_modules", "check-vendored.mjs"), "// must be skipped\n");
-    writeFileSync(join(fixture, ".cache", "check-hidden.mjs"), "// must be skipped\n");
+    writeFileSync(
+      join(fixture, "node_modules", "check-vendored.mjs"),
+      "// must be skipped\n",
+    );
+    writeFileSync(
+      join(fixture, ".cache", "check-hidden.mjs"),
+      "// must be skipped\n",
+    );
 
     const found = toolsFiles(isChecker, fixture).map((p) => p.split("/").pop());
     assert.deepEqual(
@@ -187,9 +173,15 @@ test("the checker discovery is recursive, proven on a synthetic tree", () => {
 
     // And the test predicate over the same tree, so the two populations are
     // demonstrably different rather than two names for one list.
-    const tests = toolsFiles(isTestFile, fixture).map((p) => p.split("/").pop());
+    const tests = toolsFiles(isTestFile, fixture).map((p) =>
+      p.split("/").pop(),
+    );
     assert.deepEqual(tests, ["check-flat.test.mjs"]);
-    assert.notDeepEqual(found, tests, "the two predicates must select different files");
+    assert.notDeepEqual(
+      found,
+      tests,
+      "the two predicates must select different files",
+    );
   } finally {
     rmSync(fixture, { recursive: true, force: true });
   }
@@ -205,8 +197,14 @@ test("a flat walk would miss the nested checker (the defect, run)", () => {
     writeFileSync(join(fixture, "check-flat.mjs"), "//\n");
     writeFileSync(join(fixture, "lib", "check-nested.mjs"), "//\n");
     const flat = readdirSync(fixture).filter(isChecker).sort();
-    assert.deepEqual(flat, ["check-flat.mjs"], "the flat scan should see only the top level");
-    const recursive = toolsFiles(isChecker, fixture).map((p) => p.split("/").pop()).sort();
+    assert.deepEqual(
+      flat,
+      ["check-flat.mjs"],
+      "the flat scan should see only the top level",
+    );
+    const recursive = toolsFiles(isChecker, fixture)
+      .map((p) => p.split("/").pop())
+      .sort();
     assert.deepEqual(recursive, ["check-flat.mjs", "check-nested.mjs"]);
     assert.ok(
       recursive.length > flat.length,
@@ -227,7 +225,9 @@ test("both discoveries go through the shared walk, at the call site", () => {
   // readdirSync-count arm red, and only incidentally, by the count going 2 -> 3.
   // A predicate with no test of where it is CALLED is one the next edit can
   // orphan silently, which is the shape of #172 itself.
-  const code = stripComments(readFileSync(fileURLToPath(import.meta.url), "utf8"));
+  const code = stripComments(
+    readFileSync(fileURLToPath(import.meta.url), "utf8"),
+  );
   assert.match(
     code,
     /const checkers = toolsFiles\(isChecker\)/,
@@ -243,33 +243,74 @@ test("both discoveries go through the shared walk, at the call site", () => {
   // TOOLS_DIR here separates the two without counting call sites.
   assert.ok(
     !/readdirSync\(TOOLS_DIR\)/.test(code),
-    "a flat one-level scan of TOOLS_DIR is back; that is the #172 defect. "
-      + "Spelled here without the literal call, because this message is part of "
-      + "the source this assertion reads -- a first draft put the pattern in the "
-      + "message and the arm failed against itself.",
+    "a flat one-level scan of TOOLS_DIR is back; that is the #172 defect. " +
+      "Spelled here without the literal call, because this message is part of " +
+      "the source this assertion reads -- a first draft put the pattern in the " +
+      "message and the arm failed against itself.",
   );
 });
 
-test("the file has exactly one directory walk", () => {
-  // One definition, not two corrected copies (#172). The defect was two
-  // discoveries in one file that disagreed; a second `readdirSync`-driven walk
-  // appearing here would be how they diverge again. The falsification arm above
-  // uses `readdirSync` deliberately, so the count is TWO call sites and exactly
-  // one of them recurses -- pinned by name rather than by count alone.
+test("this file defines no directory walk of its own", () => {
+  // One definition, not two corrected copies (#172) -- and since #174 that one
+  // definition lives in `tools/lib/tools-files.mjs`, because a THIRD file
+  // needed it. What this arm pins has therefore inverted: the walk must be
+  // absent here, not present-exactly-once.
+  //
+  // The falsification arm above still calls `readdirSync` deliberately, over a
+  // FIXTURE, so the count is ONE. Naming what the single remaining call is for
+  // keeps the number from being a bare magic constant the next edit re-fits.
   const self = readFileSync(fileURLToPath(import.meta.url), "utf8");
   const code = stripComments(self);
   const walks = code.match(/readdirSync\(/g) ?? [];
   assert.equal(
     walks.length,
-    2,
-    `expected exactly two readdirSync call sites (the shared walk and the ` +
-      `flat-scan falsification arm); found ${walks.length}`,
+    1,
+    `expected exactly one readdirSync call site (the flat-scan falsification ` +
+      `arm, over a temp fixture); found ${walks.length}`,
   );
   assert.equal(
     (code.match(/function toolsFiles\(/g) ?? []).length,
-    1,
-    "toolsFiles must be defined exactly once",
+    0,
+    "toolsFiles must be imported from tools/lib/tools-files.mjs, not redefined here",
   );
-  // And the recursion must be there, not merely the function.
-  assert.match(code, /toolsFiles\(predicate, abs\)/);
+  assert.match(
+    code,
+    /from "\.\/lib\/tools-files\.mjs"/,
+    "the shared walk must be imported rather than re-pasted",
+  );
+});
+
+test("the shared walk module is the only definition in the repo", () => {
+  // The cross-file half, and the reason #174 exists: #172 and #173 both pinned
+  // "one definition" *within this file*, and `tools/lib/strip-comments.test.mjs`
+  // went on scanning `tools/` one level deep for two more issues because nothing
+  // asked the question across files.
+  //
+  // Same shape as `no tool declares its own stripComments` one directory down,
+  // and for the same reason #170 gives: two identical copies agree by
+  // construction, so only a structural arm catches the next re-paste.
+  const offenders = [];
+  for (const rel of toolsFiles(isModule)) {
+    if (rel === "tools/lib/tools-files.mjs") continue; // the definition itself
+    const text = stripComments(readFileSync(join(ROOT, rel), "utf8"));
+    if (/^\s*(export\s+)?function toolsFiles\b/m.test(text))
+      offenders.push(rel);
+  }
+  assert.deepEqual(
+    offenders,
+    [],
+    `these files declare their own tools walk instead of importing ` +
+      `tools/lib/tools-files.mjs: ${offenders.join(", ")}`,
+  );
+  // Anti-vacuity: the scan must reach `tools/lib/`, which is the directory every
+  // one of #168/#170/#172/#173/#174 was about.
+  const corpus = toolsFiles(isModule);
+  assert.ok(
+    corpus.length >= 25,
+    `the module scan found only ${corpus.length} files`,
+  );
+  assert.ok(
+    corpus.includes("tools/lib/tools-files.mjs"),
+    `the walk did not reach tools/lib/: ${corpus}`,
+  );
 });
