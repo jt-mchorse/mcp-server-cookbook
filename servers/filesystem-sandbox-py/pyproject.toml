@@ -15,7 +15,11 @@ authors = [{ name = "JT McHorse" }]
 dependencies = []
 
 [project.optional-dependencies]
-server = ["mcp>=1.27"]
+# Bounded below 2 (#176, D-013): mcp 2.x removed the `Server.list_tools()` /
+# `call_tool()` decorators `_build_server` uses, and the unbounded `>=1.27`
+# resolved 2.2.0 on a fresh install, so the documented server crashed on
+# startup. Same major as the TS servers' `@modelcontextprotocol/sdk: ^1.5.0`.
+server = ["mcp>=1.27,<2"]
 dev = ["pytest>=8.0", "pytest-asyncio>=0.23", "ruff>=0.7"]
 
 [project.scripts]

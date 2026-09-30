@@ -276,3 +276,20 @@ Two things the fix had to get right, both measured rather than argued:
   flat walk from the recursive one. The scan records what it walked and
   asserts `tools/lib/` is in it; a first draft compared two lists it built
   itself and stayed green against the revert.
+### The Python server's SDK is bounded, and built by a test (#176, D-013)
+
+`servers/filesystem-sandbox-py` declared `server = ["mcp>=1.27"]` with no upper
+bound. A fresh `pip install -e '.[server]'` resolved mcp 2.2.0, which removed the
+`Server.list_tools()` / `call_tool()` decorators, and the documented
+`mcp-filesystem-sandbox-py` crashed on startup. CI was green throughout: it
+installs the same extra, so it also got 2.2.0, and no test constructed the
+server — `_serve` built and ran it behind stdio in one function. #134 had made
+the `isError` tests stable across both majors and verified the result wrapper
+on 2.x, never the server that uses the decorator API.
+
+The extra is now `mcp>=1.27,<2`, the same major as the TS servers'
+`@modelcontextprotocol/sdk: ^1.5.0`. `_build_server(deps)` registers the
+handlers and `test_server_builds.py` calls them through the SDK's own request
+table — it fails on 2.2.0 with the exact startup error, so the next
+incompatible SDK fails in CI. Porting to the 2.x API is a follow-up.
+
