@@ -191,3 +191,46 @@ test("main with --help prints usage and exits 0", () => {
   assert.ok(captured.includes("Usage:"));
   assert.ok(captured.includes("--launch-postgres"));
 });
+
+// Every `Tool: X` / `Args: { k: ... }` pair the cheatsheets print names
+// argument keys the server actually declares (#182). Stage 3 printed `gistId`
+// for a tool whose argument is `gist_id`, so an operator copying the
+// cheatsheet into a client got a validation error instead of the recorded
+// demo. The server entry points start a transport on import, so the check
+// reads each tool's definition block out of the server's source.
+const STAGE_SERVERS = [
+  ["stage 1", () => renderStage1Cheatsheet({ seedSha256: "x", launched: false }), "servers/postgres-readonly/src/server.ts"],
+  ["stage 2", () => renderStage2Cheatsheet({ sandboxRoot: "/tmp/r" }), "servers/filesystem-sandbox/src/server.ts"],
+  ["stage 3", () => renderStage3Cheatsheet({ fixtureGistId: "abc123fixture" }), "servers/github-gists/src/server.ts"],
+];
+
+function printedCalls(out) {
+  const calls = [];
+  const re = /Tool: (\w+)\n#\s+Args: (\(none\)|\{.*\})/g;
+  for (const m of out.matchAll(re)) {
+    const keys = m[2] === "(none)" ? [] : [...m[2].matchAll(/[{,]\s*([A-Za-z_]\w*):/g)].map((k) => k[1]);
+    calls.push({ tool: m[1], keys });
+  }
+  return calls;
+}
+
+function declaredProperties(source, tool) {
+  const start = source.indexOf(`name: "${tool}"`);
+  assert.ok(start >= 0, `tool ${tool} not defined in the server source`);
+  const next = source.indexOf("\n    name: ", start + 1);
+  const block = source.slice(start, next < 0 ? undefined : next);
+  const props = block.slice(block.indexOf("properties: {"));
+  return new Set([...props.matchAll(/^\s{8}([A-Za-z_]\w*): \{/gm)].map((m) => m[1]));
+}
+
+for (const [label, render, serverPath] of STAGE_SERVERS) {
+  test(`${label} cheatsheet: every printed argument is one the tool declares (#182)`, () => {
+    const source = readFileSync(path.join(REPO_ROOT, serverPath), "utf-8");
+    const calls = printedCalls(render());
+    assert.ok(calls.length >= 1, `${label}: no Tool/Args pairs parsed; the check would be vacuous`);
+    for (const { tool, keys } of calls) {
+      const declared = declaredProperties(source, tool);
+      for (const k of keys) assert.ok(declared.has(k), `${label}: ${tool} prints '${k}', declared: ${[...declared]}`);
+    }
+  });
+}
