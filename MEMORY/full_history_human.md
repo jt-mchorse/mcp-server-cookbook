@@ -1988,3 +1988,15 @@ skips nothing, also counts `node_modules/` and `dist/`: 1080 files when
 measured. The README now says which state its numbers describe and that the tool
 excludes nothing, and a new test pins that behaviour. Whether the tool should
 skip dependency and build folders is left as an open question for JT.
+
+## 2026-09-30T10:05:53Z — #189: the Python port reported the SDK's version, and its parity claim was false
+
+Sending the same two requests to both filesystem servers turned up two problems.
+The Python server told clients its version was 1.28.1, which is the MCP SDK's
+version; the package is 0.1.0. Its README also said the two ports' traffic was
+byte-identical except for the server name, and a docstring said a CI check would
+catch any schema drift. In fact every tool and field description is worded
+differently, only the structure matches, and the cited check never looks at
+schemas. The server now reports its own version (tested through a real
+handshake), a new test compares the two ports' tool structure, and the prose says
+exactly what is and isn't identical.
