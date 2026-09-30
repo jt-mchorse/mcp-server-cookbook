@@ -338,14 +338,21 @@ export function readRuntimeCounts() {
  * current is in the runtime unit, which is the unit a reader can check by
  * running the line above it.
  *
- * Returns `{ count, line }` records; a README with no claim yields none, which
- * is the case for three of the five servers and is fine — the check is that a
- * claim that exists is true, not that every server makes one.
+ * Returns `{ count, line }` records; a README with no claim yields none, and
+ * the check is that a claim that exists is true, not that every server makes
+ * one. (This said "which is the case for three of the five servers"; two of
+ * those three did make a claim the narrower pattern could not parse, #179.)
  */
 export function serverReadmeTestCountClaims(markdown) {
   const out = [];
   for (const raw of markdown.split(/\r?\n/)) {
-    const m = raw.match(/#\s*(\d+)\s+tests?\b/);
+    // A number, then up to three words, then `test(s)`, anywhere in the line's
+    // trailing `#` comment (#179). This required the number flush against both
+    // the `#` and `tests`, so `# 38 hermetic vitest tests` and
+    // `# vitest, 28 hermetic unit tests` read as "no claim" -- and they were
+    // the two stale ones (runtime 185 and 167). `(?<![#\d])` keeps an issue
+    // reference like `#166` from ever being a count.
+    const m = raw.match(/#[^\n]*?(?<![#\d])\b(\d+)\s+(?:[A-Za-z-]+,?\s+){0,3}tests?\b/);
     if (!m) continue;
     out.push({ count: Number(m[1]), line: raw });
   }
