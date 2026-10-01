@@ -160,12 +160,12 @@ For a quick local smoke test using the SDK's reference client:
 
 ```bash
 # 1. read a public gist (no token needed)
-echo '{"method":"tools/call","params":{"name":"get_gist","arguments":{"gist_id":"<any-public-gist-id>"}}}' \
+echo '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"get_gist","arguments":{"gist_id":"<any-public-gist-id>"}}}' \
   | node dist/server.js
 
 # 2. update a file inside a gist you own (token required)
 export GITHUB_TOKEN="ghp_..."
-echo '{"method":"tools/call","params":{"name":"update_gist_file","arguments":{"gist_id":"<your-gist-id>","filename":"notes.md","content":"hello from MCP"}}}' \
+echo '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"update_gist_file","arguments":{"gist_id":"<your-gist-id>","filename":"notes.md","content":"hello from MCP"}}}' \
   | node dist/server.js
 ```
 
@@ -175,7 +175,7 @@ For an interactive REPL across all your servers, use the
 ## Tests
 
 ```bash
-npm test          # vitest, 167 hermetic unit tests, no network
+npm test          # vitest, 172 hermetic unit tests, no network
 npm run typecheck # tsc --noEmit
 npm run lint      # eslint
 ```
