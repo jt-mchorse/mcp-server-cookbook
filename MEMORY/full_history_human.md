@@ -1928,3 +1928,14 @@ Recorded as D-012.
 **Open questions / blockers:** several smaller audit findings for this repo are recorded for the next session.
 
 **Next session:** the remaining audit findings (allow-list mkdir, gists sample JSON-RPC fields, per-server count lines, repo-stats counting node_modules).
+
+## 2026-09-30T09:29:15Z — #179: two server READMEs claimed 38 and 28 tests
+
+The per-server test-count check only matched a number sitting directly before
+"tests", so `# 38 hermetic vitest tests` (filesystem-sandbox) and
+`# vitest, 28 hermetic unit tests` (github-gists) were never checked. The real
+counts are 185 and 167. The check's safety net was "at least 2 claims found",
+which the two other, well-worded READMEs satisfied on their own. The regex now
+allows up to three words before "tests", both READMEs carry the runtime counts,
+and the test pins *which* servers make a claim rather than how many parsed.
+Reverting the regex turns 2 of 11 tests red.

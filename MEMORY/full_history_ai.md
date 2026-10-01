@@ -2040,3 +2040,21 @@ context_for_next_session:
   - OTHER_AUDIT_FINDINGS_FOR_THIS_REPO_NOT_YET_WORKED_allow_list_dirs_must_exist_quickstart_lacks_mkdir_and_TS_prints_a_stack_github_gists_sample_calls_lack_jsonrpc_and_id_capture_demo_says_gistId_not_gist_id_two_per_server_test_counts_stale_38_and_28_repo_stats_counts_node_modules
 followups: ["#177"]
 ---
+
+---
+session: 2026-09-30T09:29:15Z
+issue: 179
+focus: A_FLOOR_ON_WHAT_PARSED_CANNOT_SEE_A_CLAIM_THAT_NEVER_PARSES
+phase: shipped
+duration_min: 2
+delta:
+  files_changed: 4
+  tests_added: 1
+  suite: "check-readme.mjs green (4 per-server claims) and every tools/*.test.mjs green"
+decisions_made: []
+measured: "servers/filesystem-sandbox claimed 38 tests (runtime 185), servers/github-gists claimed 28 (runtime 167); neither line parsed. Revert of the claim regex to the flush-against-tests form: 2 red (the pinned claiming-set arm and the wording arm) of 11."
+context_for_next_session:
+  - THE_OLD_FLOOR_found_GE_2_WAS_SATISFIED_BY_THE_TWO_WELL_WORDED_CLAIMS_WHILE_THE_TWO_BADLY_WORDED_ONES_DRIFTED_UNCHECKED_a_count_of_matches_cannot_see_the_lines_that_never_matched_PIN_THE_SET_OF_SERVERS_THAT_MAKE_A_CLAIM
+  - postgres_readonly_MAKES_NO_PER_SERVER_CLAIM_the_pinned_set_is_four_not_five_if_one_is_added_to_its_README_the_set_arm_goes_red_by_design
+  - MY_OWN_FIRST_MUST_NOT_PARSE_ARM_tilde_60_ms_per_100_tests_WAS_CLAIM_SHAPED_and_the_regex_rightly_read_100_a_negative_arm_must_be_a_line_that_is_NOT_a_claim_not_merely_one_that_looks_unusual
+followups: []

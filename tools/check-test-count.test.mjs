@@ -129,17 +129,21 @@ test("the shipped per-server README claims match the recorded counts", () => {
   // silently restores the state this issue is about — a claim nothing reads —
   // and only an assertion living somewhere else notices.
   //
-  // Two servers carry a claim today; the floor is here so a reword that stops
-  // the parser matching fails instead of quietly checking nothing.
+  // The floor used to be ">= 2", and it could not see the two claims the
+  // parser missed (#179): a claim that never parses is not counted, so a floor
+  // on what parsed is satisfied by the claims that happen to be well-worded.
+  // Pin the SET of servers that make a claim instead.
   const counts = readRecordedCounts(
     readFileSync(path.join(REPO_ROOT, "tools/test-counts.json"), "utf-8"),
   );
   let found = 0;
+  const claiming = new Set();
   for (const server of Object.keys(counts)) {
     const readmePath = path.join(REPO_ROOT, "servers", server, "README.md");
     if (!existsSync(readmePath)) continue;
     for (const claim of serverReadmeTestCountClaims(readFileSync(readmePath, "utf-8"))) {
       found += 1;
+      claiming.add(server);
       assert.equal(
         claim.count,
         counts[server],
@@ -148,5 +152,22 @@ test("the shipped per-server README claims match the recorded counts", () => {
       );
     }
   }
-  assert.ok(found >= 2, `expected at least 2 per-server claims, found ${found}`);
+  assert.deepEqual(
+    [...claiming].sort(),
+    ["filesystem-sandbox", "filesystem-sandbox-py", "github-gists", "internal-tools-bridge"],
+    `servers whose README makes a test-count claim the parser reads (found ${found})`,
+  );
+});
+
+test("a per-server claim parses with words between the number and 'tests' (#179)", () => {
+  // The old regex needed the number flush against "tests", so both of these
+  // wordings were skipped silently and their stale numbers (38, 28) went unchecked.
+  const claims = (line) => serverReadmeTestCountClaims("```bash\n" + line + "\n```\n").map((c) => c.count);
+  assert.deepEqual(claims("npm test                # 185 hermetic vitest tests"), [185]);
+  assert.deepEqual(claims("npm test    # vitest, 167 hermetic unit tests, no network"), [167]);
+  assert.deepEqual(claims("npm test    # 67 tests (30 bridge, 37 client)"), [67]);
+  // Neighbours that must NOT read as a claim.
+  assert.deepEqual(claims("npm run bench   # ~60 ms end to end"), []);
+  assert.deepEqual(claims("git log         # see #166 tests"), []);
+  assert.deepEqual(claims("ls src          # 5 files"), []);
 });
