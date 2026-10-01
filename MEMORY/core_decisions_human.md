@@ -324,3 +324,17 @@ The bound is the immediate fix; the test is the durable one. It fails on 2.2.0 w
 **Reversibility:** Cheap.
 
 **Related issues:** #176, #177, #134, #88
+
+## D-014 — Every TS server enforces its published inputSchema at the CallTool seam (2026-10-01)
+**Decision:** Each TypeScript server's CallTool handler runs `checkToolArgs` against the tool's published `inputSchema` before it reads `arguments`. The checker lives in `src/tool-args.ts`, which is copied byte for byte into every TS server. `tools/check-tool-args.mjs` fails if the copies drift or if a handler stops calling it.
+
+**Why:** The TS SDK does not validate `inputSchema`, and none of the servers did either. `additionalProperties: false` and the property types were advertised but never checked. On filesystem-sandbox, `read_file {path, max_bytes: 1}` returned the whole file, and `{path: 5}` was refused as `sandbox_escape (input_empty)`. The Python port refused both, because its SDK validates with jsonschema. The messages are worded the way jsonschema words them, so both ports refuse the same input with the same reason. A shared table holds them to that: the TS suite runs it through `checkToolArgs`, and the Python suite runs it through jsonschema against its own published schemas.
+
+**Alternatives considered:**
+- Add ajv. Rejected: it would add a dependency to four packages to cover four keywords.
+- Narrow the README's parity claim instead. Rejected: ignoring the caller's cap is a real behaviour difference, not a wording problem.
+- A shared module through a workspace. Rejected: it restructures four packages, whereas copies plus a lock are the smaller change.
+
+**Reversibility:** Cheap.
+
+**Related issues:** #197, #189, #190, #195

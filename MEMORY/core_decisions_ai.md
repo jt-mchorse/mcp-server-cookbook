@@ -135,3 +135,16 @@
   reversibility: cheap
   related_issues: ["#176", "#134", "#88"]
   superseded_by: null
+
+- id: D-014
+  date: 2026-10-01
+  decision: EVERY_TS_SERVER_ENFORCES_ITS_PUBLISHED_inputSchema_AT_THE_CallTool_SEAM_through_ONE_MODULE_src_tool_args_ts_COPIED_BYTE_FOR_BYTE_into_each_server_and_held_identical_and_wired_by_tools_check_tool_args_mjs
+  rationale: the_TS_SDK_does_not_validate_inputSchema_and_no_TS_server_did_so_additionalProperties_false_and_the_property_types_were_ADVERTISED_AND_NEVER_CHECKED_measured_fs_sandbox_read_file_with_max_bytes_1_RETURNED_THE_WHOLE_FILE_and_path_5_was_refused_as_sandbox_escape_input_empty_while_the_python_port_whose_SDK_validates_with_jsonschema_refused_both_the_README_called_the_two_surfaces_the_same
+  WORDED_LIKE_jsonschema_ON_PURPOSE: "Input validation error: 'path' is a required property / Additional properties are not allowed ('x' was unexpected) / ... is not of type 'string' -- so both ports refuse one input with one reason, held to a shared table test-fixtures/tool_args_parity.json that the TS suite runs through checkToolArgs and the Python suite runs through jsonschema against its own published schemas; 11 rows agree including two unknown properties and a prototype name (toString)"
+  COPIED_NOT_SHARED_BECAUSE_EACH_SERVER_IS_ITS_OWN_PACKAGE: "a shared module would need a workspace or a published package; four identical copies plus a lock that fails on drift and on a handler that stops calling it is the smaller change. Own-property checks, so Object.prototype names are not declared properties."
+  SUBSET_NOT_A_FULL_VALIDATOR: "object / required / additionalProperties:false / string|integer types -- exactly what these tools publish; minimum/maximum stay in the handlers, which already validate them, and an unmodelled type is not refused"
+  alternatives_rejected: ["ADD_A_JSON_SCHEMA_DEPENDENCY_ajv_REJECTED_four_packages_gain_a_dependency_for_four_keywords", "NARROW_THE_README_PARITY_CLAIM_INSTEAD_REJECTED_the_caller_cap_being_ignored_is_a_real_behaviour_difference_not_a_wording_one", "SHARED_MODULE_VIA_A_WORKSPACE_REJECTED_restructures_four_packages"]
+  measured: "fs-sandbox 188 -> 210, fs-sandbox-py 258 -> 270, other TS suites unchanged (68, 172, 280); tools/check-tool-args.test.mjs 5 green; every tools/*.test.mjs green"
+  reversibility: cheap
+  related_issues: ["#197", "#189", "#190", "#195"]
+  superseded_by: null
