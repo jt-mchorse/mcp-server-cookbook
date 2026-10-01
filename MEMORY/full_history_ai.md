@@ -2190,3 +2190,22 @@ context_for_next_session:
   - THE_SUCCESS_MESSAGE_healthcheck_passes_in_5s_WAS_A_TIMING_GUESS_PRINTED_WHILE_UP_D_WAS_STILL_RUNNING_up_d_wait_makes_the_message_a_fact
   - MERGE_NOTE_184_also_edits_capture_demo_mjs_and_appends_to_capture_demo_test_mjs_trivial_append_conflict
 followups: []
+
+---
+session: 2026-10-01T08:29Z
+issue: 195
+focus: THE_LEXISTS_PATTERN_141_FIXED_IN_resolve_WAS_STILL_IN_THE_ROOT_CHECK
+phase: shipped
+duration_min: 3   # 08:26 plan -> 08:29 close, from date -u
+delta:
+  files_changed: 7
+  tests_added: 4   # py 3, ts 1
+  suite: "fs-sandbox-py 258 -> 261, fs-sandbox 188 -> 189"
+decisions_made: []
+measured: "hunt agent over stdio: py started with allowed_roots=('/private/tmp/fsb/nonexistent/',) and refused every call as outside_allowlist; TS refused to start (ENOENT). Revert to lexists: 2 red of 261. tools/check-readme.mjs ok; every tools/*.test.mjs green."
+context_for_next_session:
+  - A_FIX_WHOSE_COMMENT_NAMES_A_MECHANISM_lexists_does_not_follow_symlinks_COVERS_EVERY_CALL_SITE_OF_THAT_MECHANISM_grep_for_it_141_fixed_one_of_two
+  - 181_183_SAID_THE_PY_PORT_ALREADY_REFUSED_A_MISSING_ROOT_TRUE_FOR_A_PLAIN_PATH_FALSE_FOR_A_DANGLING_LINK_a_parity_claim_tested_on_one_input
+  - NOT_DONE_a_regular_FILE_as_a_root_is_accepted_by_both_ports_although_the_py_docstring_says_must_be_a_directory_and_the_TS_schema_additionalProperties_false_is_published_but_not_enforced_BOTH_FROM_THE_SAME_HUNT_NOT_FILED_YET
+followups: []
+---
