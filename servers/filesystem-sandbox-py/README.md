@@ -118,7 +118,7 @@ on macOS):
 
 ```bash
 pip install -e '.[dev]'      # no [server] needed — primitive tests don't import mcp
-pytest                        # 258 tests, ~0.6 s
+pytest                        # 270 tests, ~0.6 s
 ruff check . && ruff format --check .
 ```
 
@@ -144,7 +144,12 @@ ei.value.reason == ...` — same invariant, different syntax.
 The root README's `Quickstart` starts each port with one command. Both
 publish the same tool *structure*: the three tool names, each input
 property's name and type, `required`, and `additionalProperties: false`.
-`tests/test_tool_surface_parity.py` checks that against the TS source. They
+`tests/test_tool_surface_parity.py` checks that against the TS source. Both
+also *enforce* it: this port's SDK validates every call with jsonschema, and
+the TS port, whose SDK does not, runs `checkToolArgs` first (#197), so an
+unknown property or a wrong type is refused with the same
+`Input validation error: ...` text by both
+(`test-fixtures/tool_args_parity.json`). They
 are not byte-identical: every tool and property `description` is worded
 independently, and `serverInfo` carries each port's own name
 (`filesystem-sandbox-py` here).

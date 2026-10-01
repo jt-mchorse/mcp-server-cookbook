@@ -9,6 +9,7 @@ import {
 
 import { type DbConfig, readDbConfigFromEnv } from "./db.js";
 import { dispatchCallTool } from "./handler.js";
+import { checkToolArgs, type ToolInputSchema } from "./tool-args.js";
 
 // Boot-time configuration failure, as one actionable line (#151).
 //
@@ -111,6 +112,14 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: TOOLS }))
 
 server.setRequestHandler(CallToolRequestSchema, async (req): Promise<CallToolResult> => {
   const { name, arguments: args } = req.params;
+  // The published inputSchema, enforced before `arguments` is read (#197): the
+  // TS SDK does not validate it, so `additionalProperties: false` and the
+  // property types were advertised and never checked.
+  const schema = TOOLS.find((t) => t.name === name)?.inputSchema;
+  const invalid = schema === undefined ? null : checkToolArgs(schema as unknown as ToolInputSchema, args);
+  if (invalid !== null) {
+    return { content: [{ type: "text" as const, text: invalid }], isError: true };
+  }
   const a = (args ?? {}) as Record<string, unknown>;
   return dispatchCallTool(name, a, cfg);
 });

@@ -1,0 +1,34 @@
+{
+  "_comment": [
+    "Shared tool-arguments parity table for the two filesystem-sandbox ports (#197, D-014).",
+    "",
+    "Read by servers/filesystem-sandbox/test/tool-args-parity.test.ts (through",
+    "checkToolArgs, against the TS port's published TOOLS schemas) and by",
+    "servers/filesystem-sandbox-py/tests/test_tool_args_parity.py (through",
+    "jsonschema -- what the Python SDK runs before a call -- against the Python",
+    "port's published schemas). Sixth table, after the other five in this directory.",
+    "",
+    "Before #197 the TS port enforced none of its published inputSchema: read_file",
+    "{path, max_bytes: 1} returned the WHOLE file, and {path: 5} was refused as",
+    "sandbox_escape (input_empty). The Python SDK refused both before the handler ran.",
+    "",
+    "`fragment` is null for arguments both ports must accept, and otherwise a",
+    "substring both ports' refusal text must contain. Value rendering is left out",
+    "of the fragments on purpose -- Python prints True/None where JS prints",
+    "true/null -- so every row has exactly one schema violation and the fragment",
+    "names the rule, not the value."
+  ],
+  "cases": [
+    {"label": "valid read", "tool": "read_file", "args": {"path": "/x"}, "fragment": null},
+    {"label": "valid write", "tool": "write_file", "args": {"path": "/x", "content": "hi"}, "fragment": null},
+    {"label": "unknown property", "tool": "read_file", "args": {"path": "/x", "max_bytes": 1}, "fragment": "Additional properties are not allowed ('max_bytes' was unexpected)"},
+    {"label": "unknown property on write", "tool": "write_file", "args": {"path": "/x", "content": "c", "encoding": "base64"}, "fragment": "Additional properties are not allowed ('encoding' was unexpected)"},
+    {"label": "two unknown properties", "tool": "list_directory", "args": {"path": "/x", "a": 1, "b": 2}, "fragment": "Additional properties are not allowed ('a', 'b' were unexpected)"},
+    {"label": "missing required", "tool": "read_file", "args": {}, "fragment": "'path' is a required property"},
+    {"label": "missing second required", "tool": "write_file", "args": {"path": "/x"}, "fragment": "'content' is a required property"},
+    {"label": "number for a string", "tool": "read_file", "args": {"path": 5}, "fragment": "is not of type 'string'"},
+    {"label": "null for a string", "tool": "write_file", "args": {"path": "/x", "content": null}, "fragment": "is not of type 'string'"},
+    {"label": "bool for a string", "tool": "list_directory", "args": {"path": true}, "fragment": "is not of type 'string'"},
+    {"label": "prototype name is not a declared property", "tool": "read_file", "args": {"path": "/x", "toString": "y"}, "fragment": "Additional properties are not allowed ('toString' was unexpected)"}
+  ]
+}

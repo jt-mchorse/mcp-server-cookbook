@@ -372,3 +372,19 @@ jobs:
         run: node tools/check-env-example.mjs
       - name: Run the env-example check script's own unit tests
         run: node --test tools/check-env-example.test.mjs
+
+  tool-args-check:
+    # Every TS server enforces its published inputSchema through one copied
+    # module (#197, D-014): the TS SDK does not validate it, and until #197 no
+    # server did, so `additionalProperties: false` was advertised and ignored.
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Verify every TS server's CallTool handler calls checkToolArgs, from identical copies
+        run: node tools/check-tool-args.mjs
+      - name: Run the tool-args check script's own unit tests
+        run: node --test tools/check-tool-args.test.mjs
