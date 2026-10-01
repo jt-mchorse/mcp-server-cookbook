@@ -2118,3 +2118,21 @@ context_for_next_session:
   - portfolio_ops_80_IS_NOW_WORKED_IN_EVERY_REPO_IT_NAMED_lco_238_leh_272_ems_163_vsas_159_mcp_this_aop_152_aiapp_134
   - CI_RED_ON_FIRST_PUSH_ADDING_A_FILE_TO_A_SERVER_DIR_CHANGES_internal_tools_bridge_README_repo_stats_EXAMPLE_which_is_LOCKED_to_git_ls_files_of_its_own_directory_RUN_EVERY_TOUCHED_SERVERS_SUITE_NOT_ONLY_THE_TOOLS_TESTS_fixed_in_a_follow_up_commit
 followups: []
+
+---
+session: 2026-09-30T10:03:11Z
+issue: 187
+focus: THE_EXAMPLE_WAS_REAL_IN_A_STATE_WHERE_ITS_CALL_CANNOT_BE_MADE
+phase: shipped
+duration_min: 1
+delta:
+  files_changed: 4
+  tests_added: 1
+  suite: "internal-tools-bridge vitest 68 passed; check-readme.mjs and every tools test green; tsc and lint clean"
+decisions_made: []
+measured: "node bin/repo-stats.mjs --root ./ --max-depth 3 on an installed and built checkout: total_files 1080 (.md 253, .json 212, .js 211, <none> 206, .ts 157) against the README's 16. Probe: a node_modules skip added to the CLI, 1 red of 3."
+context_for_next_session:
+  - READ_THE_SCOPE_THE_CLAIM_WROTE_DOWN_real_on_a_fresh_clone_IS_TRUE_AND_IS_A_STATE_IN_WHICH_THE_DOCUMENTED_TOOLS_CALL_CANNOT_BE_MADE_the_91_lock_compares_to_git_ls_files_WHICH_IS_THAT_SAME_UNREACHABLE_STATE_so_it_is_green_by_construction
+  - WHETHER_repo_stats_SHOULD_SKIP_node_modules_dist_OR_HONOUR_gitignore_IS_LEFT_TO_JT_the_new_arm_PINS_TODAYS_EXCLUDES_NOTHING_so_a_change_must_update_the_README_in_the_same_commit
+  - MERGE_NOTE_186_adds_env_example_to_this_server_and_changes_the_example_to_17_files_THIS_PR_AVOIDS_CITING_16_and_both_touch_tools_test_counts_json_and_the_server_README
+followups: []
