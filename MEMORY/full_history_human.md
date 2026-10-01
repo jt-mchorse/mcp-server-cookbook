@@ -1966,3 +1966,15 @@ publishes. Separately, the capture-demo cheatsheet told the operator to pass
 arguments are now checked against the servers' declarations. Test count is 172.
 Merge note: #180 sets the gists README's count to 167 on the same line, so
 resolve it to 172.
+
+## 2026-09-30T09:51:24Z — #185: a .env.example for every server
+
+The portfolio handoff asks every repo for a `.env.example`. Here each server is
+its own project with its own environment, and only postgres-readonly had one. The
+two filesystem servers, github-gists and the tools bridge now have theirs too,
+each listing its variables with the defaults. A new check reads each server's
+source for every variable it uses and fails CI if the server's `.env.example`
+misses one or lists one nobody reads. It has to recognise four spellings of "read
+an environment variable", including postgres's `parseIntEnv("MAX_ROWS")`, which
+a plain `process.env` search would miss. This finishes portfolio-ops#80 across
+the repos it named.

@@ -19,6 +19,8 @@
     "test:string-env-grammar": "node --test tools/check-string-env-grammar.test.mjs",
     "check:config-port-parity": "node tools/check-config-port-parity.mjs",
     "test:config-port-parity": "node --test tools/check-config-port-parity.test.mjs",
+    "check:env-example": "node tools/check-env-example.mjs",
+    "test:env-example": "node --test tools/check-env-example.test.mjs",
     "test:strip-comments": "node --test tools/lib/strip-comments.test.mjs",
     "test:tools-files": "node --test tools/lib/tools-files.test.mjs",
     "test:tools-test-registration": "node --test tools/check-tools-test-registration.test.mjs"

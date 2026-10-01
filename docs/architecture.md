@@ -89,6 +89,15 @@ one another; they share a checked rule:
   rather than on either language's access syntax — which is exactly
   what differs between them.
 
+- **Every server's `.env.example` lists exactly what it reads**
+  (`check-env-example.mjs`, #185). The handoff asks for one per repo
+  that reads configuration; here each server is its own project, so the
+  unit is the server. Before #185 only `postgres-readonly` had one. This
+  check is keyed on access syntax, the opposite of the port-parity check,
+  because its population includes `GITHUB_TOKEN`, `DATABASE_URL` and
+  `MAX_ROWS`, which carry no `MCP_` prefix. It compares both ways, so a
+  new read and a stale entry both fail.
+
 Both grammar populations are **discovered** from `servers/`, so a sixth
 server inherits both rules without anyone remembering to add it to a
 list. Within a file, the string check also asserts **coverage**: every

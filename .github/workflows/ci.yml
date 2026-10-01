@@ -354,3 +354,21 @@ jobs:
         run: node tools/check-config-port-parity.mjs
       - name: Run the config-port-parity check script's own unit tests
         run: node --test tools/check-config-port-parity.test.mjs
+
+  env-example-check:
+    # Each server's `.env.example` lists exactly the env variables its non-test
+    # source reads (#185, portfolio-ops#80). Before #185 only postgres-readonly
+    # had one, and nothing checked that it was complete.
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+      - run: npm ci
+      - name: Verify every server's .env.example matches the variables it reads
+        run: node tools/check-env-example.mjs
+      - name: Run the env-example check script's own unit tests
+        run: node --test tools/check-env-example.test.mjs
