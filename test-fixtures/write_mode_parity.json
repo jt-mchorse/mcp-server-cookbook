@@ -1,0 +1,21 @@
+{
+  "_comment": [
+    "Shared file-mode parity table for the filesystem-sandbox dual port's atomic write (#200, portfolio-ops#81).",
+    "Both test suites read THIS file and run every row twice: once against the atomic-write helper and once",
+    "through the real `write_file` tool, so a call site that bypasses the helper's mode handling is caught too.",
+    "`umask` is the process umask set for the row; `preexisting_mode` is chmod'ed onto the target before the write",
+    "(null = the target does not exist yet); `expected_mode` is the target's permission bits afterwards.",
+    "Pre-fix both ports produced 0o600 on every row: the temp file was created 0600 and the rename carried it over.",
+    "Modes are octal strings so the table reads the way `ls -l` and `chmod` do."
+  ],
+  "cases": [
+    { "label": "new file, umask 022", "umask": "022", "preexisting_mode": null, "expected_mode": "644" },
+    { "label": "new file, umask 077", "umask": "077", "preexisting_mode": null, "expected_mode": "600" },
+    { "label": "new file, umask 027", "umask": "027", "preexisting_mode": null, "expected_mode": "640" },
+    { "label": "overwrite keeps 0644", "umask": "022", "preexisting_mode": "644", "expected_mode": "644" },
+    { "label": "overwrite keeps 0600", "umask": "022", "preexisting_mode": "600", "expected_mode": "600" },
+    { "label": "overwrite keeps 0640", "umask": "022", "preexisting_mode": "640", "expected_mode": "640" },
+    { "label": "overwrite keeps 0644 under umask 077", "umask": "077", "preexisting_mode": "644", "expected_mode": "644" },
+    { "label": "overwrite drops setuid, keeps 0755", "umask": "022", "preexisting_mode": "4755", "expected_mode": "755" }
+  ]
+}

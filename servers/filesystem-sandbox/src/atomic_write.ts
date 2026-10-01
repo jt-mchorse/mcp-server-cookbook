@@ -48,6 +48,43 @@ function capBaseForTemp(base: string): string {
   return out;
 }
 
+// Mode the temp file is created with. 0o666, not 0o600, so the KERNEL applies
+// the process umask exactly as the plain `fs.writeFile` this helper replaced
+// did (#200, portfolio-ops#81). With 0o600 the rename carried owner-only onto
+// the target: every file `write_file` created was 0600 under umask 022, and an
+// overwrite demoted 0644 to 0600. The umask is never read via
+// `process.umask()` — never mutate (or depend on) the process-global umask.
+const CREATE_MODE = 0o666;
+
+/**
+ * Permission bits of the file already at `target`, or `null` if absent.
+ *
+ * An overwrite keeps the target's mode (#200), which is what the plain
+ * `fs.writeFile` did: `O_TRUNC` reuses the inode, so its mode was never
+ * touched.
+ *
+ * `fs.stat` FOLLOWS a symlink, deliberately. The caller passes the sandbox's
+ * `sp.resolved`, which `Sandbox.resolve` has already realpath'd (and which
+ * rejects a dangling or outside-pointing leaf symlink), so on every normal
+ * path the target is not a symlink at all. If one appears in a race, the mode
+ * worth copying is the file it points at; a symlink's own bits (0o755 on
+ * macOS, 0o777 on Linux) would make the result world-writable. A dangling link
+ * stats as ENOENT and falls back to the umask default.
+ *
+ * Masked to `0o777`: setuid/setgid/sticky are not carried over. A plain write
+ * by an unprivileged process makes the kernel drop setuid/setgid, so copying
+ * them onto new content would be more permissive than the write this helper
+ * replaced. Parity with the Python twin's `_existing_mode`.
+ */
+async function existingMode(target: string): Promise<number | null> {
+  try {
+    return (await fs.stat(target)).mode & 0o777;
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === "ENOENT") return null;
+    throw err;
+  }
+}
+
 export async function atomicWriteFile(target: string, data: Buffer): Promise<void> {
   const dir = path.dirname(target);
   const base = path.basename(target);
@@ -58,11 +95,14 @@ export async function atomicWriteFile(target: string, data: Buffer): Promise<voi
 
   // O_WRONLY | O_CREAT | O_EXCL — fail loudly if the temp name
   // already exists (collision with a concurrent attempt by another
-  // process); never silently clobber.
-  const handle = await fs.open(tmp, fsc.O_WRONLY | fsc.O_CREAT | fsc.O_EXCL, 0o600);
+  // process); never silently clobber. Mode 0o666 so the kernel applies the
+  // umask (#200, see `CREATE_MODE`).
+  const handle = await fs.open(tmp, fsc.O_WRONLY | fsc.O_CREAT | fsc.O_EXCL, CREATE_MODE);
   let renamed = false;
   try {
     await handle.writeFile(data);
+    const mode = await existingMode(target);
+    if (mode !== null) await handle.chmod(mode);
     await handle.sync();
     await handle.close();
     await fs.rename(tmp, target);
