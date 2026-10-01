@@ -2000,3 +2000,13 @@ differently, only the structure matches, and the cited check never looks at
 schemas. The server now reports its own version (tested through a real
 handshake), a new test compares the two ports' tool structure, and the prose says
 exactly what is and isn't identical.
+
+## 2026-09-30T10:07:36Z — #191: the postgres Quickstart copied a .env nothing read
+
+The postgres server's Quickstart copied `.env.example` to `.env` and then started
+the server with the database URL typed inline. The server doesn't load `.env` at
+all, so the copied file did nothing, and changing a setting in it had no effect.
+It also started Postgres with `docker compose up -d`, which doesn't wait for the
+database to be ready. The Quickstart now waits (`--wait`) and exports `.env`
+before starting, so that file is the one place the settings live. A test pins
+both rules. Same class as rag#239.

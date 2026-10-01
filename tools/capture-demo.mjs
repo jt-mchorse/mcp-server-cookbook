@@ -129,7 +129,7 @@ export function renderStage1Cheatsheet({ seedSha256, launched }) {
     "#",
     "# 1. Bring up the sample database (separate terminal):",
     "#      cd servers/postgres-readonly",
-    "#      docker compose up -d",
+    "#      docker compose up -d --wait",
     "#      DATABASE_URL=postgresql://mcp_reader:mcp_reader@localhost:5433/bench npm start",
     "#",
     launchNote,

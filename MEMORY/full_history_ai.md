@@ -2155,3 +2155,20 @@ context_for_next_session:
   - THE_VERSION_ARM_importorskips_mcp_LIKE_178s_test_server_builds_with_only_dev_installed_as_the_root_README_line_says_253_pass_1_skips_CI_installs_server_dev_so_it_never_skips_there
   - MERGE_NOTE_178_ALSO_ADDS_4_TESTS_TO_THIS_SERVER_after_both_the_runtime_count_is_258_and_178_rewrites_the_Server_construction_into_build_server_this_PR_changes_that_line_resolve_by_keeping_version_equals_version_inside_build_server
 followups: []
+
+---
+session: 2026-09-30T10:07:36Z
+issue: 191
+focus: a_quickstart_step_that_looks_like_configuration_and_does_nothing
+phase: shipped
+duration_min: 0
+delta:
+  files_changed: 4
+  tests_added: 4
+  suite: "postgres-readonly vitest 280 passed; tsc and lint clean; check-readme.mjs green"
+decisions_made: []
+measured: "npm start is node dist/server.js with no dotenv or --env-file, so cp .env.example .env was dead and the inline DATABASE_URL was the only source; the compose file declares a pg_isready healthcheck that up -d does not wait for. Probe: main's README 2 red of 4. Sourcing .env.example exports DATABASE_URL and MAX_ROWS as expected."
+context_for_next_session:
+  - SAME_CLASS_AS_rag_239_compose_up_d_without_wait_WHILE_A_HEALTHCHECK_IS_DECLARED_grep_other_repos_for_docker_compose_up_d_before_filing_anew
+  - A_COPY_STEP_IS_A_CLAIM_THAT_SOMETHING_READS_THE_COPY_ask_what_loads_it_the_answer_here_was_nothing
+followups: []

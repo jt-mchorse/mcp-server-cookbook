@@ -75,7 +75,7 @@ test("renderStage1Cheatsheet includes the sha256, docker steps, and both tool ca
     launched: false,
   });
   assert.match(out, /sha256\(servers\/postgres-readonly\/sample-db\/init\.sql\) = a{64}/);
-  assert.ok(out.includes("docker compose up -d"));
+  assert.ok(out.includes("docker compose up -d --wait"));
   assert.ok(out.includes("Tool: describe_schema"));
   assert.ok(out.includes("Tool: run_select"));
   assert.ok(out.includes("D-004"));
