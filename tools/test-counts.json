@@ -20,7 +20,7 @@
     "To update: run the server's test command and copy the number it printed."
   ],
   "counts": {
-    "filesystem-sandbox": 185,
+    "filesystem-sandbox": 188,
     "filesystem-sandbox-py": 254,
     "github-gists": 167,
     "internal-tools-bridge": 67,
