@@ -308,3 +308,19 @@ the deliberate one.
 **Reversibility:** Cheap.
 
 **Related issues:** #174, #173, #172, #170, #168
+
+## D-013 — The Python server's SDK is bounded below 2, and the built server is tested (2026-09-30)
+**Decision:** `servers/filesystem-sandbox-py` declares `server = ["mcp>=1.27,<2"]`, the same major as the TS servers' `@modelcontextprotocol/sdk: ^1.5.0`. `_build_server(deps)` registers the handlers, and `test_server_builds.py` calls them through the SDK's own request table.
+
+**Why:** The unbounded `mcp>=1.27` resolved mcp 2.2.0 on a fresh `pip install -e '.[server]'`. mcp 2.x removed the `Server.list_tools()` / `call_tool()` decorators, so the documented `mcp-filesystem-sandbox-py` crashed on startup (`'Server' object has no attribute 'list_tools'`). CI stayed green: it installs the same extra, so it also got 2.2.0, but no test constructed the server, since `_serve` built and ran it behind stdio in one function. #134 had made the `isError` tests stable across both majors and wrote that 1.x "is still inside the declared range", verifying the result wrapper on 2.x but never the server that uses the decorator API.
+
+The bound is the immediate fix; the test is the durable one. It fails on 2.2.0 with the exact startup error, so the next incompatible SDK fails in CI rather than in an operator's terminal. Porting to the 2.x API is #177.
+
+**Alternatives considered:**
+- Port to 2.x now — deferred to #177: the documented install is broken today and the bound is one line.
+- Bound without a server-build test — rejected: the suite would stay blind to the next incompatible SDK.
+- Exact pin — rejected: the TS servers take a caret range; a minor bump isn't the hazard.
+
+**Reversibility:** Cheap.
+
+**Related issues:** #176, #177, #134, #88

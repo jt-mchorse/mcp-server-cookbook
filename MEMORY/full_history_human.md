@@ -1917,3 +1917,14 @@ And a partial revert is not a revert, for the second time today — the first pr
 added a skip inside the loop instead of changing what the loop iterates.
 
 Recorded as D-012.
+
+## 2026-09-30 — Issue #176: the Python server's SDK is bounded, and the built server is tested (D-013)
+**Duration:** ~2 min · **Branch:** session/2026-09-30-0912-issue-176
+
+- The documented `pip install -e '.[server]'` resolved mcp 2.2.0 and the server crashed on startup, with CI green because nothing built the server. The extra is bounded `<2` (the TS major), and a new test builds the server as `main` does and calls its handlers; it fails on 2.2.0 with the startup error. Porting to 2.x is #177.
+
+**Why this work, this session:** the most serious finding of the fresh-clone Quickstart audit.
+
+**Open questions / blockers:** several smaller audit findings for this repo are recorded for the next session.
+
+**Next session:** the remaining audit findings (allow-list mkdir, gists sample JSON-RPC fields, per-server count lines, repo-stats counting node_modules).

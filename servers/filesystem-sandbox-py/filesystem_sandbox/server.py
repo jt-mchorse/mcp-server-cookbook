@@ -231,17 +231,19 @@ def _wrap_dispatch_result(text: str, is_error: bool) -> Any:
     )
 
 
-async def _serve(deps: ToolDeps) -> None:
-    """Wire the tool dispatcher into the official Python MCP SDK.
+def _build_server(deps: ToolDeps) -> Any:
+    """The MCP server with both handlers registered, exactly as `main` runs it.
 
-    Imports the SDK lazily so the security primitive's tests don't
-    need it installed.
+    Split out of `_serve` (#176) so a test can build it without stdio. It used
+    to be built and run in one function, which is how mcp 2.2.0 -- which the
+    unbounded `mcp>=1.27` resolved on a fresh install -- crashed this server on
+    startup (`'Server' object has no attribute 'list_tools'`) while all 250
+    tests stayed green: none of them constructed it.
+
+    Imports the SDK lazily so the security primitive's tests don't need it.
     """
-    # Local import keeps the module's top-level import-cost zero for
-    # tests that don't run the server.
     from mcp import types
     from mcp.server import Server
-    from mcp.server.stdio import stdio_server
 
     server = Server("filesystem-sandbox-py")
 
@@ -257,6 +259,14 @@ async def _serve(deps: ToolDeps) -> None:
         # refusal). A bare content list always reported isError:false.
         return _wrap_dispatch_result(text, is_error)
 
+    return server
+
+
+async def _serve(deps: ToolDeps) -> None:
+    """Run `_build_server(deps)` over stdio."""
+    from mcp.server.stdio import stdio_server
+
+    server = _build_server(deps)
     async with stdio_server() as (read, write):
         await server.run(read, write, server.create_initialization_options())
 
