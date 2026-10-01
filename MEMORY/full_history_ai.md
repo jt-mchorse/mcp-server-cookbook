@@ -2172,3 +2172,21 @@ context_for_next_session:
   - SAME_CLASS_AS_rag_239_compose_up_d_without_wait_WHILE_A_HEALTHCHECK_IS_DECLARED_grep_other_repos_for_docker_compose_up_d_before_filing_anew
   - A_COPY_STEP_IS_A_CLAIM_THAT_SOMETHING_READS_THE_COPY_ask_what_loads_it_the_answer_here_was_nothing
 followups: []
+
+---
+session: 2026-09-30T10:09:42Z
+issue: 193
+focus: SPAWN_NEVER_THROWS_SO_THE_CATCH_AROUND_IT_WAS_DEAD
+phase: shipped
+duration_min: 0
+delta:
+  files_changed: 2
+  tests_added: 3
+  suite: "every tools test and every directly-invoked checker green; capture-demo.test.mjs 17 passed"
+decisions_made: []
+measured: "PATH with node only: --launch-postgres printed 'docker compose started; healthcheck passes in ~5s' and exited 0. The process exits before spawn's async error event fires. Probe: the old spawn restored, 3 red of 17 (success, failure and absent arms)."
+context_for_next_session:
+  - FOUND_BY_THE_POST_FIX_SWEEP_FOR_191_grepping_docker_compose_up_d_led_to_capture_demo_and_READING_THE_LAUNCH_SITE_showed_a_try_catch_around_spawn_A_CATCH_AROUND_AN_ASYNC_API_IS_A_DEAD_BRANCH_grep_the_portfolio_for_try_spawn
+  - THE_SUCCESS_MESSAGE_healthcheck_passes_in_5s_WAS_A_TIMING_GUESS_PRINTED_WHILE_UP_D_WAS_STILL_RUNNING_up_d_wait_makes_the_message_a_fact
+  - MERGE_NOTE_184_also_edits_capture_demo_mjs_and_appends_to_capture_demo_test_mjs_trivial_append_conflict
+followups: []

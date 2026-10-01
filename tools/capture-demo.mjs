@@ -13,7 +13,7 @@
 // Stages:
 //   STAGE 1 — postgres-readonly: verify the sample-db seed (sha256
 //             fingerprint of `servers/postgres-readonly/sample-db/init.sql`),
-//             optionally `docker compose up -d` with --launch-postgres,
+//             optionally `docker compose up -d --wait` with --launch-postgres,
 //             print the exact `describe_schema` + `run_select` tool
 //             invocations the operator drives in Claude.
 //   STAGE 2 — filesystem-sandbox: create a deterministic tmp allow-list
@@ -43,7 +43,7 @@ import {
 import { createHash } from "node:crypto";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { execFileSync, spawn } from "node:child_process";
+import { execFileSync } from "node:child_process";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -119,8 +119,8 @@ export function extractFixtureGistId(docText) {
 
 export function renderStage1Cheatsheet({ seedSha256, launched }) {
   const launchNote = launched
-    ? "[capture] docker compose started; healthcheck passes in ~5s."
-    : "# Optional: --launch-postgres runs `docker compose up -d` for you.\n#           Off by default — docker is heavyweight; the operator may have it already.";
+    ? "[capture] docker compose is up; the pg_isready healthcheck passed."
+    : "# Optional: --launch-postgres runs `docker compose up -d --wait` for you.\n#           Off by default — docker is heavyweight; the operator may have it already.";
   return [
     "# Postgres readonly server (STAGE 1) — operator drives in Claude.",
     "#",
@@ -308,15 +308,20 @@ export function main(argv = process.argv.slice(2), out = process.stdout) {
     const seedSha256 = sha256OfFile(seedAbs);
     let launched = false;
     if (args.launchPostgres) {
+      // Synchronous, and `--wait` blocks until the healthcheck passes (#193).
+      // It used to be `spawn(...)` inside this same try: spawn never throws --
+      // a missing binary is an async `error` event nothing listened for, and
+      // a failed launch is a non-zero exit nothing read -- so the catch was
+      // dead, and with no docker installed this printed "docker compose
+      // started" and exited 0.
       try {
-        spawn("docker", ["compose", "up", "-d"], {
+        execFileSync("docker", ["compose", "up", "-d", "--wait"], {
           cwd: path.join(REPO_ROOT, "servers/postgres-readonly"),
           stdio: "inherit",
-          detached: false,
         });
         launched = true;
       } catch {
-        out.write("[capture] --launch-postgres requested but docker spawn failed; cheat-sheet only.\n");
+        out.write("[capture] --launch-postgres requested but `docker compose up -d --wait` failed; cheat-sheet only.\n");
       }
     }
     out.write(renderStage1Cheatsheet({ seedSha256, launched }) + "\n");
