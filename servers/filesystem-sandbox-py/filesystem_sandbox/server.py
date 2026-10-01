@@ -34,9 +34,12 @@ from .tools import (
 def _build_tool_specs() -> list[dict[str, Any]]:
     """Tool schemas exposed by the server.
 
-    Identical shape to the TypeScript implementation under
-    ``../filesystem-sandbox/src/server.ts``; if the schemas drift,
-    the cookbook's spec-version check will catch it before merge.
+    The same STRUCTURE as the TypeScript port's ``TOOLS`` in
+    ``../filesystem-sandbox/src/server.ts``: tool names, property names and
+    types, ``required`` and ``additionalProperties``. The descriptions are
+    worded independently and differ. ``tests/test_tool_surface_parity.py``
+    checks the structure; nothing else did, whatever this docstring used to
+    say about the spec-version check, which compares SDK pins only (#189).
     """
     return [
         {
@@ -245,7 +248,11 @@ def _build_server(deps: ToolDeps) -> Any:
     from mcp import types
     from mcp.server import Server
 
-    server = Server("filesystem-sandbox-py")
+    from . import __version__
+
+    # Without `version=`, the SDK advertises its OWN package version in
+    # `serverInfo` (it said 1.28.1 while this package is 0.1.0) (#189).
+    server = Server("filesystem-sandbox-py", version=__version__)
 
     @server.list_tools()
     async def _list_tools() -> list[types.Tool]:

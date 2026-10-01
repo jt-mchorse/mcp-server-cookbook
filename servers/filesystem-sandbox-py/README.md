@@ -118,7 +118,7 @@ on macOS):
 
 ```bash
 pip install -e '.[dev]'      # no [server] needed — primitive tests don't import mcp
-pytest                        # 254 tests, ~0.6 s
+pytest                        # 258 tests, ~0.6 s
 ruff check . && ruff format --check .
 ```
 
@@ -141,11 +141,13 @@ ei.value.reason == ...` — same invariant, different syntax.
 
 ## Sample client run
 
-A walkthrough comparing the TS and Python servers side-by-side lives
-in the root README's `Quickstart`. Both expose identical tool schemas;
-an MCP client interchange is byte-identical across the two
-implementations modulo a tool-id rename (the Python server publishes
-itself as `filesystem-sandbox-py`).
+The root README's `Quickstart` starts each port with one command. Both
+publish the same tool *structure*: the three tool names, each input
+property's name and type, `required`, and `additionalProperties: false`.
+`tests/test_tool_surface_parity.py` checks that against the TS source. They
+are not byte-identical: every tool and property `description` is worded
+independently, and `serverInfo` carries each port's own name
+(`filesystem-sandbox-py` here).
 
 ## Why these decisions
 

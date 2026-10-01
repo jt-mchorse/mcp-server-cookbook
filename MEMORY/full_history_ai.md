@@ -2136,3 +2136,22 @@ context_for_next_session:
   - WHETHER_repo_stats_SHOULD_SKIP_node_modules_dist_OR_HONOUR_gitignore_IS_LEFT_TO_JT_the_new_arm_PINS_TODAYS_EXCLUDES_NOTHING_so_a_change_must_update_the_README_in_the_same_commit
   - MERGE_NOTE_186_adds_env_example_to_this_server_and_changes_the_example_to_17_files_THIS_PR_AVOIDS_CITING_16_and_both_touch_tools_test_counts_json_and_the_server_README
 followups: []
+
+---
+session: 2026-09-30T10:05:53Z
+issue: 189
+focus: A_PARITY_CLAIM_AND_THE_CHECK_IT_CITED_WERE_BOTH_FICTION
+phase: shipped
+duration_min: 1
+delta:
+  files_changed: 5
+  tests_added: 4
+  suite: "filesystem-sandbox-py 254 passed; ruff clean; check-readme.mjs and the port-parity check green"
+decisions_made: []
+measured: "initialize + tools/list against both ports: serverInfo py version 1.28.1 (the mcp SDK's) vs ts 0.1.0; every tool description and every property description differs; names, property types, required and additionalProperties match. Probes: version= removed 1 red; a property added to the py spec 2 red of 4."
+context_for_next_session:
+  - A_PROSE_ASSERTION_IS_A_TEST_CASE_the_README_said_byte_identical_modulo_a_rename_RUNNING_tools_list_ON_BOTH_TOOK_SECONDS_and_refuted_it_and_found_the_version_bug_the_claim_was_hiding
+  - A_DOCSTRING_CITED_A_CHECK_THAT_DOES_NOT_DO_WHAT_IT_SAYS_spec_version_mjs_compares_SDK_pins_only_ASK_OF_ANY_WILL_BE_CAUGHT_BY_X_WHETHER_X_READS_THAT_THING
+  - THE_VERSION_ARM_importorskips_mcp_LIKE_178s_test_server_builds_with_only_dev_installed_as_the_root_README_line_says_253_pass_1_skips_CI_installs_server_dev_so_it_never_skips_there
+  - MERGE_NOTE_178_ALSO_ADDS_4_TESTS_TO_THIS_SERVER_after_both_the_runtime_count_is_258_and_178_rewrites_the_Server_construction_into_build_server_this_PR_changes_that_line_resolve_by_keeping_version_equals_version_inside_build_server
+followups: []
