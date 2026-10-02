@@ -1,4 +1,4 @@
-import type pg from "pg";
+import pg from "pg";
 import { type DbConfig, withClient } from "./db.js";
 import { guardQuery } from "./sqlGuard.js";
 
@@ -120,6 +120,60 @@ export interface RunSelectArgs {
   sql: string;
 }
 
+/* ------------------------------------------------------------------ */
+/* payload fidelity (#207)                                             */
+/* ------------------------------------------------------------------ */
+
+// `date` and `timestamp` (no time zone) name a calendar value, not an instant.
+// pg's default parser turned them into a JS `Date` at the SERVER's local time,
+// and JSON wrote that as UTC: `2024-01-01` came back as
+// `2023-12-31T23:00:00.000Z` under TZ=Europe/Berlin. Keep the database's own
+// text. `timestamptz` IS an instant and keeps pg's parser. The array forms
+// reuse pg's text[] parser so they stay JS arrays, of the raw strings.
+const DATE_OIDS = new Set([1082, 1114]);
+const DATE_ARRAY_OIDS = new Set([1182, 1115]);
+const TEXT_ARRAY_OID = 1009;
+
+// pg's typings key `getTypeParser` on its `TypeId` enum, which omits the array
+// oids; the runtime takes any oid.
+const pgParser = pg.types.getTypeParser as (oid: number, format?: string) => (value: string) => unknown;
+
+export const SELECT_TYPES = {
+  getTypeParser(oid: number, format?: string): (value: string) => unknown {
+    if (DATE_OIDS.has(oid)) return (value: string) => value;
+    if (DATE_ARRAY_OIDS.has(oid)) return pgParser(TEXT_ARRAY_OID, format ?? "text");
+    return pgParser(oid, format ?? "text");
+  },
+};
+
+/**
+ * `JSON.stringify` replacer: a non-finite number is written as its name.
+ * `NaN`/`Infinity` from a float column otherwise became `null`, which a client
+ * cannot tell from SQL NULL (#207).
+ */
+export function nonFiniteAsString(_key: string, value: unknown): unknown {
+  if (typeof value === "number" && !Number.isFinite(value)) return String(value);
+  return value;
+}
+
+/**
+ * The output column names that occur more than once, or `[]`.
+ *
+ * Rows are objects keyed by column name, so `SELECT u.id, o.id ...` kept ONE
+ * of the two values while `fields` listed both (#207) -- the model then read
+ * the order id as the user id. Refused rather than renamed: an invented key is
+ * a name the query never produced.
+ */
+export function duplicateColumnNames(fields: ReadonlyArray<{ name: string }> | undefined): string[] {
+  const seen = new Set<string>();
+  const dup = new Set<string>();
+  for (const f of fields ?? []) {
+    if (seen.has(f.name)) dup.add(f.name);
+    seen.add(f.name);
+  }
+  return [...dup];
+}
+
 export async function runSelect(args: RunSelectArgs, cfg: DbConfig): Promise<ToolResult> {
   const guard = guardQuery(args.sql);
   if (!guard.ok) {
@@ -133,12 +187,20 @@ export async function runSelect(args: RunSelectArgs, cfg: DbConfig): Promise<Too
       // quietly-modify-the-query semantic the operator probably doesn't want.
       // Instead, fetch through the regular client and truncate afterward.
       // The DB-side statement_timeout (set in withClient) bounds runtime.
-      result = await c.query(args.sql);
+      result = await c.query({ text: args.sql, types: SELECT_TYPES });
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       return err(`query execution error: ${msg}`);
     }
 
+    const dups = duplicateColumnNames(result.fields);
+    if (dups.length > 0) {
+      return err(
+        `query returns more than one column named ${dups.map((d) => JSON.stringify(d)).join(", ")}; ` +
+          `rows are keyed by column name, so all but one value would be lost -- alias them ` +
+          `(e.g. SELECT u.id AS user_id, o.id AS order_id ...)`,
+      );
+    }
     const rows = Array.isArray(result.rows) ? result.rows : [];
     const truncated = rows.length > cfg.maxRows;
     const visible = truncated ? rows.slice(0, cfg.maxRows) : rows;
@@ -151,7 +213,7 @@ export async function runSelect(args: RunSelectArgs, cfg: DbConfig): Promise<Too
       rows: visible,
     };
 
-    return ok(JSON.stringify(payload, null, 2));
+    return ok(JSON.stringify(payload, nonFiniteAsString, 2));
   });
 }
 
@@ -195,7 +257,7 @@ async function runSampleQuery(c: pg.Client, schema: string, table: string, limit
   // strictness above.
   const sql = `SELECT * FROM "${schema}"."${table}" LIMIT ${limit}`;
   try {
-    const result = await c.query(sql);
+    const result = await c.query({ text: sql, types: SELECT_TYPES });
     return ok(
       JSON.stringify(
         {
@@ -203,7 +265,7 @@ async function runSampleQuery(c: pg.Client, schema: string, table: string, limit
           fields: result.fields?.map((f) => ({ name: f.name, dataTypeID: f.dataTypeID })) ?? [],
           rows: result.rows,
         },
-        null,
+        nonFiniteAsString,
         2,
       ),
     );
