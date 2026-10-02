@@ -2248,3 +2248,22 @@ context_for_next_session:
   - PY_TEMP_NAME_IS_NOW_THE_TS_SHAPE_dot_base_dot_pid_dot_12hex_dot_tmp_via_os_open_O_EXCL_no_retry_loop_same_as_ts
   - MERGE_NOTE_196_AND_199_ALSO_MOVE_THE_COUNT_LINES_recompute_test_counts_json_and_the_README_lines_from_runtime_after_rebase
 followups: ["portfolio-ops#81"]
+
+---
+session: 2026-10-02T13:15Z
+issue: 209
+focus: FS_SANDBOX_TS_PORT_DIVERGED_FROM_PY_LONE_SURROGATE_WRITTEN_AS_FFFD_BOM_STRIPPED_LOCALE_DEPENDENT_LISTING
+phase: shipped
+delta:
+  files_changed: 8
+  tests_added: 15   # 8 ts, 7 py
+  suite: "TS 228 -> 236, Py 290 -> 297; lint, tsc, ruff clean; counts from the runtime"
+decisions_made: []
+measured: "TS main: write 'a\\ud800b' -> bytes_written 5 (61 ef bf bd 62); read EF BB BF hello -> 'hello'; listing order varied en_US/sv_SE/da_DK. Revert probes: sort 1 red, BOM 1 red, surrogate 3 red."
+context_for_next_session:
+  - A_SEVENTH_SHARED_TABLE_test_fixtures_content_parity_json_THE_WRITE_ERROR_IS_PYTHONS_CODEC_MESSAGE_WITH_A_CODE_POINT_POSITION
+  - THE_DEFAULT_macOS_VOLUME_IS_CASE_INSENSITIVE_listing_rows_must_not_differ_only_by_case_b_and_B_collapsed_to_one_file
+  - JS_LESS_THAN_COMPARES_UTF16_CODE_UNITS_an_astral_char_sorts_BEFORE_U_E000_compareCodePoints_fixes_it
+  - THE_PYTHON_TRANSPORT_HANG_ON_A_LONE_SURROGATE_IS_210_FILED_HIGH_WITH_OPTIONS_NOT_FIXED
+followups: ["#210"]
+---
