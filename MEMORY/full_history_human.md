@@ -2044,3 +2044,15 @@ really is up, and any failure prints the "failed" line. Three tests use a fake
 **Open questions / blockers:** none. Merge #196 first, then this one, and recompute the fs-sandbox counts after the rebase.
 
 **Next session:** none queued.
+
+## 2026-10-01T08:52Z — #200: write_file made every file owner-only
+
+Both filesystem-sandbox ports write files atomically: write a temp file, then
+rename it over the target. The temp file was created with mode 0600, and the
+rename carried that mode across. So every file the `write_file` tool created was
+readable only by its owner, whatever the umask said, and rewriting an existing
+0644 file quietly made it 0600. The plain write it replaced did neither. Now the
+temp file is created 0666 so the system applies the umask, and if the target
+already exists it keeps that file's permissions (minus setuid/setgid). One shared
+table drives both test suites, and every row runs through both the helper and the
+real `write_file` tool. Part of the portfolio-wide portfolio-ops#81.

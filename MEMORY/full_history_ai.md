@@ -2228,3 +2228,23 @@ context_for_next_session:
   - THE_IN_OPERATOR_ACCEPTS_PROTOTYPE_NAMES_toString_IS_IN_EVERY_OBJECT_the_table_row_exists_for_that
 followups: []
 ---
+
+---
+session: 2026-10-01T08:52Z
+issue: 200
+focus: AN_ATOMIC_WRITE_THAT_CREATES_0600_CHANGES_A_FILES_MODE_THE_PLAIN_WRITE_IT_REPLACED_NEVER_TOUCHED
+phase: shipped
+duration_min: 6
+delta:
+  files_changed: 9
+  tests_added: 34
+  suite: "filesystem-sandbox vitest 205 passed (was 188); filesystem-sandbox-py pytest 275 passed (was 258); lint, tsc, build, ruff check and ruff format clean; check-readme.mjs, every tools/check-*.mjs and every tools/*.test.mjs green"
+decisions_made: []
+measured: "umask 022 on main: py new file 0o600, overwrite of 0644 -> 0o600; ts the same. After: 0o644 and 0o644 in both. Probes (one per arm, restored from /tmp copy and cmp'd): full revert to 0600 with no chmod 12 red of 275 py / 12 of 205 ts; chmod step removed only 8 / 8; create mode 0600 only 4 / 4; setuid mask removed 2 / 2."
+context_for_next_session:
+  - EVERY_TABLE_ROW_RUNS_TWICE_against_the_helper_AND_through_the_real_write_file_tool_so_a_call_site_bypass_is_caught
+  - THE_EXISTING_TARGET_IS_STATED_FOLLOWING_SYMLINKS_because_both_callers_pass_the_sandbox_realpathed_sp_resolved_and_a_symlinks_own_bits_are_0777_on_linux
+  - MODE_IS_MASKED_TO_0o777_NOT_S_IMODE_so_setuid_setgid_are_not_copied_onto_new_content_a_plain_write_by_an_unprivileged_process_makes_the_kernel_drop_them
+  - PY_TEMP_NAME_IS_NOW_THE_TS_SHAPE_dot_base_dot_pid_dot_12hex_dot_tmp_via_os_open_O_EXCL_no_retry_loop_same_as_ts
+  - MERGE_NOTE_196_AND_199_ALSO_MOVE_THE_COUNT_LINES_recompute_test_counts_json_and_the_README_lines_from_runtime_after_rebase
+followups: ["portfolio-ops#81"]

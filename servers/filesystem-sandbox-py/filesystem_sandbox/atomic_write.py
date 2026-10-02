@@ -28,15 +28,16 @@ from __future__ import annotations
 
 import contextlib
 import os
-import tempfile
+import secrets
+import stat
 from pathlib import Path
 
-# Cap the target basename fed into the temp-file prefix. `NamedTemporaryFile`
-# builds the temp basename as `.{base}.{random}{suffix}`, so prepending the
-# *full* target basename overflows NAME_MAX (255 on macOS/Linux) whenever the
-# target basename is itself near NAME_MAX — a name a plain `open(..., "wb")`
-# accepts then fails ENAMETOOLONG through this atomic helper. 200 bytes leaves
-# ~55 bytes of headroom for the leading dot, the random token, and the `.tmp`
+# Cap the target basename fed into the temp-file name. The temp basename is
+# `.{base}.{pid}.{random}.tmp` (the TS twin's shape), so prepending the *full*
+# target basename overflows NAME_MAX (255 on macOS/Linux) whenever the target
+# basename is itself near NAME_MAX — a name a plain `open(..., "wb")` accepts
+# then fails ENAMETOOLONG through this atomic helper. 200 bytes leaves ~55
+# bytes of headroom for the dots, the pid, the random token, and the `.tmp`
 # suffix. Parity twin of the TS `MAX_TEMP_BASE_BYTES` / `capBaseForTemp`
 # (../filesystem-sandbox/src/atomic_write.ts, #96).
 MAX_TEMP_BASE_BYTES = 200
@@ -97,7 +98,7 @@ def _cap_base_for_temp(base: str) -> str:
     the distinction is load-bearing and not pedantry (#160).
 
     The temp name only needs to be a recognizable, collision-free sibling;
-    ``NamedTemporaryFile``'s random token guarantees uniqueness, so truncating
+    the random token plus ``O_EXCL`` guarantees uniqueness, so truncating
     the cosmetic base is safe. Trims by whole characters so no codepoint is
     ever split. Mirrors the TS ``capBaseForTemp``, including its stated
     property that the helper accepts every name the filesystem does.
@@ -110,6 +111,43 @@ def _cap_base_for_temp(base: str) -> str:
     return out
 
 
+# Mode the temp file is created with. 0o666, not 0o600, so the KERNEL applies
+# the process umask exactly as the plain `open(path, "wb")` this helper replaced
+# did (#200, portfolio-ops#81). `tempfile.NamedTemporaryFile` / `mkstemp` always
+# create 0600, and `os.replace` carries that mode onto the target: every file
+# `write_file` created was owner-only, and an overwrite demoted 0644 to 0600.
+# The umask is never read via an `os.umask(0)` / `os.umask(old)` round-trip —
+# that sets a process-global umask of 0 for every other thread in between.
+_CREATE_MODE = 0o666
+
+
+def _existing_mode(target: Path) -> int | None:
+    """Permission bits of the file already at *target*, or ``None`` if absent.
+
+    An overwrite keeps the target's mode (#200), which is what the plain
+    ``open(path, "wb")`` did: ``O_TRUNC`` reuses the inode, so its mode was
+    never touched.
+
+    ``os.stat`` FOLLOWS a symlink, deliberately. Both callers pass the
+    sandbox's ``sp.resolved``, which ``Sandbox.resolve`` has already
+    realpath'd (and which rejects a dangling or outside-pointing leaf symlink),
+    so on every normal path the target is not a symlink at all. If one appears
+    in a race, the mode worth copying is the file it points at; a symlink's own
+    bits (0o755 on macOS, 0o777 on Linux) would make the result world-writable.
+    A dangling link stats as missing and falls back to the umask default.
+
+    Masked to ``0o777``: setuid/setgid/sticky are not carried over. A plain
+    write by an unprivileged process makes the kernel drop setuid/setgid, so
+    copying them onto new content would be more permissive than the write this
+    helper replaced. Parity with the TS twin's ``existingMode``.
+    """
+    try:
+        st = os.stat(target)
+    except FileNotFoundError:
+        return None
+    return stat.S_IMODE(st.st_mode) & 0o777
+
+
 def atomic_write_bytes(path: str | Path, data: bytes) -> None:
     # Write to a sibling temp file in the destination's parent directory,
     # fsync, then `os.replace` (atomic on POSIX within the same filesystem).
@@ -118,18 +156,21 @@ def atomic_write_bytes(path: str | Path, data: bytes) -> None:
     # rename, the temp is unlinked so a crashed write leaves no debris.
     target = Path(path)
     target.parent.mkdir(parents=True, exist_ok=True)
+    name = f".{_cap_base_for_temp(target.name)}.{os.getpid()}.{secrets.token_hex(6)}.tmp"
+    candidate = target.parent / name
     tmp_path: Path | None = None
     try:
-        with tempfile.NamedTemporaryFile(
-            mode="wb",
-            dir=target.parent,
-            prefix=f".{_cap_base_for_temp(target.name)}.",
-            suffix=".tmp",
-            delete=False,
-        ) as tmp:
-            tmp_path = Path(tmp.name)
+        # O_EXCL: fail loudly on a name collision rather than clobber a file
+        # someone else is writing (parity with the TS twin). Mode 0o666 so the
+        # kernel applies the umask (#200, see `_CREATE_MODE`).
+        fd = os.open(candidate, os.O_WRONLY | os.O_CREAT | os.O_EXCL, _CREATE_MODE)
+        tmp_path = candidate
+        with os.fdopen(fd, "wb") as tmp:
             tmp.write(data)
             tmp.flush()
+            mode = _existing_mode(target)
+            if mode is not None:
+                os.chmod(tmp_path, mode)
             os.fsync(tmp.fileno())
         os.replace(tmp_path, target)
         tmp_path = None
