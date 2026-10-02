@@ -2248,3 +2248,21 @@ context_for_next_session:
   - PY_TEMP_NAME_IS_NOW_THE_TS_SHAPE_dot_base_dot_pid_dot_12hex_dot_tmp_via_os_open_O_EXCL_no_retry_loop_same_as_ts
   - MERGE_NOTE_196_AND_199_ALSO_MOVE_THE_COUNT_LINES_recompute_test_counts_json_and_the_README_lines_from_runtime_after_rebase
 followups: ["portfolio-ops#81"]
+
+---
+session: 2026-10-02T11:50Z
+issue: 207
+focus: run_select_PAYLOAD_DROPPED_A_DUPLICATE_COLUMN_SHIFTED_DATES_BY_THE_SERVER_TZ_AND_NULLED_NaN
+phase: shipped
+delta:
+  files_changed: 4
+  tests_added: 9
+  suite: "postgres-readonly 280 -> 289; lint, tsc clean; check-readme and check-architecture-doc ok; test-counts.json from the runtime"
+decisions_made: []
+measured: "pg's real Result with the tools' own types: before, fields [id,id] rows [{id:1001}]; date 2024-01-01 -> 2023-12-31T23:00Z under Europe/Berlin; NaN -> null. Revert probes: full 7/9 red; no types 3; no replacer 1; no dup check 1."
+context_for_next_session:
+  - THE_TEST_MOCKS_withClient_WITH_A_CLIENT_THAT_BUILDS_PGS_REAL_Result_FROM_THE_types_THE_CALL_SITE_PASSES_so_it_proves_the_tools_wire_SELECT_TYPES_not_just_that_SELECT_TYPES_works
+  - DUPLICATE_NAMES_ARE_REFUSED_NOT_RENAMED_an_invented_key_is_a_name_the_query_never_produced
+  - MERGE_ORDER_mcp_has_203_204_206_and_this_all_append_MEMORY_and_204_206_208_bump_test_counts_RECOMPUTE_FROM_THE_RUNTIME
+followups: []
+---

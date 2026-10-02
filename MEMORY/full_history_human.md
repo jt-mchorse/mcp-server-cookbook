@@ -2056,3 +2056,15 @@ temp file is created 0666 so the system applies the umask, and if the target
 already exists it keeps that file's permissions (minus setuid/setgid). One shared
 table drives both test suites, and every row runs through both the helper and the
 real `write_file` tool. Part of the portfolio-wide portfolio-ops#81.
+
+## 2026-10-02 — run_select returns what the database returned (#207)
+
+Three ways the postgres tool's output differed from the database's answer.
+`SELECT u.id, o.id` listed two `id` columns but kept only one value, so the
+order id read as the user id. Dates and timestamps without a time zone were
+converted through the server's local time zone, so `2024-01-01` became
+December 31st on a server in Berlin. And `NaN`/`Infinity` came back as `null`,
+indistinguishable from SQL NULL. Now duplicate column names are refused with a
+hint to alias them, dates come back as the database's own text, and non-finite
+numbers are written by name. The tests run pg's real result parser with the
+tool's own settings.
