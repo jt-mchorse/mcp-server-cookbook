@@ -2022,6 +2022,17 @@ runs `docker compose up -d --wait` synchronously: success means the database
 really is up, and any failure prints the "failed" line. Three tests use a fake
 `docker` on the PATH to cover success, failure and a missing docker.
 
+## 2026-10-01 — Issue #195: filesystem-sandbox-py refuses a dangling-symlink root, like the TS port
+**Duration:** ~3 min · **Branch:** session/2026-10-01-0835-issue-195
+
+- The Python root check still used `os.path.lexists`, the same pattern #141 fixed in `resolve()`. A dangling-symlink root therefore passed: the server started, published a root that doesn't exist, and refused every call as `outside_allowlist`. The TS port refuses to start in that case. The check now uses `os.path.exists`. Both suites pin the dangling-root case, and the Python test runs through `main()`. Counts updated: py 258 → 261, TS 188 → 189. The revert probe goes red.
+
+**Why this work, this session:** found by this run's hunt; it's an incomplete sibling of #141.
+
+**Open questions / blockers:** none.
+
+**Next session:** two more findings from the same hunt are still unfiled. Both ports accept a regular-file root, and the TS servers don't enforce the `additionalProperties: false` they publish.
+
 ## 2026-10-01 — Issue #197: every TS server enforces its published input schema (D-014)
 **Duration:** ~15 min · **Branch:** session/2026-10-01-0855-issue-197
 

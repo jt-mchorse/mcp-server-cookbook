@@ -40,6 +40,17 @@ describe("Sandbox construction", () => {
     );
   });
 
+  it("rejects a dangling-symlink root as root_does_not_exist (#195 parity)", async () => {
+    // The Python port accepted this until #195: `os.path.lexists` passed the
+    // link and `realpath` returned its non-existent target. `fs.realpath`
+    // throws ENOENT here; pinned so the two ports keep agreeing.
+    const dangling = path.join(outsideRoot, "dangling");
+    await fs.symlink(path.join(outsideRoot, "nonexistent"), dangling);
+    await expect(Sandbox.create([dangling])).rejects.toMatchObject({
+      reason: "root_does_not_exist",
+    });
+  });
+
   it("resolves roots to their canonical paths", async () => {
     const linked = path.join(outsideRoot, "link-to-allowed");
     await fs.symlink(allowedRoot, linked);
