@@ -2056,3 +2056,15 @@ temp file is created 0666 so the system applies the umask, and if the target
 already exists it keeps that file's permissions (minus setuid/setgid). One shared
 table drives both test suites, and every row runs through both the helper and the
 real `write_file` tool. Part of the portfolio-wide portfolio-ops#81.
+
+## 2026-10-02 — the TS filesystem sandbox matches the Python port on content and ordering (#209)
+
+The Python port promises identical results to the TS port, and three places
+didn't match. TS wrote a lone surrogate as a replacement character and
+reported success where Python refuses. TS dropped a leading byte-order mark on
+read. And TS sorted listings with the host's locale rules, so the order changed
+between machines. The TS port now refuses lone surrogates with Python's exact
+message, keeps the BOM, and sorts by code point. A seventh shared table pins all
+three in both test suites. A related, harder problem is filed as #210 and not
+fixed: the Python server never answers a request containing a lone surrogate,
+because the SDK drops it before the server sees it.

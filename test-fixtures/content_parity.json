@@ -1,0 +1,76 @@
+{
+  "_comment": [
+    "Shared content-and-listing parity table for the two filesystem-sandbox ports (#209).",
+    "",
+    "Read by servers/filesystem-sandbox/test/content-parity.test.ts and",
+    "servers/filesystem-sandbox-py/tests/test_content_parity.py. Seventh shared table.",
+    "",
+    "Measured on main before #209, the TS port: wrote U+FFFD for a lone surrogate and",
+    "reported success; stripped a leading BOM on read; and ordered a listing with",
+    "localeCompare, so the order depended on the host locale. The Python port's",
+    "tools module promises 'identical output dicts' and read_file 'the same contract",
+    "the TS server emits'. Write errors are compared as the text a client receives;",
+    "the position is a CODE POINT index, which is what Python's codec reports.",
+    "",
+    "Strings are stored as JSON escapes: a JSON file must itself be valid UTF-8 and",
+    "a raw lone surrogate is not.",
+    "",
+    "list_names avoid case-only collisions: the default macOS volume is case-insensitive."
+  ],
+  "write_cases": [
+    {
+      "label": "lone high surrogate",
+      "content": "a\ud800b",
+      "error": "'utf-8' codec can't encode character '\\ud800' in position 1: surrogates not allowed"
+    },
+    {
+      "label": "after an astral character, the position counts code points",
+      "content": "\ud83d\ude00\ud800",
+      "error": "'utf-8' codec can't encode character '\\ud800' in position 1: surrogates not allowed"
+    },
+    {
+      "label": "lone low surrogate first",
+      "content": "\udc00x",
+      "error": "'utf-8' codec can't encode character '\\udc00' in position 0: surrogates not allowed"
+    },
+    {
+      "label": "valid astral text is written",
+      "content": "ok \ud83d\ude00",
+      "bytes_written": 7
+    }
+  ],
+  "read_cases": [
+    {
+      "label": "a leading BOM is kept",
+      "bytes_hex": "efbbbf6869",
+      "text": "\ufeffhi"
+    },
+    {
+      "label": "no BOM",
+      "bytes_hex": "6869",
+      "text": "hi"
+    }
+  ],
+  "list_names": [
+    "zz",
+    "\u00e4",
+    "aa",
+    "b1",
+    "_x",
+    "B2",
+    "Z3",
+    "\ud83d\ude00",
+    "\ue000"
+  ],
+  "list_order": [
+    "B2",
+    "Z3",
+    "_x",
+    "aa",
+    "b1",
+    "zz",
+    "\u00e4",
+    "\ue000",
+    "\ud83d\ude00"
+  ]
+}
