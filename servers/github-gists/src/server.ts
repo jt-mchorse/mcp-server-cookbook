@@ -16,6 +16,7 @@ import {
 } from "./client.js";
 import { type GistsConfig, hasToken, readGistsConfigFromEnv } from "./config.js";
 import { defaultToolDeps, getGist, updateGistFile } from "./tools.js";
+import { checkToolArgs, type ToolInputSchema } from "./tool-args.js";
 
 // Boot-time configuration failure, as one actionable line (#146).
 //
@@ -108,6 +109,14 @@ const deps = defaultToolDeps(client);
 
 server.setRequestHandler(CallToolRequestSchema, async (req): Promise<CallToolResult> => {
   const { name, arguments: args } = req.params;
+  // The published inputSchema, enforced before `arguments` is read (#197): the
+  // TS SDK does not validate it, so `additionalProperties: false` and the
+  // property types were advertised and never checked.
+  const schema = TOOLS.find((t) => t.name === name)?.inputSchema;
+  const invalid = schema === undefined ? null : checkToolArgs(schema as unknown as ToolInputSchema, args);
+  if (invalid !== null) {
+    return { content: [{ type: "text" as const, text: invalid }], isError: true };
+  }
   const a = (args ?? {}) as Record<string, unknown>;
   try {
     switch (name) {

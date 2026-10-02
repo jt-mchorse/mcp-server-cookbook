@@ -23,7 +23,9 @@
     "test:env-example": "node --test tools/check-env-example.test.mjs",
     "test:strip-comments": "node --test tools/lib/strip-comments.test.mjs",
     "test:tools-files": "node --test tools/lib/tools-files.test.mjs",
-    "test:tools-test-registration": "node --test tools/check-tools-test-registration.test.mjs"
+    "test:tools-test-registration": "node --test tools/check-tools-test-registration.test.mjs",
+    "check:tool-args": "node tools/check-tool-args.mjs",
+    "test:tool-args": "node --test tools/check-tool-args.test.mjs"
   },
   "devDependencies": {
     "yaml": "^2.5.0"

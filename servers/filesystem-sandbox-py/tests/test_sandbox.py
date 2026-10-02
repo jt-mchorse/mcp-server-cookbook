@@ -57,6 +57,41 @@ def test_create_rejects_nonexistent_root(tmp_path: Path):
     assert ei.value.reason == "root_does_not_exist"
 
 
+def test_create_rejects_a_dangling_symlink_root(tmp_path: Path):
+    """#195: `lexists` passed a dangling link and `realpath` returned its
+    non-existent target, so the server published a root that does not exist
+    and refused every call as `outside_allowlist`. The TS port refuses it."""
+    link = tmp_path / "dangling"
+    link.symlink_to(tmp_path / "nonexistent")
+    with pytest.raises(SandboxEscape) as ei:
+        Sandbox.create([str(link)])
+    assert ei.value.reason == "root_does_not_exist"
+
+
+def test_a_symlink_root_to_a_real_directory_is_still_accepted(tmp_path: Path):
+    """Control: following the link must not refuse a link that resolves."""
+    target = tmp_path / "real"
+    target.mkdir()
+    link = tmp_path / "alias"
+    link.symlink_to(target)
+    sb = Sandbox.create([str(link)])
+    assert sb.allowed_roots == (os.path.realpath(str(target)) + os.sep,)
+
+
+def test_main_refuses_to_start_on_a_dangling_root(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+):
+    from filesystem_sandbox.server import main
+
+    link = tmp_path / "dangling"
+    link.symlink_to(tmp_path / "nonexistent")
+    monkeypatch.setenv("MCP_FS_SANDBOX_ALLOWLIST", str(link))
+    assert main() == 2
+    err = capsys.readouterr().err
+    assert "allow-list root does not exist" in err
+    assert "starting" not in err
+
+
 # --- input validation ---
 
 
