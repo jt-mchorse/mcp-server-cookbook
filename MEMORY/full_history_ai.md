@@ -2248,3 +2248,23 @@ context_for_next_session:
   - PY_TEMP_NAME_IS_NOW_THE_TS_SHAPE_dot_base_dot_pid_dot_12hex_dot_tmp_via_os_open_O_EXCL_no_retry_loop_same_as_ts
   - MERGE_NOTE_196_AND_199_ALSO_MOVE_THE_COUNT_LINES_recompute_test_counts_json_and_the_README_lines_from_runtime_after_rebase
 followups: ["portfolio-ops#81"]
+
+---
+session: 2026-10-02T08:30Z
+issue: 205
+focus: Sandbox_create_ITERATED_A_BARE_STRING_SO_THE_FILESYSTEM_ROOT_LANDED_ON_THE_ALLOW_LIST_BOTH_PORTS
+phase: shipped
+delta:
+  files_changed: 8
+  tests_added: 15   # 9 py, 6 ts
+  suite: "TS 228 -> 234, Py 290 -> 299; lint, typecheck, ruff clean; counts from runtime"
+decisions_made: []
+measured: "main, cwd containing dir a: Sandbox.create('/a') -> roots ('/', '.../a/') and resolve('/etc/hosts') ALLOWED, both ports. Revert probe: Py 6 of 9 red, TS 4 of 6 red; the controls stay green by design."
+context_for_next_session:
+  - FOUND_BY_A_PORTFOLIO_AST_SWEEP_FOR_PUBLIC_PARAMS_ANNOTATED_AS_A_COLLECTION_OF_str_WITH_NO_BARE_STRING_GUARD_the_sweep_script_is_in_the_night_run_log
+  - THE_FIRST_CHARACTER_OF_ANY_ABSOLUTE_PATH_IS_THE_FILESYSTEM_ROOT_so_the_bare_string_class_on_a_PATH_LIST_is_a_SANDBOX_ESCAPE_not_just_wrong_output
+  - SHIPPED_SERVERS_UNAFFECTED_server_py_and_server_ts_pass_the_config_loaders_LIST
+  - TS_CHECK_IS_typeof_string_NOT_Array_isArray_so_a_Set_of_roots_still_works_as_before
+  - MERGE_ORDER_WITH_204_both_touch_Sandbox_create_in_SEPARATE_hunks_and_both_bump_fs_sandbox_counts_RECOMPUTE_FROM_THE_RUNTIME_AFTER_THE_FIRST_MERGES
+followups: []
+---
