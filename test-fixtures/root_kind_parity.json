@@ -1,0 +1,35 @@
+{
+  "_comment": [
+    "Shared allow-list ROOT table for the two filesystem-sandbox ports (#198).",
+    "",
+    "Read by servers/filesystem-sandbox/test/root-kind-parity.test.ts and",
+    "servers/filesystem-sandbox-py/tests/test_root_kind_parity.py. sandbox_parity.json",
+    "covers what resolve() does with a path INSIDE a root; this covers what",
+    "Sandbox.create does with the root itself.",
+    "",
+    "Before #198 both ports accepted a regular FILE as a root, against the Python",
+    "port's own docstring ('Each root must exist and be a directory'). Containment",
+    "held -- the file was the only path inside it -- so this is a contract fix.",
+    "The kind check runs on the RESOLVED root, so a symlink to a directory is",
+    "accepted and a symlink to a file is refused.",
+    "",
+    "expect 'ok' rows also pin the resolved root (relative to the fixture base)."
+  ],
+  "tree": {
+    "dirs": ["dir"],
+    "files": {"file.txt": "a file is not a root\n"},
+    "symlinks": [
+      {"link": "link_to_dir", "target": "dir"},
+      {"link": "link_to_file", "target": "file.txt"},
+      {"link": "dangling", "target": "nowhere"}
+    ]
+  },
+  "cases": [
+    {"label": "a directory", "root": "dir", "expect": "ok", "resolved": "dir"},
+    {"label": "a symlink to a directory", "root": "link_to_dir", "expect": "ok", "resolved": "dir"},
+    {"label": "a regular file", "root": "file.txt", "expect": "escape", "reason": "root_not_a_directory"},
+    {"label": "a symlink to a regular file", "root": "link_to_file", "expect": "escape", "reason": "root_not_a_directory"},
+    {"label": "a path that does not exist", "root": "missing", "expect": "escape", "reason": "root_does_not_exist"},
+    {"label": "a dangling symlink", "root": "dangling", "expect": "escape", "reason": "root_does_not_exist"}
+  ]
+}
