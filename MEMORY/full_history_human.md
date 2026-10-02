@@ -2056,3 +2056,13 @@ temp file is created 0666 so the system applies the umask, and if the target
 already exists it keeps that file's permissions (minus setuid/setgid). One shared
 table drives both test suites, and every row runs through both the helper and the
 real `write_file` tool. Part of the portfolio-wide portfolio-ops#81.
+
+## 2026-10-02 — the tools bridge refuses a cwd that isn't a directory, at boot (#212)
+
+#145 made the bridge check `MCP_BRIDGE_CWD` at start-up, but the check only
+required an absolute path. A path to a regular file, or to a missing directory,
+still started the server and advertised the tool. The call then failed, and in
+the missing-directory case the error blamed the node binary. The bridge now
+refuses both at boot with one line. It also refuses a bare string in place of
+the argument array, which used to run the program with one argument per
+character. 6 new tests.

@@ -15,6 +15,7 @@
 // the argv array.
 
 import { spawn } from "node:child_process";
+import { statSync } from "node:fs";
 import { isAbsolute } from "node:path";
 
 export const MAX_OUTPUT_BYTES = 1_048_576; // 1 MiB per stream
@@ -130,6 +131,20 @@ export function validateBridgeConfig(cfg: BridgeConfig): void {
   if (typeof cfg.cwd !== "string" || cfg.cwd.length === 0 || !isAbsolute(cfg.cwd)) {
     throw new BridgeError(`BridgeConfig.cwd must be an absolute path; got ${JSON.stringify(cfg.cwd)}`);
   }
+  // And an existing directory (#212). Absolute alone let a regular file or a
+  // missing path through boot: `repo_stats` was advertised and the call then
+  // failed as `spawn ENOTDIR`, or as `spawn ... node ENOENT` -- which blames the
+  // binary, not the directory. That is #145's runtime-instead-of-boot failure
+  // through the half of the rule it did not state.
+  let isDir: boolean;
+  try {
+    isDir = statSync(cfg.cwd).isDirectory();
+  } catch {
+    throw new BridgeError(`BridgeConfig.cwd must be an existing directory; ${JSON.stringify(cfg.cwd)} does not exist`);
+  }
+  if (!isDir) {
+    throw new BridgeError(`BridgeConfig.cwd must be an existing directory; ${JSON.stringify(cfg.cwd)} is not a directory`);
+  }
   if (!Array.isArray(cfg.allowlist) || cfg.allowlist.length === 0) {
     throw new BridgeError("BridgeConfig.allowlist must be a non-empty array of absolute paths");
   }
@@ -190,6 +205,11 @@ export async function runBridged(
     throw new AllowlistError(
       `binary not on allowlist: ${binary} (allowed: ${cfg.allowlist.join(", ")})`,
     );
+  }
+  // An array, not merely an iterable (#212): a bare string iterates by
+  // character, so `runBridged(cfg, node, "-v")` ran node with ["-", "v"].
+  if (!Array.isArray(args)) {
+    throw new BridgeError(`args must be an array of strings; got ${typeof args} ${JSON.stringify(args)}`);
   }
   for (const a of args) {
     if (typeof a !== "string") {
