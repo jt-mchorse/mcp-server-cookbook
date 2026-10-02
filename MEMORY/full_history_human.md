@@ -2056,3 +2056,15 @@ temp file is created 0666 so the system applies the umask, and if the target
 already exists it keeps that file's permissions (minus setuid/setgid). One shared
 table drives both test suites, and every row runs through both the helper and the
 real `write_file` tool. Part of the portfolio-wide portfolio-ops#81.
+
+## 2026-10-02 — `Sandbox.create` refuses a bare string, which could allow the whole filesystem (#205)
+
+Found by sweeping the portfolio for public parameters typed as a collection of
+strings. `Sandbox.create("/a")` read the string one character at a time. `/`
+became an allow-list root, and `a` resolved against the current directory. If
+a directory named `a` existed there, `/etc/hosts` resolved as allowed. Both
+ports did this. The shipped servers pass the config loader's parsed list and
+were not affected, but `Sandbox` is the exported library class. Both ports now
+refuse a bare string before resolving any root, and both suites run the same
+repro. The TypeScript check looks for a string rather than requiring an array,
+so other iterables behave as before.
