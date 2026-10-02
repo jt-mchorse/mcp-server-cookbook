@@ -2248,3 +2248,20 @@ context_for_next_session:
   - PY_TEMP_NAME_IS_NOW_THE_TS_SHAPE_dot_base_dot_pid_dot_12hex_dot_tmp_via_os_open_O_EXCL_no_retry_loop_same_as_ts
   - MERGE_NOTE_196_AND_199_ALSO_MOVE_THE_COUNT_LINES_recompute_test_counts_json_and_the_README_lines_from_runtime_after_rebase
 followups: ["portfolio-ops#81"]
+
+---
+session: 2026-10-02T14:05Z
+issue: 212
+focus: BRIDGE_CWD_RULE_CHECKED_ONLY_ABSOLUTE_A_FILE_OR_MISSING_DIR_BOOTED_AND_FAILED_AT_CALL_TIME_PLUS_BARE_STRING_ARGS
+phase: shipped
+delta:
+  files_changed: 6
+  tests_added: 6
+  suite: "internal-tools-bridge 68 -> 74; lint, tsc clean; check-readme ok; counts from the runtime"
+decisions_made: []
+measured: "hunt agent: MCP_BRIDGE_CWD=<file> -> repo_stats advertised, call 'spawn ENOTDIR'; missing dir -> 'spawn ... node ENOENT'; runBridged(cfg,node,'-v') -> argv ['-','v']. Revert of bridge.ts: 4 of 6 red; controls green."
+context_for_next_session:
+  - THE_PER_SERVER_README_ALSO_PINS_A_COUNT_WITH_A_PER_FILE_BREAKDOWN_check_readme_named_it_UPDATE_BOTH
+  - SIBLING_OF_204_AND_206_FOUND_BY_THE_SECOND_ORDER_HUNT
+followups: []
+---
