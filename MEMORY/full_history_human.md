@@ -2056,3 +2056,14 @@ temp file is created 0666 so the system applies the umask, and if the target
 already exists it keeps that file's permissions (minus setuid/setgid). One shared
 table drives both test suites, and every row runs through both the helper and the
 real `write_file` tool. Part of the portfolio-wide portfolio-ops#81.
+
+## 2026-10-02 — an allow-list root that is not a directory is refused, in both ports (#198)
+
+Both filesystem-sandbox ports accepted a regular file as an allow-list root,
+even though the Python `Sandbox.create` docstring says each root must be a
+directory. Containment still held, because the file was the only path inside
+it, but the server started with a root that `list_directory` would then refuse.
+Both ports now raise `root_not_a_directory` at start-up. The check runs on the
+resolved path, so a symlink to a directory is still accepted and a symlink to a
+file is not. A shared table of six root kinds is read by both test suites.
+Reverting either port's check turns three of its rows red.
