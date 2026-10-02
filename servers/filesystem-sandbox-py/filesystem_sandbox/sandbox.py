@@ -255,7 +255,13 @@ def _under_root(resolved: str, root_with_sep: str) -> bool:
 
 def _realpath_or_throw(p: str) -> str:
     try:
-        if not os.path.lexists(p):
+        # `exists`, not `lexists` (#195) -- the root-check twin of #141's fix in
+        # `resolve`, for the reason its comment gives: `lexists` does not follow
+        # symlinks, so a DANGLING link passed and `realpath` returned its
+        # non-existent target. The server then started, published a root that
+        # does not exist, and refused every call as `outside_allowlist`, where
+        # the TS port's `fs.realpath` refuses to start.
+        if not os.path.exists(p):
             raise FileNotFoundError(p)
         return os.path.realpath(p)
     except OSError as exc:
