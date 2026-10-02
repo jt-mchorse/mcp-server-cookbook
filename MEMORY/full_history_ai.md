@@ -2209,3 +2209,22 @@ context_for_next_session:
   - NOT_DONE_a_regular_FILE_as_a_root_is_accepted_by_both_ports_although_the_py_docstring_says_must_be_a_directory_and_the_TS_schema_additionalProperties_false_is_published_but_not_enforced_BOTH_FROM_THE_SAME_HUNT_NOT_FILED_YET
 followups: []
 ---
+
+---
+session: 2026-10-01T08:45Z
+issue: 197
+focus: FOUR_TS_SERVERS_ADVERTISED_AN_INPUT_SCHEMA_AND_ENFORCED_NONE_OF_IT
+phase: shipped
+duration_min: 15   # 08:30 plan -> 08:45 close, from date -u
+delta:
+  files_changed: 21
+  tests_added: 39   # fs-sandbox 22, fs-sandbox-py 12, tools 5
+  suite: "fs-sandbox 188 -> 210, fs-sandbox-py 258 -> 270, other TS suites unchanged"
+decisions_made: ["D-014"]
+measured: "hunt agent over stdio: TS read_file {path, max_bytes:1} -> whole file; Python -> Input validation error. 11 shared parity rows agree across checkToolArgs and jsonschema. Revert probes on fs-sandbox (control 210): no additionalProperties check 4 red, `in` instead of hasOwn 1 (the toString row), no type check 7, no required check 3; unwiring postgres-readonly's call -> check-tool-args exit 1."
+context_for_next_session:
+  - A_PARITY_TEST_OVER_THE_PUBLISHED_STRUCTURE_STAYED_GREEN_WHILE_THE_ENFORCED_BEHAVIOUR_DIFFERED_test_tool_surface_parity_compared_schemas_never_calls_ASK_OF_EVERY_PARITY_LOCK_WHETHER_IT_COMPARES_THE_CLAIM_OR_THE_EFFECT
+  - MERGE_ORDER_196_THEN_THIS_both_move_the_fs_sandbox_counts_196_is_plus_1_TS_plus_3_py_so_after_rebase_TS_211_py_273_RECOMPUTE_FROM_THE_RUNTIME_do_not_add_by_hand
+  - THE_IN_OPERATOR_ACCEPTS_PROTOTYPE_NAMES_toString_IS_IN_EVERY_OBJECT_the_table_row_exists_for_that
+followups: []
+---

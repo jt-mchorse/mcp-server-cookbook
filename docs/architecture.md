@@ -302,3 +302,16 @@ handlers and `test_server_builds.py` calls them through the SDK's own request
 table — it fails on 2.2.0 with the exact startup error, so the next
 incompatible SDK fails in CI. Porting to the 2.x API is a follow-up.
 
+### Every TS server enforces its published input schema (#197, D-014)
+
+The TS SDK does not validate a tool's `inputSchema`, so every TS server
+advertised `additionalProperties: false` and typed properties and enforced
+neither: filesystem-sandbox's `read_file {path, max_bytes: 1}` returned the
+whole file, while the Python port — whose SDK validates with jsonschema —
+refused it. Each CallTool handler now runs `checkToolArgs` from
+`src/tool-args.ts` before reading `arguments`, with messages worded as
+jsonschema words them. The module is copied byte for byte into each server;
+`tools/check-tool-args.mjs` fails on a drifted copy or a handler that stops
+calling it, and `test-fixtures/tool_args_parity.json` holds both
+filesystem-sandbox ports to the same verdict on every row.
+

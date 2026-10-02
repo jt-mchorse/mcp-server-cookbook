@@ -142,15 +142,15 @@ Returns (paths and counts are what `bin/repo-stats.mjs` prints for this director
 ```json
 {
   "root": "/.../servers/internal-tools-bridge",
-  "total_files": 17,
-  "total_bytes": 221154,
+  "total_files": 18,
+  "total_bytes": 227448,
   "by_ext": {
     ".example": 1,
     ".js": 1,
     ".json": 3,
     ".md": 1,
     ".mjs": 1,
-    ".ts": 10
+    ".ts": 11
   }
 }
 ```

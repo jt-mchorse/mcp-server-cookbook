@@ -2032,3 +2032,15 @@ really is up, and any failure prints the "failed" line. Three tests use a fake
 **Open questions / blockers:** none.
 
 **Next session:** two more findings from the same hunt are still unfiled. Both ports accept a regular-file root, and the TS servers don't enforce the `additionalProperties: false` they publish.
+
+## 2026-10-01 — Issue #197: every TS server enforces its published input schema (D-014)
+**Duration:** ~15 min · **Branch:** session/2026-10-01-0855-issue-197
+
+- The four TS servers published `additionalProperties: false` and typed properties but enforced none of it, because the TS SDK doesn't validate `inputSchema`. As a result, filesystem-sandbox's `read_file` with an extra `max_bytes: 1` returned the whole file, while the Python port refused it. A small checker, copied byte for byte into each server, now runs before every handler reads `arguments`, and it words its errors the way jsonschema does. A tools/ lock checks that the copies stay identical and that every handler calls the checker. A shared table holds both filesystem-sandbox ports to the same verdicts.
+- 39 new tests. Four revert probes all go red, and unwiring a handler fails the lock.
+
+**Why this work, this session:** filed earlier this run from a hunt finding.
+
+**Open questions / blockers:** none. Merge #196 first, then this one, and recompute the fs-sandbox counts after the rebase.
+
+**Next session:** none queued.

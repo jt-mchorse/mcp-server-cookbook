@@ -16,6 +16,7 @@ import {
   validateBridgeConfig,
 } from "./bridge.js";
 import { defaultBridgeConfig, repoStats, ToolInputError } from "./tools.js";
+import { checkToolArgs, type ToolInputSchema } from "./tool-args.js";
 
 // `??` fires on `null`/`undefined` only, so `MCP_BRIDGE_CWD=` -- what a
 // `docker run -e MCP_BRIDGE_CWD` with nothing after it produces, and what an
@@ -88,6 +89,14 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: TOOLS }))
 
 server.setRequestHandler(CallToolRequestSchema, async (req): Promise<CallToolResult> => {
   const { name, arguments: args } = req.params;
+  // The published inputSchema, enforced before `arguments` is read (#197): the
+  // TS SDK does not validate it, so `additionalProperties: false` and the
+  // property types were advertised and never checked.
+  const schema = TOOLS.find((t) => t.name === name)?.inputSchema;
+  const invalid = schema === undefined ? null : checkToolArgs(schema as unknown as ToolInputSchema, args);
+  if (invalid !== null) {
+    return { content: [{ type: "text" as const, text: invalid }], isError: true };
+  }
   try {
     switch (name) {
       case "repo_stats": {
