@@ -160,7 +160,9 @@ it fingerprints the postgres seed, writes a deterministic allow-list
 layout for the sandbox, and surfaces the public fixture gist ID
 documented in [`docs/demo_fixture.md`](docs/demo_fixture.md). Re-run it
 on every re-capture so the operator's screen recorder sees identical
-arguments and results across takes.
+arguments and results across takes. `--sandbox-root` rebuilds only a
+directory that is empty, does not exist yet, or holds this script's own
+layout; anything else is refused with exit 2 before a file is touched.
 
 ## Why these decisions
 

@@ -35,7 +35,9 @@
 
 import {
   existsSync,
+  lstatSync,
   mkdirSync,
+  readdirSync,
   readFileSync,
   rmSync,
   writeFileSync,
@@ -90,7 +92,68 @@ export function banner(stage, title) {
   return `\n${line}\n  STAGE ${stage}  ${title}\n${line}\n`;
 }
 
+// Every path `buildSandboxLayout` writes, and the directories between them.
+// Anything else under the root belongs to someone else.
+function ownedLayout() {
+  const files = new Set(SANDBOX_FILES.map((f) => f.rel));
+  const dirs = new Set();
+  for (const rel of files) {
+    for (let d = path.posix.dirname(rel); d !== "."; d = path.posix.dirname(d)) {
+      dirs.add(d);
+    }
+  }
+  return { files, dirs };
+}
+
+// The first entry under `root` that this script did not write, or null.
+//
+// `--sandbox-root` is documented for pointing the demo somewhere else, and
+// the layout step used to `rm -rf` whatever it was given: `--sandbox-root .`
+// or a typo like `~/projects` deleted that tree (#202). Ownership is by
+// name AND type -- a symlink sitting at `hello.txt` is foreign, because
+// `writeFileSync` would follow it and overwrite its target. Entries are
+// walked in sorted order so the refusal names the same entry every run.
+export function findForeignEntry(root) {
+  let st;
+  try {
+    st = lstatSync(root);
+  } catch (err) {
+    if (err.code === "ENOENT") return null;
+    throw err;
+  }
+  if (!st.isDirectory()) {
+    return { rel: ".", reason: st.isSymbolicLink() ? "is a symlink" : "is not a directory" };
+  }
+  const { files, dirs } = ownedLayout();
+  const walk = (relDir) => {
+    const abs = relDir === "" ? root : path.join(root, relDir);
+    for (const name of readdirSync(abs).sort()) {
+      const rel = relDir === "" ? name : `${relDir}/${name}`;
+      const entry = lstatSync(path.join(abs, name));
+      if (entry.isDirectory() && dirs.has(rel)) {
+        const inner = walk(rel);
+        if (inner) return inner;
+      } else if (!(entry.isFile() && files.has(rel))) {
+        return { rel, reason: "is not part of this script's layout" };
+      }
+    }
+    return null;
+  };
+  return walk("");
+}
+
 export function buildSandboxLayout({ root = SANDBOX_ROOT, clean = true } = {}) {
+  // Checked whether or not `clean` is set: the writes below would otherwise
+  // overwrite a foreign `hello.txt`, or follow a symlink planted there.
+  const foreign = findForeignEntry(root);
+  if (foreign) {
+    const where = foreign.rel === "." ? root : path.join(root, foreign.rel);
+    throw new Error(
+      `refusing to rebuild the sandbox layout at ${root}: ${where} ${foreign.reason}. ` +
+        `--sandbox-root must be an empty directory, a path that does not exist yet, ` +
+        `or a directory this script built (${SANDBOX_FILES.map((f) => f.rel).join(", ")})`,
+    );
+  }
   if (clean && existsSync(root)) {
     rmSync(root, { recursive: true, force: true });
   }
@@ -214,6 +277,18 @@ export function renderStage3Cheatsheet({ fixtureGistId }) {
 // CLI flag parsing — small enough not to need a dep.
 // ---------------------------------------------------------------------------
 
+// The value after a flag that takes one. A trailing flag used to read
+// `undefined` and fall back silently (`--sandbox-root` then printed "layout at
+// undefined"), and a value that is itself a flag was consumed as the value:
+// `--pause-seconds --skip-stage-1` swallowed the skip (#202).
+function flagValue(argv, i, flag) {
+  const v = argv[i + 1];
+  if (v === undefined || v.startsWith("--")) {
+    throw new Error(`${flag} needs a value`);
+  }
+  return v;
+}
+
 export function parseArgs(argv) {
   const args = {
     pauseSeconds: 2.0,
@@ -227,10 +302,10 @@ export function parseArgs(argv) {
   for (let i = 0; i < argv.length; i += 1) {
     const a = argv[i];
     if (a === "--pause-seconds") {
-      args.pauseSeconds = Number(argv[i + 1] ?? "0");
+      args.pauseSeconds = Number(flagValue(argv, i, a));
       i += 1;
     } else if (a === "--sandbox-root") {
-      args.sandboxRoot = argv[i + 1];
+      args.sandboxRoot = flagValue(argv, i, a);
       i += 1;
     } else if (a === "--launch-postgres") {
       args.launchPostgres = true;
@@ -332,7 +407,12 @@ export function main(argv = process.argv.slice(2), out = process.stdout) {
   if (!args.skipStage2) {
     out.write(banner(2, "filesystem-sandbox (read_file ok + path-traversal blocked)"));
     if (!args.skipSandboxLayout) {
-      buildSandboxLayout({ root: args.sandboxRoot, clean: true });
+      try {
+        buildSandboxLayout({ root: args.sandboxRoot, clean: true });
+      } catch (err) {
+        out.write(`error: ${err.message}\n`);
+        return 2;
+      }
       out.write(
         `[capture] wrote deterministic allow-list layout at ${args.sandboxRoot} ` +
           `(${SANDBOX_FILES.length} files).\n`,
