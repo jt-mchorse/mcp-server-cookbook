@@ -2128,3 +2128,13 @@ the missing-directory case the error blamed the node binary. The bridge now
 refuses both at boot with one line. It also refuses a bare string in place of
 the argument array, which used to run the program with one argument per
 character. 6 new tests.
+
+## 2026-10-05 — the README count check can't be switched off by an issue number (#215)
+
+The check that keeps the README's per-server test counts honest skipped any
+Quickstart line that had a `#` after the count, such as an issue reference. It
+then passed while checking one server fewer, so a line claiming 9999 tests
+went green. I found this while editing the README for #214. The check now reads
+the number right after the comment marker, and requires exactly one count line
+per server, so a deleted or unreadable line fails too. New tests run the
+script end to end against edited copies of the real README.
