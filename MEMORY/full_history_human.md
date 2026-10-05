@@ -2057,6 +2057,44 @@ already exists it keeps that file's permissions (minus setuid/setgid). One share
 table drives both test suites, and every row runs through both the helper and the
 real `write_file` tool. Part of the portfolio-wide portfolio-ops#81.
 
+## 2026-10-02 — capture-demo no longer deletes a directory it does not own (#202)
+
+`tools/capture-demo.mjs --sandbox-root <dir>` ran `rm -rf` on whatever it was
+given, so `--sandbox-root .` or a typo deleted that tree. It now inspects the
+root first and rebuilds only a directory that is empty, doesn't exist yet, or
+holds exactly its own layout. Ownership is checked by name and by type, so a
+symlink planted at `hello.txt` counts as foreign. Otherwise the run exits 2,
+names the first foreign entry, and leaves everything in place. A root that is a
+file or a symlink is refused as well. A trailing `--sandbox-root` used to print
+"layout at undefined" and fall back to the default. A flag-like value was
+treated as the value, which is how `--pause-seconds --skip-stage-1` silently
+swallowed the skip. Both are now usage errors. 12 new tests; reverting the
+script turns 11 red, and the remaining one is the "rebuild over its own
+layout" control.
+
+## 2026-10-02 — an allow-list root that is not a directory is refused, in both ports (#198)
+
+Both filesystem-sandbox ports accepted a regular file as an allow-list root,
+even though the Python `Sandbox.create` docstring says each root must be a
+directory. Containment still held, because the file was the only path inside
+it, but the server started with a root that `list_directory` would then refuse.
+Both ports now raise `root_not_a_directory` at start-up. The check runs on the
+resolved path, so a symlink to a directory is still accepted and a symlink to a
+file is not. A shared table of six root kinds is read by both test suites.
+Reverting either port's check turns three of its rows red.
+
+## 2026-10-02 — `Sandbox.create` refuses a bare string, which could allow the whole filesystem (#205)
+
+Found by sweeping the portfolio for public parameters typed as a collection of
+strings. `Sandbox.create("/a")` read the string one character at a time. `/`
+became an allow-list root, and `a` resolved against the current directory. If
+a directory named `a` existed there, `/etc/hosts` resolved as allowed. Both
+ports did this. The shipped servers pass the config loader's parsed list and
+were not affected, but `Sandbox` is the exported library class. Both ports now
+refuse a bare string before resolving any root, and both suites run the same
+repro. The TypeScript check looks for a string rather than requiring an array,
+so other iterables behave as before.
+
 ## 2026-10-02 — run_select returns what the database returned (#207)
 
 Three ways the postgres tool's output differed from the database's answer.

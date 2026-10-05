@@ -39,6 +39,7 @@ export type SandboxEscapeReason =
   | "outside_allowlist"
   | "symlink_outside_allowlist"
   | "root_does_not_exist"
+  | "root_not_a_directory"
   | "not_a_file"
   | "not_a_directory";
 
@@ -65,6 +66,18 @@ export class Sandbox {
   private readonly roots: string[];
 
   static async create(roots: string[]): Promise<Sandbox> {
+    // First, before any root is resolved (#205). A string is iterable, so
+    // `create("/a")` walked "/", then "a" against the cwd -- and when "a"
+    // existed there the allow-list was ["/", ".../a/"]: the whole filesystem.
+    // `string[]` does not stop a plain-JS caller. A TypeError, not a
+    // SandboxEscape, because the value is not a root at all.
+    if (typeof roots === "string") {
+      throw new TypeError(
+        `Sandbox.create takes an array of roots, not a bare string: ` +
+          `${JSON.stringify(roots)} would be read one character at a time, and the ` +
+          `first character of an absolute path is the filesystem root -- pass [${JSON.stringify(roots)}]`,
+      );
+    }
     if (roots.length === 0) {
       throw new Error(
         "Sandbox requires at least one allow-list root. " +
@@ -74,6 +87,13 @@ export class Sandbox {
     const resolved: string[] = [];
     for (const r of roots) {
       const real = await realpathOrThrow(r);
+      // On the RESOLVED root (#198): a symlink to a directory stays a valid
+      // root and a symlink to a file does not. A regular file used to be
+      // accepted -- `fs.realpath` succeeds on one. The Python port makes the
+      // same check, and test-fixtures/root_kind_parity.json pins both.
+      if (!(await fs.stat(real)).isDirectory()) {
+        throw new SandboxEscape("root_not_a_directory", r, `allow-list root is not a directory: ${r}`);
+      }
       const withSep = real.endsWith(path.sep) ? real : real + path.sep;
       resolved.push(withSep);
     }

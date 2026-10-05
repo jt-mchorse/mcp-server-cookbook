@@ -48,6 +48,7 @@ SandboxEscapeReason = Literal[
     "outside_allowlist",
     "symlink_outside_allowlist",
     "root_does_not_exist",
+    "root_not_a_directory",
     "not_a_file",
     "not_a_directory",
 ]
@@ -97,6 +98,18 @@ class Sandbox:
     def create(cls, roots: list[str]) -> Sandbox:
         """Build a sandbox over ``roots``. Each root must exist and
         be a directory; symlinks are followed once at construction."""
+        # First, before any root is resolved (#205). A `str` is iterable, so
+        # `create("/a")` walked "/", then "a" against the cwd -- and when "a"
+        # existed there the allow-list was `("/", ".../a/")`: the whole
+        # filesystem. A plain `ValueError`, like the empty check below, because
+        # the value is not a root at all.
+        if isinstance(roots, (str, bytes, bytearray)):
+            raise ValueError(
+                f"Sandbox.create takes a list of roots, not a bare "
+                f"{type(roots).__name__}: {roots!r} would be read one character "
+                f"at a time, and the first character of an absolute path is the "
+                f"filesystem root -- pass [{roots!r}]"
+            )
         if not roots:
             raise ValueError(
                 "Sandbox requires at least one allow-list root. "
@@ -106,6 +119,18 @@ class Sandbox:
         resolved: list[str] = []
         for r in roots:
             real = _realpath_or_throw(r)
+            # On the RESOLVED root (#198), so a symlink to a directory stays a
+            # valid root and a symlink to a file does not. A regular file used to
+            # be accepted, against this method's own docstring; containment held
+            # (the file was the only path inside it), but `list_directory` on the
+            # root then failed as `not_a_directory` at call time instead of the
+            # server refusing to start. The TS port makes the same check.
+            if not os.path.isdir(real):
+                raise SandboxEscape(
+                    "root_not_a_directory",
+                    r,
+                    f"allow-list root is not a directory: {r}",
+                )
             with_sep = real if real.endswith(os.sep) else real + os.sep
             resolved.append(with_sep)
         return cls(resolved)

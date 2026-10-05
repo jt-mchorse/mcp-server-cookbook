@@ -2250,6 +2250,65 @@ context_for_next_session:
 followups: ["portfolio-ops#81"]
 
 ---
+session: 2026-10-02T07:38Z
+issue: 202
+focus: CAPTURE_DEMO_SANDBOX_ROOT_RM_RF_ED_WHATEVER_DIRECTORY_IT_WAS_GIVEN_AND_A_FLAG_WITH_NO_VALUE_FELL_BACK_SILENTLY
+phase: shipped
+duration_min: 2   # plan comment 07:36:50Z -> date -u 07:38Z
+delta:
+  files_changed: 3
+  tests_added: 12
+  suite: "tools: 236 -> 248 node:test green; capture-demo.test.mjs 20 -> 32; check-readme and check-architecture-doc ok"
+decisions_made: []
+measured: "full revert to main's capture-demo.mjs: 11 of the 12 new arms red (the 12th is the build-over-own-layout CONTROL, green by design). Neighbours built and run: top-level-only walk 1 red (nested/mine.md), flagValue on --sandbox-root only 2 red (--pause-seconds arms), ownership by name without type 1 red (symlink at hello.txt)."
+context_for_next_session:
+  - findForeignEntry_WALKS_THE_ROOT_SORTED_AND_OWNS_BY_NAME_AND_TYPE_hello_txt_and_nested_note_md_REGULAR_FILES_nested_A_DIRECTORY_a_SYMLINK_AT_AN_OWNED_NAME_IS_FOREIGN_because_writeFileSync_FOLLOWS_IT
+  - THE_CHECK_RUNS_EVEN_WITH_clean_false_because_the_writes_alone_overwrite_a_foreign_hello_txt_or_follow_a_planted_symlink
+  - --pause-seconds_HAD_THE_SAME_DEFECT_IN_THE_SAME_PARSER_pause_seconds_then_skip_stage_1_SWALLOWED_THE_SKIP_both_read_through_flagValue_NUMERIC_VALIDATION_OF_pause_seconds_abc_IS_NaN_STILL_UNTOUCHED_different_class
+  - REFUSAL_IS_EXIT_2_operator_input_like_a_usage_error_MISSING_SEED_STAYS_EXIT_1
+  - tools_ARE_NOT_LINTED_IN_CI_only_per_server_npm_run_lint
+followups: []
+---
+
+---
+session: 2026-10-02T08:20Z
+issue: 198
+focus: BOTH_FS_SANDBOX_PORTS_ACCEPTED_A_REGULAR_FILE_AS_AN_ALLOW_LIST_ROOT_AGAINST_THE_PY_DOCSTRING_new_reason_root_not_a_directory
+phase: shipped
+delta:
+  files_changed: 9
+  tests_added: 16   # 8 per port
+  suite: "TS 228 -> 236, Py 290 -> 298; lint, typecheck, ruff clean; check-readme and check-architecture-doc ok; test-counts.json from runtime counts"
+decisions_made: []
+measured: "revert of the kind check: 3 red in EACH port (regular file, symlink to file, file beside a valid root); the two accept rows and the two root_does_not_exist rows stay green, by design."
+context_for_next_session:
+  - THE_KIND_CHECK_RUNS_ON_THE_RESOLVED_ROOT_symlink_to_dir_OK_symlink_to_file_REFUSED_pinned_by_a_SIXTH_shared_table_test_fixtures_root_kind_parity_json
+  - CHOSE_REFUSE_OVER_RELAXING_THE_DOCSTRING_the_issue_offered_both_containment_already_held_so_this_is_a_contract_fix_and_trivially_reversible
+  - MERGE_ORDER_203_capture_demo_IS_INDEPENDENT_both_append_MEMORY_and_neither_touches_counts_EXCEPT_this_one
+followups: []
+---
+
+---
+session: 2026-10-02T08:30Z
+issue: 205
+focus: Sandbox_create_ITERATED_A_BARE_STRING_SO_THE_FILESYSTEM_ROOT_LANDED_ON_THE_ALLOW_LIST_BOTH_PORTS
+phase: shipped
+delta:
+  files_changed: 8
+  tests_added: 15   # 9 py, 6 ts
+  suite: "TS 228 -> 234, Py 290 -> 299; lint, typecheck, ruff clean; counts from runtime"
+decisions_made: []
+measured: "main, cwd containing dir a: Sandbox.create('/a') -> roots ('/', '.../a/') and resolve('/etc/hosts') ALLOWED, both ports. Revert probe: Py 6 of 9 red, TS 4 of 6 red; the controls stay green by design."
+context_for_next_session:
+  - FOUND_BY_A_PORTFOLIO_AST_SWEEP_FOR_PUBLIC_PARAMS_ANNOTATED_AS_A_COLLECTION_OF_str_WITH_NO_BARE_STRING_GUARD_the_sweep_script_is_in_the_night_run_log
+  - THE_FIRST_CHARACTER_OF_ANY_ABSOLUTE_PATH_IS_THE_FILESYSTEM_ROOT_so_the_bare_string_class_on_a_PATH_LIST_is_a_SANDBOX_ESCAPE_not_just_wrong_output
+  - SHIPPED_SERVERS_UNAFFECTED_server_py_and_server_ts_pass_the_config_loaders_LIST
+  - TS_CHECK_IS_typeof_string_NOT_Array_isArray_so_a_Set_of_roots_still_works_as_before
+  - MERGE_ORDER_WITH_204_both_touch_Sandbox_create_in_SEPARATE_hunks_and_both_bump_fs_sandbox_counts_RECOMPUTE_FROM_THE_RUNTIME_AFTER_THE_FIRST_MERGES
+followups: []
+---
+
+---
 session: 2026-10-02T11:50Z
 issue: 207
 focus: run_select_PAYLOAD_DROPPED_A_DUPLICATE_COLUMN_SHIFTED_DATES_BY_THE_SERVER_TZ_AND_NULLED_NaN
