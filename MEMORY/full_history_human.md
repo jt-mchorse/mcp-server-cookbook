@@ -2128,3 +2128,11 @@ the missing-directory case the error blamed the node binary. The bridge now
 refuses both at boot with one line. It also refuses a bare string in place of
 the argument array, which used to run the program with one argument per
 character. 6 new tests.
+
+## 2026-10-05 — the Python sandbox's tests can't rewrite committed files (#217)
+
+A guard that fails the test session if any test modifies a committed file was
+added to seven Python repos (portfolio-ops#79). This repo's Python server is a
+Python test suite too, but it sits in a subfolder, so the port skipped it. It
+now has the same guard. A throwaway test that edited the README failed the
+session as intended.
