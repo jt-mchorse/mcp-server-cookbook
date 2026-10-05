@@ -2269,3 +2269,21 @@ context_for_next_session:
   - tools_ARE_NOT_LINTED_IN_CI_only_per_server_npm_run_lint
 followups: []
 ---
+
+---
+session: 2026-10-02T08:20Z
+issue: 198
+focus: BOTH_FS_SANDBOX_PORTS_ACCEPTED_A_REGULAR_FILE_AS_AN_ALLOW_LIST_ROOT_AGAINST_THE_PY_DOCSTRING_new_reason_root_not_a_directory
+phase: shipped
+delta:
+  files_changed: 9
+  tests_added: 16   # 8 per port
+  suite: "TS 228 -> 236, Py 290 -> 298; lint, typecheck, ruff clean; check-readme and check-architecture-doc ok; test-counts.json from runtime counts"
+decisions_made: []
+measured: "revert of the kind check: 3 red in EACH port (regular file, symlink to file, file beside a valid root); the two accept rows and the two root_does_not_exist rows stay green, by design."
+context_for_next_session:
+  - THE_KIND_CHECK_RUNS_ON_THE_RESOLVED_ROOT_symlink_to_dir_OK_symlink_to_file_REFUSED_pinned_by_a_SIXTH_shared_table_test_fixtures_root_kind_parity_json
+  - CHOSE_REFUSE_OVER_RELAXING_THE_DOCSTRING_the_issue_offered_both_containment_already_held_so_this_is_a_contract_fix_and_trivially_reversible
+  - MERGE_ORDER_203_capture_demo_IS_INDEPENDENT_both_append_MEMORY_and_neither_touches_counts_EXCEPT_this_one
+followups: []
+---

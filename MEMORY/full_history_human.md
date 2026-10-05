@@ -2071,3 +2071,14 @@ treated as the value, which is how `--pause-seconds --skip-stage-1` silently
 swallowed the skip. Both are now usage errors. 12 new tests; reverting the
 script turns 11 red, and the remaining one is the "rebuild over its own
 layout" control.
+
+## 2026-10-02 — an allow-list root that is not a directory is refused, in both ports (#198)
+
+Both filesystem-sandbox ports accepted a regular file as an allow-list root,
+even though the Python `Sandbox.create` docstring says each root must be a
+directory. Containment still held, because the file was the only path inside
+it, but the server started with a root that `list_directory` would then refuse.
+Both ports now raise `root_not_a_directory` at start-up. The check runs on the
+resolved path, so a symlink to a directory is still accepted and a symlink to a
+file is not. A shared table of six root kinds is read by both test suites.
+Reverting either port's check turns three of its rows red.

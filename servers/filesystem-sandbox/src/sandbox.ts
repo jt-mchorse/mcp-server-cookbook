@@ -39,6 +39,7 @@ export type SandboxEscapeReason =
   | "outside_allowlist"
   | "symlink_outside_allowlist"
   | "root_does_not_exist"
+  | "root_not_a_directory"
   | "not_a_file"
   | "not_a_directory";
 
@@ -74,6 +75,13 @@ export class Sandbox {
     const resolved: string[] = [];
     for (const r of roots) {
       const real = await realpathOrThrow(r);
+      // On the RESOLVED root (#198): a symlink to a directory stays a valid
+      // root and a symlink to a file does not. A regular file used to be
+      // accepted -- `fs.realpath` succeeds on one. The Python port makes the
+      // same check, and test-fixtures/root_kind_parity.json pins both.
+      if (!(await fs.stat(real)).isDirectory()) {
+        throw new SandboxEscape("root_not_a_directory", r, `allow-list root is not a directory: ${r}`);
+      }
       const withSep = real.endsWith(path.sep) ? real : real + path.sep;
       resolved.push(withSep);
     }
