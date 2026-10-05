@@ -2361,3 +2361,22 @@ context_for_next_session:
   - SIBLING_OF_204_AND_206_FOUND_BY_THE_SECOND_ORDER_HUNT
 followups: []
 ---
+
+---
+session: 2026-10-05T09:14Z
+duration_min: 2   # computed: started 09:13Z -> 09:14Z
+issue: 219
+branch: session/2026-10-05-0913-issue-219
+focus: CAPTURE_DEMO_PRINTED_THE_DOCS_MADE_UP_GIST_ID_AS_A_DETERMINISTIC_INPUT_IT_404S
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 1
+  suite: "tools/capture-demo.test.mjs 32 -> 33; every tools test green; check-readme, check-architecture-doc ok"
+decisions_made: []
+measured: "script now prints 'did not yield a gist_id; using placeholder'; invariant red against main's doc"
+context_for_next_session:
+  - A_WELL_FORMED_PLACEHOLDER_DEFEATS_ITS_OWN_FALLBACK_write_placeholders_in_a_shape_the_parser_rejects
+  - PICKING_THE_REAL_FIXTURE_GIST_IS_JTS_CALL_external_resource
+followups: []
+---

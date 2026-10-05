@@ -2128,3 +2128,11 @@ the missing-directory case the error blamed the node binary. The bridge now
 refuses both at boot with one line. It also refuses a bare string in place of
 the argument array, which used to run the program with one argument per
 character. 6 new tests.
+
+## 2026-10-05 — the demo stops presenting a fake gist as real (#219)
+
+The demo-fixture document held a made-up gist ID labelled as a placeholder,
+but because it looked like a real ID, the capture script printed it as the
+demo's input. Fetching it returns 404. The document now says the gist isn't
+pinned yet, and the script says it's using a placeholder until someone pins a
+real public gist. Choosing that gist is left to JT.
