@@ -59,8 +59,46 @@ export async function listDirectory(deps: ToolDeps, dir: string): Promise<DirEnt
     }
     out.push(entry);
   }
-  out.sort((a, b) => a.name.localeCompare(b.name));
+  // By code point, as Python's `sorted` does (#209). `localeCompare` made the
+  // order depend on the HOST locale (`ä` first under en_US, last under sv_SE)
+  // and disagree with the Python port even on ASCII (`_x,a,B` vs `B,Z,_x`).
+  out.sort((a, b) => compareCodePoints(a.name, b.name));
   return out;
+}
+
+/**
+ * Order two strings by Unicode code point -- Python's `str` ordering.
+ *
+ * Not `<`: JavaScript compares UTF-16 code units, which puts an astral
+ * character (a surrogate pair, 0xD800-0xDBFF) before U+E000-U+FFFF while code
+ * point order puts it after.
+ */
+export function compareCodePoints(a: string, b: string): number {
+  const ia = a[Symbol.iterator]();
+  const ib = b[Symbol.iterator]();
+  for (;;) {
+    const x = ia.next();
+    const y = ib.next();
+    if (x.done || y.done) return x.done === y.done ? 0 : x.done ? -1 : 1;
+    const d = x.value.codePointAt(0)! - y.value.codePointAt(0)!;
+    if (d !== 0) return d;
+  }
+}
+
+/**
+ * The first lone surrogate in `s` as `[codePointIndex, codeUnit]`, or `null`.
+ *
+ * The index counts code points, so it matches the `position` Python's UTF-8
+ * codec reports for the same string.
+ */
+function firstLoneSurrogate(s: string): [number, number] | null {
+  let index = 0;
+  for (const ch of s) {
+    const cu = ch.charCodeAt(0);
+    if (ch.length === 1 && cu >= 0xd800 && cu <= 0xdfff) return [index, cu];
+    index += 1;
+  }
+  return null;
 }
 
 export async function readFile(deps: ToolDeps, file: string): Promise<string> {
@@ -73,7 +111,10 @@ export async function readFile(deps: ToolDeps, file: string): Promise<string> {
   // a clear error rather than as garbled bytes inside a JSON tool
   // result. Detection is "decode strict, fail on replacement char".
   const buf = await fs.readFile(sp.resolved);
-  const decoder = new TextDecoder("utf-8", { fatal: true });
+  // `ignoreBOM: true` KEEPS a leading U+FEFF (#209). The default strips it, so
+  // this port returned "hello" where the Python port returns "\ufeffhello", and
+  // a read-then-write here silently dropped the BOM.
+  const decoder = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true });
   try {
     return decoder.decode(buf);
   } catch {
@@ -96,6 +137,18 @@ export async function writeFile(
   // and the github-gists `content` guard (#119, sibling of #117).
   if (typeof content !== "string") {
     throw new Error("content must be a string");
+  }
+  // A lone surrogate has no UTF-8 encoding. `Buffer.from` wrote U+FFFD in its
+  // place and the call reported success -- silent corruption (#209). Refused
+  // here with the exact message the Python port's codec raises, before any byte
+  // is written.
+  const lone = firstLoneSurrogate(content);
+  if (lone !== null) {
+    const [position, cu] = lone;
+    throw new Error(
+      `'utf-8' codec can't encode character '\\u${cu.toString(16).padStart(4, "0")}' ` +
+        `in position ${position}: surrogates not allowed`,
+    );
   }
   const data = Buffer.from(content, "utf-8");
   if (data.byteLength > deps.maxBytes) {
