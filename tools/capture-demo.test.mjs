@@ -6,7 +6,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { chmodSync, existsSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import os from "node:os";
 import path from "node:path";
@@ -294,3 +294,117 @@ test("--launch-postgres: no docker on PATH says so", () => {
   assert.ok(r.out.includes(FAILED), r.out);
   assert.ok(!r.out.includes(UP), r.out);
 });
+
+// ---------------------------------------------------------------------------
+// #202: `--sandbox-root` used to `rm -rf` whatever directory it was given.
+// ---------------------------------------------------------------------------
+
+function scratch(prefix) {
+  return mkdtempSync(path.join(os.tmpdir(), prefix));
+}
+
+function captureMain(argv) {
+  let captured = "";
+  const rc = main(argv, { write: (s) => { captured += s; } });
+  return { rc, captured };
+}
+
+const STAGE_2_ONLY = ["--pause-seconds", "0", "--skip-stage-1", "--skip-stage-3"];
+
+test("#202: a root holding a foreign file is refused and the file survives", () => {
+  const root = scratch("capture-demo-foreign-file-");
+  writeFileSync(path.join(root, "notes.txt"), "keep me\n");
+  assert.throws(
+    () => buildSandboxLayout({ root, clean: true }),
+    (err) => err.message.includes(path.join(root, "notes.txt")) && /not part of this script's layout/.test(err.message),
+  );
+  assert.equal(readFileSync(path.join(root, "notes.txt"), "utf-8"), "keep me\n");
+});
+
+test("#202: a foreign directory is refused, named by its first entry, and survives", () => {
+  const root = scratch("capture-demo-foreign-dir-");
+  buildSandboxLayout({ root, clean: true });
+  mkdirSync(path.join(root, "important"));
+  writeFileSync(path.join(root, "important", "notes.txt"), "keep me\n");
+  assert.throws(() => buildSandboxLayout({ root, clean: true }), /important is not part of this script's layout/);
+  assert.ok(existsSync(path.join(root, "important", "notes.txt")));
+});
+
+test("#202: a foreign file inside the owned nested/ directory is refused", () => {
+  // The walk has to descend into the directories the layout owns: a check of
+  // the top level alone passes this tree and deletes nested/mine.md.
+  const root = scratch("capture-demo-foreign-nested-");
+  buildSandboxLayout({ root, clean: true });
+  writeFileSync(path.join(root, "nested", "mine.md"), "keep me\n");
+  assert.throws(() => buildSandboxLayout({ root, clean: true }), /nested\/mine\.md is not part/);
+  assert.ok(existsSync(path.join(root, "nested", "mine.md")));
+});
+
+test("#202: a symlink at an owned name is foreign; its target is not overwritten", () => {
+  const root = scratch("capture-demo-symlink-name-");
+  const target = path.join(scratch("capture-demo-symlink-target-"), "precious.txt");
+  writeFileSync(target, "keep me\n");
+  symlinkSync(target, path.join(root, "hello.txt"));
+  assert.throws(() => buildSandboxLayout({ root, clean: false }), /hello\.txt is not part/);
+  assert.equal(readFileSync(target, "utf-8"), "keep me\n");
+});
+
+test("#202: a root that is a file, or a symlink, is refused", () => {
+  const dir = scratch("capture-demo-root-kind-");
+  const file = path.join(dir, "a-file");
+  writeFileSync(file, "keep me\n");
+  assert.throws(() => buildSandboxLayout({ root: file, clean: true }), /is not a directory/);
+  assert.equal(readFileSync(file, "utf-8"), "keep me\n");
+  const link = path.join(dir, "a-link");
+  symlinkSync(scratch("capture-demo-link-target-"), link);
+  assert.throws(() => buildSandboxLayout({ root: link, clean: true }), /is a symlink/);
+});
+
+test("#202: a re-capture over its own layout, an empty directory and a new path all still build", () => {
+  const own = scratch("capture-demo-own-");
+  buildSandboxLayout({ root: own, clean: true });
+  writeFileSync(path.join(own, "hello.txt"), "edited by hand\n"); // owned name, other content
+  buildSandboxLayout({ root: own, clean: true });
+  assert.equal(readFileSync(path.join(own, "hello.txt"), "utf-8"), SANDBOX_FILES[0].content);
+  const empty = scratch("capture-demo-empty-");
+  buildSandboxLayout({ root: empty, clean: true });
+  const fresh = path.join(scratch("capture-demo-fresh-"), "not-yet");
+  buildSandboxLayout({ root: fresh, clean: true });
+  for (const root of [own, empty, fresh]) {
+    for (const file of SANDBOX_FILES) {
+      assert.equal(readFileSync(path.join(root, file.rel), "utf-8"), file.content);
+    }
+  }
+});
+
+test("#202: main refuses a foreign root with exit 2 before deleting anything", () => {
+  const root = scratch("capture-demo-main-foreign-");
+  writeFileSync(path.join(root, "notes.txt"), "keep me\n");
+  const { rc, captured } = captureMain([...STAGE_2_ONLY, "--sandbox-root", root]);
+  assert.equal(rc, 2, captured);
+  assert.match(captured, /error: refusing to rebuild the sandbox layout/);
+  assert.ok(!captured.includes("wrote deterministic allow-list layout"));
+  assert.equal(readFileSync(path.join(root, "notes.txt"), "utf-8"), "keep me\n");
+});
+
+test("#202: the issue's repro through the real CLI exits 2 and keeps important/notes.txt", () => {
+  const root = scratch("capture-demo-cli-");
+  mkdirSync(path.join(root, "important"));
+  writeFileSync(path.join(root, "important", "notes.txt"), "keep me\n");
+  const r = spawnSync(
+    process.execPath,
+    [path.join(REPO_ROOT, "tools/capture-demo.mjs"), ...STAGE_2_ONLY, "--sandbox-root", root],
+    { encoding: "utf-8" },
+  );
+  assert.equal(r.status, 2, r.stdout + r.stderr);
+  assert.ok(existsSync(path.join(root, "important", "notes.txt")));
+});
+
+for (const argv of [["--sandbox-root"], ["--sandbox-root", "--skip-stage-1"], ["--pause-seconds"], ["--pause-seconds", "--skip-stage-1"]]) {
+  test(`#202: ${JSON.stringify(argv)} is a usage error, not a silent fallback`, () => {
+    assert.throws(() => parseArgs(argv), new RegExp(`${argv[0]} needs a value`));
+    const { rc, captured } = captureMain(argv);
+    assert.equal(rc, 2);
+    assert.ok(!captured.includes("undefined"), captured);
+  });
+}
