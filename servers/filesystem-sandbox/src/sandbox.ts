@@ -66,6 +66,18 @@ export class Sandbox {
   private readonly roots: string[];
 
   static async create(roots: string[]): Promise<Sandbox> {
+    // First, before any root is resolved (#205). A string is iterable, so
+    // `create("/a")` walked "/", then "a" against the cwd -- and when "a"
+    // existed there the allow-list was ["/", ".../a/"]: the whole filesystem.
+    // `string[]` does not stop a plain-JS caller. A TypeError, not a
+    // SandboxEscape, because the value is not a root at all.
+    if (typeof roots === "string") {
+      throw new TypeError(
+        `Sandbox.create takes an array of roots, not a bare string: ` +
+          `${JSON.stringify(roots)} would be read one character at a time, and the ` +
+          `first character of an absolute path is the filesystem root -- pass [${JSON.stringify(roots)}]`,
+      );
+    }
     if (roots.length === 0) {
       throw new Error(
         "Sandbox requires at least one allow-list root. " +

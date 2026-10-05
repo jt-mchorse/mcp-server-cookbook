@@ -98,6 +98,18 @@ class Sandbox:
     def create(cls, roots: list[str]) -> Sandbox:
         """Build a sandbox over ``roots``. Each root must exist and
         be a directory; symlinks are followed once at construction."""
+        # First, before any root is resolved (#205). A `str` is iterable, so
+        # `create("/a")` walked "/", then "a" against the cwd -- and when "a"
+        # existed there the allow-list was `("/", ".../a/")`: the whole
+        # filesystem. A plain `ValueError`, like the empty check below, because
+        # the value is not a root at all.
+        if isinstance(roots, (str, bytes, bytearray)):
+            raise ValueError(
+                f"Sandbox.create takes a list of roots, not a bare "
+                f"{type(roots).__name__}: {roots!r} would be read one character "
+                f"at a time, and the first character of an absolute path is the "
+                f"filesystem root -- pass [{roots!r}]"
+            )
         if not roots:
             raise ValueError(
                 "Sandbox requires at least one allow-list root. "

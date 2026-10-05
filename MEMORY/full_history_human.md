@@ -2082,3 +2082,15 @@ Both ports now raise `root_not_a_directory` at start-up. The check runs on the
 resolved path, so a symlink to a directory is still accepted and a symlink to a
 file is not. A shared table of six root kinds is read by both test suites.
 Reverting either port's check turns three of its rows red.
+
+## 2026-10-02 — `Sandbox.create` refuses a bare string, which could allow the whole filesystem (#205)
+
+Found by sweeping the portfolio for public parameters typed as a collection of
+strings. `Sandbox.create("/a")` read the string one character at a time. `/`
+became an allow-list root, and `a` resolved against the current directory. If
+a directory named `a` existed there, `/etc/hosts` resolved as allowed. Both
+ports did this. The shipped servers pass the config loader's parsed list and
+were not affected, but `Sandbox` is the exported library class. Both ports now
+refuse a bare string before resolving any root, and both suites run the same
+repro. The TypeScript check looks for a string rather than requiring an array,
+so other iterables behave as before.
