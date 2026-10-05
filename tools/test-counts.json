@@ -20,10 +20,10 @@
     "To update: run the server's test command and copy the number it printed."
   ],
   "counts": {
-    "filesystem-sandbox": 228,
-    "filesystem-sandbox-py": 290,
+    "filesystem-sandbox": 250,
+    "filesystem-sandbox-py": 314,
     "github-gists": 172,
     "internal-tools-bridge": 74,
-    "postgres-readonly": 280
+    "postgres-readonly": 289
   }
 }

@@ -42,6 +42,7 @@ typed `SandboxEscape` exceptions:
 | `outside_allowlist`             | Resolved path doesn't sit under any allow-list root                |
 | `symlink_outside_allowlist`     | (Same reason; surfaced via `outside_allowlist` after realpath)     |
 | `root_does_not_exist`           | Allow-list root doesn't exist at server start                      |
+| `root_not_a_directory`          | Allow-list root (after following symlinks) is a file, not a directory |
 | `not_a_file` / `not_a_directory`| Tool-level type assertions on the resolved path                    |
 
 ## Parity matrix
@@ -118,7 +119,7 @@ on macOS):
 
 ```bash
 pip install -e '.[dev]'      # no [server] needed — primitive tests don't import mcp
-pytest                        # 290 tests, ~0.6 s
+pytest                        # 314 tests, ~0.6 s
 ruff check . && ruff format --check .
 ```
 
