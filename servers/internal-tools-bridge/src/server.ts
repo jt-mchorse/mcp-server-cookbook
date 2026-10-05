@@ -50,7 +50,7 @@ try {
   console.error(
     `internal-tools-bridge: refusing to start. MCP_BRIDGE_CWD=` +
       `${JSON.stringify(process.env.MCP_BRIDGE_CWD ?? null)} is not usable: ${detail}. ` +
-      `Set it to an absolute path, or leave it unset to use the process working directory.`,
+      `Set it to the absolute path of an existing directory, or leave it unset to use the process working directory.`,
   );
   process.exit(1);
 }

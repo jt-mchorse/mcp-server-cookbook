@@ -2344,3 +2344,20 @@ context_for_next_session:
   - THE_PYTHON_TRANSPORT_HANG_ON_A_LONE_SURROGATE_IS_210_FILED_HIGH_WITH_OPTIONS_NOT_FIXED
 followups: ["#210"]
 ---
+
+---
+session: 2026-10-02T14:05Z
+issue: 212
+focus: BRIDGE_CWD_RULE_CHECKED_ONLY_ABSOLUTE_A_FILE_OR_MISSING_DIR_BOOTED_AND_FAILED_AT_CALL_TIME_PLUS_BARE_STRING_ARGS
+phase: shipped
+delta:
+  files_changed: 6
+  tests_added: 6
+  suite: "internal-tools-bridge 68 -> 74; lint, tsc clean; check-readme ok; counts from the runtime"
+decisions_made: []
+measured: "hunt agent: MCP_BRIDGE_CWD=<file> -> repo_stats advertised, call 'spawn ENOTDIR'; missing dir -> 'spawn ... node ENOENT'; runBridged(cfg,node,'-v') -> argv ['-','v']. Revert of bridge.ts: 4 of 6 red; controls green."
+context_for_next_session:
+  - THE_PER_SERVER_README_ALSO_PINS_A_COUNT_WITH_A_PER_FILE_BREAKDOWN_check_readme_named_it_UPDATE_BOTH
+  - SIBLING_OF_204_AND_206_FOUND_BY_THE_SECOND_ORDER_HUNT
+followups: []
+---

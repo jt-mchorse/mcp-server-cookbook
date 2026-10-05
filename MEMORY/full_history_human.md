@@ -2118,3 +2118,13 @@ message, keeps the BOM, and sorts by code point. A seventh shared table pins all
 three in both test suites. A related, harder problem is filed as #210 and not
 fixed: the Python server never answers a request containing a lone surrogate,
 because the SDK drops it before the server sees it.
+
+## 2026-10-02 — the tools bridge refuses a cwd that isn't a directory, at boot (#212)
+
+#145 made the bridge check `MCP_BRIDGE_CWD` at start-up, but the check only
+required an absolute path. A path to a regular file, or to a missing directory,
+still started the server and advertised the tool. The call then failed, and in
+the missing-directory case the error blamed the node binary. The bridge now
+refuses both at boot with one line. It also refuses a bare string in place of
+the argument array, which used to run the program with one argument per
+character. 6 new tests.
