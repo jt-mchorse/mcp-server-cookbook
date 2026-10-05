@@ -2248,3 +2248,24 @@ context_for_next_session:
   - PY_TEMP_NAME_IS_NOW_THE_TS_SHAPE_dot_base_dot_pid_dot_12hex_dot_tmp_via_os_open_O_EXCL_no_retry_loop_same_as_ts
   - MERGE_NOTE_196_AND_199_ALSO_MOVE_THE_COUNT_LINES_recompute_test_counts_json_and_the_README_lines_from_runtime_after_rebase
 followups: ["portfolio-ops#81"]
+
+---
+session: 2026-10-02T07:38Z
+issue: 202
+focus: CAPTURE_DEMO_SANDBOX_ROOT_RM_RF_ED_WHATEVER_DIRECTORY_IT_WAS_GIVEN_AND_A_FLAG_WITH_NO_VALUE_FELL_BACK_SILENTLY
+phase: shipped
+duration_min: 2   # plan comment 07:36:50Z -> date -u 07:38Z
+delta:
+  files_changed: 3
+  tests_added: 12
+  suite: "tools: 236 -> 248 node:test green; capture-demo.test.mjs 20 -> 32; check-readme and check-architecture-doc ok"
+decisions_made: []
+measured: "full revert to main's capture-demo.mjs: 11 of the 12 new arms red (the 12th is the build-over-own-layout CONTROL, green by design). Neighbours built and run: top-level-only walk 1 red (nested/mine.md), flagValue on --sandbox-root only 2 red (--pause-seconds arms), ownership by name without type 1 red (symlink at hello.txt)."
+context_for_next_session:
+  - findForeignEntry_WALKS_THE_ROOT_SORTED_AND_OWNS_BY_NAME_AND_TYPE_hello_txt_and_nested_note_md_REGULAR_FILES_nested_A_DIRECTORY_a_SYMLINK_AT_AN_OWNED_NAME_IS_FOREIGN_because_writeFileSync_FOLLOWS_IT
+  - THE_CHECK_RUNS_EVEN_WITH_clean_false_because_the_writes_alone_overwrite_a_foreign_hello_txt_or_follow_a_planted_symlink
+  - --pause-seconds_HAD_THE_SAME_DEFECT_IN_THE_SAME_PARSER_pause_seconds_then_skip_stage_1_SWALLOWED_THE_SKIP_both_read_through_flagValue_NUMERIC_VALIDATION_OF_pause_seconds_abc_IS_NaN_STILL_UNTOUCHED_different_class
+  - REFUSAL_IS_EXIT_2_operator_input_like_a_usage_error_MISSING_SEED_STAYS_EXIT_1
+  - tools_ARE_NOT_LINTED_IN_CI_only_per_server_npm_run_lint
+followups: []
+---
