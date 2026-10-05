@@ -48,6 +48,7 @@ SandboxEscapeReason = Literal[
     "outside_allowlist",
     "symlink_outside_allowlist",
     "root_does_not_exist",
+    "root_not_a_directory",
     "not_a_file",
     "not_a_directory",
 ]
@@ -118,6 +119,18 @@ class Sandbox:
         resolved: list[str] = []
         for r in roots:
             real = _realpath_or_throw(r)
+            # On the RESOLVED root (#198), so a symlink to a directory stays a
+            # valid root and a symlink to a file does not. A regular file used to
+            # be accepted, against this method's own docstring; containment held
+            # (the file was the only path inside it), but `list_directory` on the
+            # root then failed as `not_a_directory` at call time instead of the
+            # server refusing to start. The TS port makes the same check.
+            if not os.path.isdir(real):
+                raise SandboxEscape(
+                    "root_not_a_directory",
+                    r,
+                    f"allow-list root is not a directory: {r}",
+                )
             with_sep = real if real.endswith(os.sep) else real + os.sep
             resolved.append(with_sep)
         return cls(resolved)
