@@ -2128,3 +2128,10 @@ the missing-directory case the error blamed the node binary. The bridge now
 refuses both at boot with one line. It also refuses a bare string in place of
 the argument array, which used to run the program with one argument per
 character. 6 new tests.
+
+## 2026-10-05 — the gists server's env template keeps the token optional (#221)
+
+The gists server's env template said the GitHub token is optional for public
+gists, but shipped a fake one. Loading the file sent that fake token, so every
+public read failed with "Bad credentials". It now ships empty, and a test loads
+the template and checks that no token is set.
