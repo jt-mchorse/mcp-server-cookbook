@@ -2057,6 +2057,21 @@ already exists it keeps that file's permissions (minus setuid/setgid). One share
 table drives both test suites, and every row runs through both the helper and the
 real `write_file` tool. Part of the portfolio-wide portfolio-ops#81.
 
+## 2026-10-02 — capture-demo no longer deletes a directory it does not own (#202)
+
+`tools/capture-demo.mjs --sandbox-root <dir>` ran `rm -rf` on whatever it was
+given, so `--sandbox-root .` or a typo deleted that tree. It now inspects the
+root first and rebuilds only a directory that is empty, doesn't exist yet, or
+holds exactly its own layout. Ownership is checked by name and by type, so a
+symlink planted at `hello.txt` counts as foreign. Otherwise the run exits 2,
+names the first foreign entry, and leaves everything in place. A root that is a
+file or a symlink is refused as well. A trailing `--sandbox-root` used to print
+"layout at undefined" and fall back to the default. A flag-like value was
+treated as the value, which is how `--pause-seconds --skip-stage-1` silently
+swallowed the skip. Both are now usage errors. 12 new tests; reverting the
+script turns 11 red, and the remaining one is the "rebuild over its own
+layout" control.
+
 ## 2026-10-02 — an allow-list root that is not a directory is refused, in both ports (#198)
 
 Both filesystem-sandbox ports accepted a regular file as an allow-list root,
