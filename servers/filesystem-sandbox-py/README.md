@@ -119,7 +119,7 @@ on macOS):
 
 ```bash
 pip install -e '.[dev]'      # no [server] needed — primitive tests don't import mcp
-pytest                        # 314 tests, ~0.6 s
+pytest                        # 320 tests, ~0.6 s
 ruff check . && ruff format --check .
 ```
 
