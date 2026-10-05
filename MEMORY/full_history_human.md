@@ -2128,3 +2128,16 @@ the missing-directory case the error blamed the node binary. The bridge now
 refuses both at boot with one line. It also refuses a bare string in place of
 the argument array, which used to run the program with one argument per
 character. 6 new tests.
+
+## 2026-10-05 — the Python sandbox answers requests its SDK used to drop (#210, D-015)
+
+A request carrying a lone-surrogate escape, like a path containing `\ud800`,
+got no reply at all from the Python filesystem server. The MCP SDK's message
+parser rejected the line, logged an internal error, and never answered the
+request, so the client waited forever. The server now checks each incoming
+line first. If the SDK would reject it, but it is a recognisable request with
+an id, the server sends a JSON-RPC error for that id through the SDK's own
+output channel. Everything else passes through untouched. Three tests run a
+real stdio session. While editing the README I found that the README count
+check silently ignores a count line containing a `#` after the number, and
+filed it as #215.
