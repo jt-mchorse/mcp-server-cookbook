@@ -2307,3 +2307,21 @@ context_for_next_session:
   - MERGE_ORDER_WITH_204_both_touch_Sandbox_create_in_SEPARATE_hunks_and_both_bump_fs_sandbox_counts_RECOMPUTE_FROM_THE_RUNTIME_AFTER_THE_FIRST_MERGES
 followups: []
 ---
+
+---
+session: 2026-10-02T11:50Z
+issue: 207
+focus: run_select_PAYLOAD_DROPPED_A_DUPLICATE_COLUMN_SHIFTED_DATES_BY_THE_SERVER_TZ_AND_NULLED_NaN
+phase: shipped
+delta:
+  files_changed: 4
+  tests_added: 9
+  suite: "postgres-readonly 280 -> 289; lint, tsc clean; check-readme and check-architecture-doc ok; test-counts.json from the runtime"
+decisions_made: []
+measured: "pg's real Result with the tools' own types: before, fields [id,id] rows [{id:1001}]; date 2024-01-01 -> 2023-12-31T23:00Z under Europe/Berlin; NaN -> null. Revert probes: full 7/9 red; no types 3; no replacer 1; no dup check 1."
+context_for_next_session:
+  - THE_TEST_MOCKS_withClient_WITH_A_CLIENT_THAT_BUILDS_PGS_REAL_Result_FROM_THE_types_THE_CALL_SITE_PASSES_so_it_proves_the_tools_wire_SELECT_TYPES_not_just_that_SELECT_TYPES_works
+  - DUPLICATE_NAMES_ARE_REFUSED_NOT_RENAMED_an_invented_key_is_a_name_the_query_never_produced
+  - MERGE_ORDER_mcp_has_203_204_206_and_this_all_append_MEMORY_and_204_206_208_bump_test_counts_RECOMPUTE_FROM_THE_RUNTIME
+followups: []
+---
