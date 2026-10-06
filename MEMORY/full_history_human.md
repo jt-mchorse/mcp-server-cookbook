@@ -2129,6 +2129,49 @@ refuses both at boot with one line. It also refuses a bare string in place of
 the argument array, which used to run the program with one argument per
 character. 6 new tests.
 
+## 2026-10-05 — the Python sandbox answers requests its SDK used to drop (#210, D-015)
+
+A request carrying a lone-surrogate escape, like a path containing `\ud800`,
+got no reply at all from the Python filesystem server. The MCP SDK's message
+parser rejected the line, logged an internal error, and never answered the
+request, so the client waited forever. The server now checks each incoming
+line first. If the SDK would reject it, but it is a recognisable request with
+an id, the server sends a JSON-RPC error for that id through the SDK's own
+output channel. Everything else passes through untouched. Three tests run a
+real stdio session. While editing the README I found that the README count
+check silently ignores a count line containing a `#` after the number, and
+filed it as #215.
+
+## 2026-10-06 — main went red on a race in a test (#223)
+
+Merging #214 turned `main` red. One of its new tests sent a valid request
+and then immediately closed the server's input. The MCP SDK cancels any
+request still running when its input closes, so the reply only came back when
+the handler happened to finish first. Locally that failed 7 times in 20. The
+PR's own CI run had just been lucky. The test now keeps the input open until
+the replies it checks have arrived, the way a real client does. It passed 30
+times in a row. With the wait removed it failed 13 of 30. The two tests that
+deliberately end the input right after a bad request still do so: #214
+guarantees that answer regardless of timing.
+
+## 2026-10-05 — the README count check can't be switched off by an issue number (#215)
+
+The check that keeps the README's per-server test counts honest skipped any
+Quickstart line that had a `#` after the count, such as an issue reference. It
+then passed while checking one server fewer, so a line claiming 9999 tests
+went green. I found this while editing the README for #214. The check now reads
+the number right after the comment marker, and requires exactly one count line
+per server, so a deleted or unreadable line fails too. New tests run the
+script end to end against edited copies of the real README.
+
+## 2026-10-05 — the Python sandbox's tests can't rewrite committed files (#217)
+
+A guard that fails the test session if any test modifies a committed file was
+added to seven Python repos (portfolio-ops#79). This repo's Python server is a
+Python test suite too, but it sits in a subfolder, so the port skipped it. It
+now has the same guard. A throwaway test that edited the README failed the
+session as intended.
+
 ## 2026-10-05 — the demo stops presenting a fake gist as real (#219)
 
 The demo-fixture document held a made-up gist ID labelled as a placeholder,

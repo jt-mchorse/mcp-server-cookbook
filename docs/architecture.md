@@ -315,3 +315,14 @@ jsonschema words them. The module is copied byte for byte into each server;
 calling it, and `test-fixtures/tool_args_parity.json` holds both
 filesystem-sandbox ports to the same verdict on every row.
 
+### fs-sandbox-py answers a request its SDK transport would drop (#210, D-015)
+
+mcp 1.x parses every stdio line with pydantic, which refuses a lone surrogate
+escape (`"\ud800"`) that `json.loads` accepts. The line became a logged
+"Internal Server Error" and its request id was never answered, so the client
+hung. `_serve` now hands `stdio_server` a filter over stdin. A line the SDK
+would reject, but that `json.loads` reads as a request with an id, is answered
+with a JSON-RPC error (`-32602` for a lone surrogate, `-32600` otherwise). The
+answer goes through the SDK's own write stream, so it can't interleave with
+another response. Every other line reaches the SDK unchanged.
+

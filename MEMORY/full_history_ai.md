@@ -2363,6 +2363,85 @@ followups: []
 ---
 
 ---
+session: 2026-10-05T07:49Z
+duration_min: 7   # plan comment 07:43:52Z -> 07:49Z (date -u); reading the SDK's stdio.py started ~07:42Z
+issue: 210
+branch: session/2026-10-05-0743-issue-210
+focus: fs_sandbox_py_LEFT_A_REQUEST_ID_UNANSWERED_WHEN_THE_SDK_TRANSPORTS_PYDANTIC_PARSER_REJECTED_ITS_LINE_now_answered_with_a_JSON_RPC_error_through_the_SDKS_OWN_WRITE_STREAM
+phase: shipped
+delta:
+  files_changed: 7
+  tests_added: 9
+  suite: "fs-sandbox-py 314 -> 323 (runtime count, test-counts.json and both README claims updated); check-readme, check-architecture-doc, check-test-count ok; ruff clean"
+decisions_made: [D-015]
+measured: "real stdio session: id 4 lone-surrogate read unanswered on main, -32602 after; id 5 served on the same session. Probes: filter unwired 3 red (and the unfixed server did not exit within 30s of EOF); answers not forwarded 3 red; neighbour cancel-forwarder-when-run-returns GREEN, recorded as a known blind spot of the last-line arm"
+context_for_next_session:
+  - THE_FILTER_IS_A_stdin_ARGUMENT_TO_stdio_server_mcp_1_x_only_iterates_it_with_async_for_so_an_async_generator_works_RECHECK_THIS_SEAM_WHEN_177_PORTS_TO_2_X
+  - ANSWERS_GO_THROUGH_THE_SDKS_WRITE_STREAM_NEVER_DIRECTLY_TO_STDOUT_two_writers_on_one_fd_interleave_mid_line
+  - FOUND_WHILE_EDITING_check_readme_SILENTLY_DROPS_A_ROOT_CLAIM_WHOSE_DESCRIPTION_HAS_A_HASH_AFTER_THE_COUNT_9999_passed_filed_215_DO_NOT_PUT_ISSUE_REFS_ON_A_QUICKSTART_COUNT_LINE_UNTIL_IT_IS_FIXED
+  - GOTCHA_ln_sfn_INTO_A_DIRECTORY_WHOSE_node_modules_IS_REAL_PLANTS_node_modules_node_modules_A_SELF_LINK_removed_it_only_symlink_node_modules_in_SCRATCH_clones
+followups: ["#215"]
+---
+
+---
+session: 2026-10-06T07:26Z
+duration_min: 3   # plan comment 2026-10-06T07:23:11Z -> 07:26Z (date -u); the diagnosis started ~07:20Z in Phase A
+issue: 223
+branch: session/2026-10-06-0722-issue-223
+focus: MAIN_RED_AFTER_214_MERGED_test_undeliverable_request_CLOSED_STDIN_BEFORE_REQUEST_5_WAS_ANSWERED_AND_THE_SDK_CANCELS_IN_FLIGHT_HANDLERS_AT_EOF
+phase: shipped
+delta:
+  files_changed: 1
+  tests_added: 0
+  suite: "fs-sandbox-py 323 green (count unchanged); ruff clean"
+decisions_made: []
+measured: "mcp 1.28.1, 20 sessions each: init+read(5)+EOF -> id 5 missing 0/20; with the lone-surrogate line before it -> 7/20. Test file fixed 30/30; revert probe (before_eof empty) 17/30."
+context_for_next_session:
+  - mcp_1_x_Server_run_CANCELS_IN_FLIGHT_HANDLERS_WHEN_THE_TRANSPORT_CLOSES_lowlevel_server_py_finally_tg_cancel_scope_cancel_A_STDIO_TEST_THAT_CLOSES_STDIN_RIGHT_AFTER_A_VALID_REQUEST_IS_A_RACE
+  - THE_PR_WAS_GREEN_AND_MAIN_WENT_RED_ON_ITS_OWN_MERGE_A_35_PERCENT_FLAKE_PASSES_ONE_CI_RUN_TWO_THIRDS_OF_THE_TIME_loop_a_new_subprocess_test_30x_before_shipping
+  - ONLY_THE_UNDELIVERABLE_ON_THE_LAST_LINE_IS_RACE_FREE_BY_DESIGN_214_the_two_tests_pinning_that_still_close_immediately
+followups: []
+---
+
+---
+session: 2026-10-05T08:21Z
+duration_min: 2   # computed: started 08:20Z -> 08:21Z
+issue: 215
+branch: session/2026-10-05-0820-issue-215
+focus: check_readme_DROPPED_A_ROOT_CLAIM_WHOSE_DESCRIPTION_HAD_A_HASH_AFTER_THE_COUNT_AND_PASSED_WITH_ONE_FEWER_now_first_hash_parse_plus_one_claim_per_server
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 6
+  suite: "tools/check-readme.test.mjs 29 -> 35; every tools/*.test.mjs green; real README 5 claims / 5 servers"
+decisions_made: []
+measured: "main: '# 9999 bridge (see #212)' passed with 4 root claims; now exit 1 naming the mismatch, and a deleted bridge line exit 1 naming the server. Probes: old regex 2 red, coverage unwired from main 1 red (end-to-end arm only)"
+context_for_next_session:
+  - FOUND_BY_MY_OWN_SLIP_WRITING_214_an_issue_ref_on_a_quickstart_line_silently_turned_the_lock_off_A_LOCK_MUST_ALSO_ASSERT_ITS_POPULATION_one_claim_per_server
+  - MCP_CHECK_README_PATH_IS_A_TEST_SEAM_ONLY_the_end_to_end_arm_is_the_only_thing_that_sees_main_stop_calling_the_coverage_rule
+followups: []
+---
+
+---
+session: 2026-10-05T08:44Z
+duration_min: 2   # computed: started 08:43Z -> 08:44Z
+issue: 217
+branch: session/2026-10-05-0843-issue-217
+focus: PORT_THE_OPS_79_COMMITTED_FILES_GUARD_TO_THE_NESTED_PYTHON_SUITE_THE_PORT_POPULATION_MISSED
+phase: shipped
+delta:
+  files_changed: 6
+  tests_added: 6
+  suite: "fs-sandbox-py 314 -> 320 under the guard; check-test-count and check-readme ok"
+decisions_made: []
+measured: "throwaway README writer fails the session naming README.md (restored from a copy, tree clean); conftest import unwired -> wiring arm red"
+context_for_next_session:
+  - OPS_79_WALKED_PYTHON_REPOS_NOT_PYTHON_SUITES_this_one_is_nested_WHICH_POPULATION_DOES_A_PORT_WALK
+  - THE_CORPUS_ARM_FAILS_UNTIL_COMMITTED_commit_first_then_run
+followups: []
+---
+
+---
 session: 2026-10-05T09:14Z
 duration_min: 2   # computed: started 09:13Z -> 09:14Z
 issue: 219

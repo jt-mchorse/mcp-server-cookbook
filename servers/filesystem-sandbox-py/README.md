@@ -77,6 +77,7 @@ What's idiomatically different (same posture, different language):
 | Test runner                     | `vitest`                               | `pytest`                                      |
 | Lint / format                   | `eslint` / `prettier`                  | `ruff`                                        |
 | Dependency posture              | `@modelcontextprotocol/sdk` required   | Primitive dep-free; SDK behind `[server]` extra|
+| A request carrying a lone-surrogate escape (`"\ud800"`) | Tool runs; refusal as `isError` result | JSON-RPC error `-32602`: mcp 1.x's transport rejects the line before any tool runs, and `_serve` answers it rather than leave the id hanging (#210, D-015) |
 
 The "dependency posture" row is the load-bearing difference: the
 Python port's security primitive (`sandbox.py` + `tools.py` +
@@ -119,7 +120,7 @@ on macOS):
 
 ```bash
 pip install -e '.[dev]'      # no [server] needed — primitive tests don't import mcp
-pytest                        # 314 tests, ~0.6 s
+pytest                        # 329 tests, ~0.6 s
 ruff check . && ruff format --check .
 ```
 

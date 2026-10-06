@@ -338,3 +338,17 @@ The bound is the immediate fix; the test is the durable one. It fails on 2.2.0 w
 **Reversibility:** Cheap.
 
 **Related issues:** #197, #189, #190, #195
+
+## D-015 — fs-sandbox-py answers a request its SDK transport would drop (2026-10-05)
+**Decision:** When a stdio line fails the SDK's own message validation but `json.loads` reads it as a request with a string or integer `id`, the Python filesystem-sandbox server answers that `id` with a JSON-RPC error instead of forwarding the line. It uses `-32602` when the line contains a lone surrogate escape and `-32600` otherwise. The answer goes through the SDK's own write stream.
+
+**Why:** The pinned SDK (mcp 1.x) parses every line with pydantic, which refuses a lone surrogate escape like `"\ud800"` that `json.loads` accepts. The server logged an "Internal Server Error" notification and never answered the request, so the client hung. #163 says a sandbox refusal must never hang, and the TypeScript port answers the same request. Sending the answer through the SDK's write stream, rather than writing to stdout directly, means it can't interleave with another response. The message never echoes the offending value, because a lone surrogate can't be encoded as UTF-8.
+
+**Alternatives considered:**
+- Escape the surrogate before the SDK sees it. Rejected: that invents a value the client never sent.
+- Only document the gap and wait for the 2.x port (#177). Rejected: it leaves a hang in the shipped server.
+- Return the same tool-level `isError` result the TS port does. Not reachable under mcp 1.x, because pydantic refuses the string before any tool runs.
+
+**Reversibility:** Cheap.
+
+**Related issues:** #210, #163, #177

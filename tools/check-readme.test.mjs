@@ -5,6 +5,11 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
+import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 import {
   countTestsInFile,
@@ -13,6 +18,7 @@ import {
   readmeDecisionRangeBound,
   readmeServerRefs,
   readmeTestCountClaims,
+  claimCoverageErrors,
   topLevelCommasInList,
   stripStringLiterals,
 } from "./check-readme.mjs";
@@ -64,6 +70,79 @@ test("readmeTestCountClaims ignores lines without a numeric # comment", () => {
     claims.map((c) => ({ server: c.server, count: c.count })),
     [{ server: "baz", count: 12 }],
   );
+});
+
+test("a later # in the description does not erase the claim (#215)", () => {
+  // Measured on main: adding "(see #212)" to the bridge line made it stop being
+  // a claim, the check reported 4 of 5 and passed -- with 9999 as the count.
+  const md = [
+    "cd servers/internal-tools-bridge  && npm install && npm test    # 9999 bridge (see #212) + tool tests",
+    "cd servers/filesystem-sandbox-py  && pip install -e '.[dev]' && pytest  # 314 sandbox (#205) tests",
+    "cd servers/github-gists && npm test    # 12",
+  ].join("\n");
+  assert.deepEqual(
+    readmeTestCountClaims(md).map((c) => [c.server, c.count]),
+    [
+      ["internal-tools-bridge", 9999],
+      ["filesystem-sandbox-py", 314],
+      ["github-gists", 12],
+    ],
+  );
+});
+
+test("a bare `cd servers/<name>` line is still not a claim", () => {
+  assert.deepEqual(readmeTestCountClaims("cd servers/postgres-readonly\nnpm install"), []);
+});
+
+test("claimCoverageErrors: every server needs exactly one root claim (#215)", () => {
+  const dirs = new Set(["a-server", "b-server", "c-server"]);
+  const claim = (server) => ({ server, count: 1, line: "" });
+  assert.deepEqual(claimCoverageErrors([claim("a-server"), claim("b-server"), claim("c-server")], dirs), []);
+  const missing = claimCoverageErrors([claim("a-server"), claim("c-server")], dirs);
+  assert.equal(missing.length, 1);
+  assert.match(missing[0], /servers\/b-server\/` has no root README test-count claim/);
+  const dup = claimCoverageErrors([claim("a-server"), claim("a-server"), claim("b-server"), claim("c-server")], dirs);
+  assert.equal(dup.length, 1);
+  assert.match(dup[0], /has 2 root README test-count claims/);
+});
+
+const HERE = path.dirname(fileURLToPath(import.meta.url));
+const REAL_README = readFileSync(path.join(HERE, "..", "README.md"), "utf-8");
+
+function runOn(readme) {
+  const dir = mkdtempSync(path.join(os.tmpdir(), "check-readme-"));
+  const p = path.join(dir, "README.md");
+  writeFileSync(p, readme);
+  return spawnSync(process.execPath, [path.join(HERE, "check-readme.mjs")], {
+    env: { ...process.env, MCP_CHECK_README_PATH: p },
+    encoding: "utf-8",
+  });
+}
+
+function bridgeLine(readme) {
+  const line = readme.split("\n").find((l) => l.startsWith("cd servers/internal-tools-bridge ") && l.includes("#"));
+  assert.ok(line, "the real README has a bridge Quickstart claim");
+  return line;
+}
+
+test("end to end: the real README passes through the override", () => {
+  const r = runOn(REAL_README);
+  assert.equal(r.status, 0, r.stderr);
+});
+
+test("end to end: a wrong count beside a later # fails (#215's repro)", () => {
+  const line = bridgeLine(REAL_README);
+  const edited = line.replace(/#\s*\d+ bridge/, "# 9999 bridge (see #212)");
+  assert.notEqual(edited, line);
+  const r = runOn(REAL_README.replace(line, edited));
+  assert.equal(r.status, 1);
+  assert.match(r.stderr, /README quotes 9999 tests for `servers\/internal-tools-bridge\/`/);
+});
+
+test("end to end: a deleted Quickstart claim fails", () => {
+  const r = runOn(REAL_README.replace(bridgeLine(REAL_README) + "\n", ""));
+  assert.equal(r.status, 1);
+  assert.match(r.stderr, /`servers\/internal-tools-bridge\/` has no root README test-count claim/);
 });
 
 test("topLevelCommasInList counts simple cases", () => {

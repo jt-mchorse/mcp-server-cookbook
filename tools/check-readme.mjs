@@ -42,7 +42,10 @@ import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..");
-const README_PATH = path.join(REPO_ROOT, "README.md");
+// Overridable only so a test can run this script, end to end, against an edited
+// copy of the real README (#215): the coverage rule is worthless if `main`
+// stops calling it, and a unit test of the rule cannot see that.
+const README_PATH = process.env.MCP_CHECK_README_PATH ?? path.join(REPO_ROOT, "README.md");
 const SERVERS_DIR = path.join(REPO_ROOT, "servers");
 const DECISIONS_PATH = path.join(REPO_ROOT, "MEMORY/core_decisions_ai.md");
 const TEST_COUNTS_PATH = path.join(REPO_ROOT, "tools/test-counts.json");
@@ -111,14 +114,45 @@ export function readmeTestCountClaims(markdown) {
   const out = [];
   for (const line of lines) {
     // Match: cd servers/<name> ... # <count> <some words> tests
-    // Tolerant of extra commands before the `#`.
+    // Tolerant of extra commands before the `#`. The count is read after the
+    // FIRST `#` -- the shell comment -- and anything may follow it. The old
+    // pattern ended in `[^#]*$`, so a `#212` anywhere in the description made
+    // the line stop being a claim at all, and the check passed with one claim
+    // fewer: a README quoting 9999 tests for a 74-test server went green (#215).
     const m = line.match(
-      /^cd servers\/([a-z0-9][a-z0-9-]*[a-z0-9])\b.*#\s*(\d+)\s+[^#]*$/,
+      /^cd servers\/([a-z0-9][a-z0-9-]*[a-z0-9])\b[^#]*#\s*(\d+)(?:\s|$)/,
     );
     if (!m) continue;
     out.push({ server: m[1], count: Number(m[2]), line });
   }
   return out;
+}
+
+/**
+ * Every server directory must carry exactly one root test-count claim (#215).
+ *
+ * The count lock compares each claim it *finds*; a claim it does not find was
+ * never compared. A deleted Quickstart line, or one whose count stopped
+ * parsing, used to shrink the claim list and pass. Returns one error per
+ * server with no claim or with more than one.
+ */
+export function claimCoverageErrors(claims, serverDirs) {
+  const errors = [];
+  for (const server of [...serverDirs].sort()) {
+    const n = claims.filter((c) => c.server === server).length;
+    if (n === 0) {
+      errors.push(
+        `\`servers/${server}/\` has no root README test-count claim. Every server's ` +
+          `Quickstart line must read \`cd servers/${server} ... # <N> ... tests\`; a line ` +
+          `that was deleted, or whose count no longer parses, is not checked at all.`,
+      );
+    } else if (n > 1) {
+      errors.push(
+        `\`servers/${server}/\` has ${n} root README test-count claims; keep exactly one.`,
+      );
+    }
+  }
+  return errors;
 }
 
 /**
@@ -397,7 +431,7 @@ function main() {
     return 2;
   }
 
-  const errors = [];
+  const errors = [...claimCoverageErrors(claims, serverDirs)];
 
   for (const ref of refs) {
     if (!serverDirs.has(ref)) {
