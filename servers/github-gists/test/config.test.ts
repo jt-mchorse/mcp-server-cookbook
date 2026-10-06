@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+
 import { describe, expect, it } from "vitest";
 
 import {
@@ -215,5 +217,20 @@ describe("validateGistsConfig — env-loaded config round-trips through the gate
       MCP_GITHUB_GISTS_TIMEOUT_MS: "3500",
     });
     expect(() => validateGistsConfig(cfg)).not.toThrow();
+  });
+});
+
+describe(".env.example, loaded as documented (#221)", () => {
+  it("leaves the optional token unset, so public reads stay unauthenticated", () => {
+    // `set -a; . ./.env; set +a` exports every plain NAME=VALUE line.
+    const text = readFileSync(new URL("../.env.example", import.meta.url), "utf8");
+    const env: Record<string, string> = {};
+    for (const raw of text.split("\n")) {
+      const line = raw.trim();
+      const eq = line.indexOf("=");
+      if (line && !line.startsWith("#") && eq > 0) env[line.slice(0, eq)] = line.slice(eq + 1);
+    }
+    expect("GITHUB_TOKEN" in env).toBe(true);
+    expect(readGistsConfigFromEnv(env).token).toBeNull();
   });
 });

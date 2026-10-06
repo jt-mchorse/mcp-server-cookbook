@@ -2459,3 +2459,22 @@ context_for_next_session:
   - PICKING_THE_REAL_FIXTURE_GIST_IS_JTS_CALL_external_resource
 followups: []
 ---
+
+---
+session: 2026-10-05T09:29Z
+duration_min: 2   # computed
+issue: 221
+branch: session/2026-10-05-0928-issue-221
+focus: GISTS_ENV_TEMPLATE_PLACEHOLDER_TOKEN_TURNED_OPTIONAL_PUBLIC_READS_INTO_401
+phase: shipped
+delta:
+  files_changed: 5
+  tests_added: 1
+  suite: "github-gists 172 -> 173; counts + READMEs updated; check-readme, check-env-example ok"
+decisions_made: []
+measured: "template-loaded config token non-null on main (401 per hunt agent), null after; red against main"
+context_for_next_session:
+  - SAME_CLASS_AS_leh_297_A_PLACEHOLDER_ON_AN_OPTIONAL_VAR_DEFEATS_THE_FALLBACK
+  - MERGE_NOTE_214_216_218_221_TOUCH_COUNTS_RECOUNT
+followups: []
+---

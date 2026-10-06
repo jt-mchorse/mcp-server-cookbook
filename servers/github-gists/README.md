@@ -175,7 +175,7 @@ For an interactive REPL across all your servers, use the
 ## Tests
 
 ```bash
-npm test          # vitest, 172 hermetic unit tests, no network
+npm test          # vitest, 173 hermetic unit tests, no network
 npm run typecheck # tsc --noEmit
 npm run lint      # eslint
 ```

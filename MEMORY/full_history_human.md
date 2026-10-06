@@ -2179,3 +2179,10 @@ but because it looked like a real ID, the capture script printed it as the
 demo's input. Fetching it returns 404. The document now says the gist isn't
 pinned yet, and the script says it's using a placeholder until someone pins a
 real public gist. Choosing that gist is left to JT.
+
+## 2026-10-05 — the gists server's env template keeps the token optional (#221)
+
+The gists server's env template said the GitHub token is optional for public
+gists, but shipped a fake one. Loading the file sent that fake token, so every
+public read failed with "Bad credentials". It now ships empty, and a test loads
+the template and checks that no token is set.
