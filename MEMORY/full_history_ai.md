@@ -2382,3 +2382,23 @@ context_for_next_session:
   - GOTCHA_ln_sfn_INTO_A_DIRECTORY_WHOSE_node_modules_IS_REAL_PLANTS_node_modules_node_modules_A_SELF_LINK_removed_it_only_symlink_node_modules_in_SCRATCH_clones
 followups: ["#215"]
 ---
+
+---
+session: 2026-10-06T07:26Z
+duration_min: 4   # plan comment 2026-10-06T07:23:11Z -> 07:26Z (date -u); the diagnosis started ~07:20Z in Phase A
+issue: 223
+branch: session/2026-10-06-0722-issue-223
+focus: MAIN_RED_AFTER_214_MERGED_test_undeliverable_request_CLOSED_STDIN_BEFORE_REQUEST_5_WAS_ANSWERED_AND_THE_SDK_CANCELS_IN_FLIGHT_HANDLERS_AT_EOF
+phase: shipped
+delta:
+  files_changed: 1
+  tests_added: 0
+  suite: "fs-sandbox-py 323 green (count unchanged); ruff clean"
+decisions_made: []
+measured: "mcp 1.28.1, 20 sessions each: init+read(5)+EOF -> id 5 missing 0/20; with the lone-surrogate line before it -> 7/20. Test file fixed 30/30; revert probe (before_eof empty) 17/30."
+context_for_next_session:
+  - mcp_1_x_Server_run_CANCELS_IN_FLIGHT_HANDLERS_WHEN_THE_TRANSPORT_CLOSES_lowlevel_server_py_finally_tg_cancel_scope_cancel_A_STDIO_TEST_THAT_CLOSES_STDIN_RIGHT_AFTER_A_VALID_REQUEST_IS_A_RACE
+  - THE_PR_WAS_GREEN_AND_MAIN_WENT_RED_ON_ITS_OWN_MERGE_A_35_PERCENT_FLAKE_PASSES_ONE_CI_RUN_TWO_THIRDS_OF_THE_TIME_loop_a_new_subprocess_test_30x_before_shipping
+  - ONLY_THE_UNDELIVERABLE_ON_THE_LAST_LINE_IS_RACE_FREE_BY_DESIGN_214_the_two_tests_pinning_that_still_close_immediately
+followups: []
+---
