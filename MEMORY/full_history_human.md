@@ -2186,3 +2186,11 @@ The gists server's env template said the GitHub token is optional for public
 gists, but shipped a fake one. Loading the file sent that fake token, so every
 public read failed with "Bad credentials". It now ships empty, and a test loads
 the template and checks that no token is set.
+
+## 2026-10-06 — github-gists' timeout covers the whole response (#227)
+
+The gists server's README promises that a slow GitHub gives a clear timeout
+error instead of a hang. The timer was stopped as soon as the response headers
+arrived, so a server that sent headers and then stalled left the tool call
+waiting forever. The timer now runs until the body has been read, and the same
+stalled server now gets a timeout error after about a second.
