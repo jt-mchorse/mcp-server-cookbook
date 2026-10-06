@@ -176,6 +176,41 @@ export function extractFixtureGistId(docText) {
   return m ? m[1] : null;
 }
 
+export function extractFixtureSeedSha256(docText) {
+  // The fixture doc pins the seed's hash on a line that looks like:
+  //     `seed_sha256`: `<64 lowercase hex>`
+  // Returns `null` when the doc carries no pin.
+  const m = docText.match(/`seed_sha256`:\s*`([a-f0-9]{64})`/);
+  return m ? m[1] : null;
+}
+
+/**
+ * Compare the seed file's hash with the doc's pin (#225). The hash used to be
+ * printed "so a re-capture can confirm the schema hasn't drifted" with no
+ * expected value anywhere, so an edited seed printed a different hash and the
+ * capture went on. Returns `{ ok, message }`.
+ */
+export function checkSeedPin(actual, pinned) {
+  if (pinned === null) {
+    return {
+      ok: false,
+      message:
+        `error: ${FIXTURE_DOC_PATH} pins no \`seed_sha256\`, so the seed cannot be confirmed.\n` +
+        `  sha256(${POSTGRES_SEED_PATH}) = ${actual}\n`,
+    };
+  }
+  if (pinned !== actual) {
+    return {
+      ok: false,
+      message:
+        `error: ${POSTGRES_SEED_PATH} is not the seed ${FIXTURE_DOC_PATH} pins.\n` +
+        `  pinned: ${pinned}\n  actual: ${actual}\n` +
+        "  If the seed changed on purpose, update the pin in the same commit.\n",
+    };
+  }
+  return { ok: true, message: "" };
+}
+
 // ---------------------------------------------------------------------------
 // Stage renderers.
 // ---------------------------------------------------------------------------
@@ -189,6 +224,7 @@ export function renderStage1Cheatsheet({ seedSha256, launched }) {
     "#",
     "# Deterministic input: the sample DB seed.",
     `#   sha256(${POSTGRES_SEED_PATH}) = ${seedSha256}`,
+    `#   (matches the seed_sha256 pinned in ${FIXTURE_DOC_PATH})`,
     "#",
     "# 1. Bring up the sample database (separate terminal):",
     "#      cd servers/postgres-readonly",
@@ -356,7 +392,7 @@ function sleepSync(seconds) {
   }
 }
 
-export function main(argv = process.argv.slice(2), out = process.stdout) {
+export function main(argv = process.argv.slice(2), out = process.stdout, { root = REPO_ROOT } = {}) {
   let args;
   try {
     args = parseArgs(argv);
@@ -373,7 +409,7 @@ export function main(argv = process.argv.slice(2), out = process.stdout) {
   // STAGE 1 — postgres-readonly.
   if (!args.skipStage1) {
     out.write(banner(1, "postgres-readonly (describe_schema + write-blocked select)"));
-    const seedAbs = path.join(REPO_ROOT, POSTGRES_SEED_PATH);
+    const seedAbs = path.join(root, POSTGRES_SEED_PATH);
     if (!existsSync(seedAbs)) {
       out.write(
         `error: expected postgres seed at ${POSTGRES_SEED_PATH}, none found.\n`,
@@ -381,6 +417,15 @@ export function main(argv = process.argv.slice(2), out = process.stdout) {
       return 1;
     }
     const seedSha256 = sha256OfFile(seedAbs);
+    const fixtureDoc = path.join(root, FIXTURE_DOC_PATH);
+    const pin = checkSeedPin(
+      seedSha256,
+      existsSync(fixtureDoc) ? extractFixtureSeedSha256(readFileSync(fixtureDoc, "utf-8")) : null,
+    );
+    if (!pin.ok) {
+      out.write(pin.message);
+      return 1;
+    }
     let launched = false;
     if (args.launchPostgres) {
       // Synchronous, and `--wait` blocks until the healthcheck passes (#193).
@@ -425,7 +470,7 @@ export function main(argv = process.argv.slice(2), out = process.stdout) {
   // STAGE 3 — github-gists.
   if (!args.skipStage3) {
     out.write(banner(3, "github-gists (get_gist ok + error path with D-007 redaction)"));
-    const docAbs = path.join(REPO_ROOT, FIXTURE_DOC_PATH);
+    const docAbs = path.join(root, FIXTURE_DOC_PATH);
     let fixtureGistId = null;
     if (existsSync(docAbs)) {
       fixtureGistId = extractFixtureGistId(readFileSync(docAbs, "utf-8"));

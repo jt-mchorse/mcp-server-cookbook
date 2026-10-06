@@ -21,6 +21,8 @@ import {
   banner,
   buildSandboxLayout,
   extractFixtureGistId,
+  extractFixtureSeedSha256,
+  checkSeedPin,
   renderStage1Cheatsheet,
   renderStage2Cheatsheet,
   renderStage3Cheatsheet,
@@ -417,3 +419,55 @@ for (const argv of [["--sandbox-root"], ["--sandbox-root", "--skip-stage-1"], ["
     assert.ok(!captured.includes("undefined"), captured);
   });
 }
+
+// ---------------------------------------------------------------------------
+// #225: the seed hash is compared with a pin, not just printed.
+// ---------------------------------------------------------------------------
+
+test("extractFixtureSeedSha256 reads the pinned hash and nothing looser", () => {
+  const hex = "a".repeat(64);
+  assert.equal(extractFixtureSeedSha256(`\`seed_sha256\`: \`${hex}\``), hex);
+  assert.equal(extractFixtureSeedSha256("no pin here"), null);
+  assert.equal(extractFixtureSeedSha256(`\`seed_sha256\`: \`${"a".repeat(63)}\``), null);
+  assert.equal(extractFixtureSeedSha256(`\`seed_sha256\`: \`${"A".repeat(64)}\``), null);
+});
+
+test("checkSeedPin: a match passes; a mismatch and a missing pin stop with both values", () => {
+  const a = "a".repeat(64);
+  const b = "b".repeat(64);
+  assert.deepEqual(checkSeedPin(a, a), { ok: true, message: "" });
+  const mismatch = checkSeedPin(a, b);
+  assert.equal(mismatch.ok, false);
+  assert.match(mismatch.message, new RegExp(`pinned: ${b}`));
+  assert.match(mismatch.message, new RegExp(`actual: ${a}`));
+  const missing = checkSeedPin(a, null);
+  assert.equal(missing.ok, false);
+  assert.match(missing.message, /pins no `seed_sha256`/);
+});
+
+test("the committed pin is the committed seed's hash (change both in one commit)", () => {
+  const doc = readFileSync(path.join(REPO_ROOT, FIXTURE_DOC_PATH), "utf-8");
+  assert.equal(
+    extractFixtureSeedSha256(doc),
+    sha256OfFile(path.join(REPO_ROOT, POSTGRES_SEED_PATH)),
+  );
+});
+
+test("main stops STAGE 1 when the seed is not the pinned one", () => {
+  const root = mkdtempSync(path.join(os.tmpdir(), "mcp-seed-pin-"));
+  try {
+    const seed = path.join(root, POSTGRES_SEED_PATH);
+    mkdirSync(path.dirname(seed), { recursive: true });
+    writeFileSync(seed, readFileSync(path.join(REPO_ROOT, POSTGRES_SEED_PATH), "utf-8") + "DELETE FROM orders;\n");
+    mkdirSync(path.join(root, path.dirname(FIXTURE_DOC_PATH)), { recursive: true });
+    writeFileSync(path.join(root, FIXTURE_DOC_PATH), readFileSync(path.join(REPO_ROOT, FIXTURE_DOC_PATH), "utf-8"));
+    let written = "";
+    const out = { write: (chunk) => { written += chunk; return true; } };
+    const rc = main(["--pause-seconds", "0", "--skip-stage-2", "--skip-stage-3"], out, { root });
+    assert.equal(rc, 1);
+    assert.match(written, /is not the seed docs\/demo_fixture\.md pins/);
+    assert.doesNotMatch(written, /matches the seed_sha256 pinned/);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
