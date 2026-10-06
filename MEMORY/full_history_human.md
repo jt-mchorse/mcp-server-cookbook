@@ -2163,3 +2163,11 @@ went green. I found this while editing the README for #214. The check now reads
 the number right after the comment marker, and requires exactly one count line
 per server, so a deleted or unreadable line fails too. New tests run the
 script end to end against edited copies of the real README.
+
+## 2026-10-05 — the Python sandbox's tests can't rewrite committed files (#217)
+
+A guard that fails the test session if any test modifies a committed file was
+added to seven Python repos (portfolio-ops#79). This repo's Python server is a
+Python test suite too, but it sits in a subfolder, so the port skipped it. It
+now has the same guard. A throwaway test that edited the README failed the
+session as intended.
