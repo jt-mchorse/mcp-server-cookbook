@@ -89,11 +89,16 @@ def read_file(deps: ToolDeps, file_path: str) -> str:
     same contract the TS server emits.
     """
     sp = deps.sandbox.resolve_file(file_path)
-    size = os.path.getsize(sp.resolved)
-    if size > deps.max_bytes:
-        raise FileTooLargeError(size, deps.max_bytes)
+    # One handle for the size check and the read, and the read bounded (#232):
+    # `getsize(path)` then `open(path).read()` returned a file that grew in
+    # between in full, past the cap. At most `max_bytes + 1` is read here.
     with open(sp.resolved, "rb") as fh:
-        raw = fh.read()
+        size = os.fstat(fh.fileno()).st_size
+        if size > deps.max_bytes:
+            raise FileTooLargeError(size, deps.max_bytes)
+        raw = fh.read(deps.max_bytes + 1)
+    if len(raw) > deps.max_bytes:
+        raise FileTooLargeError(len(raw), deps.max_bytes)
     try:
         return raw.decode("utf-8", errors="strict")
     except UnicodeDecodeError as exc:

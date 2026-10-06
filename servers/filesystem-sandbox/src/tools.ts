@@ -103,14 +103,35 @@ function firstLoneSurrogate(s: string): [number, number] | null {
 
 export async function readFile(deps: ToolDeps, file: string): Promise<string> {
   const sp = await deps.sandbox.resolveFile(file);
-  const stat = await fs.stat(sp.resolved);
-  if (stat.size > deps.maxBytes) {
-    throw new FileTooLargeError(stat.size, deps.maxBytes);
+  // One handle for the size check AND the read, and the read itself bounded
+  // (#232). This was `fs.stat(path)`, then `fs.readFile(path)`: a file growing
+  // in between was returned whole -- 1205 of 2211 reads past a 1 KiB cap,
+  // up to 4.7 MB. Reading at most `maxBytes + 1` through the handle makes the
+  // cap hold whatever the file does meanwhile.
+  const fh = await fs.open(sp.resolved, "r");
+  let buf: Buffer;
+  try {
+    const stat = await fh.stat();
+    if (stat.size > deps.maxBytes) {
+      throw new FileTooLargeError(stat.size, deps.maxBytes);
+    }
+    const bounded = Buffer.alloc(deps.maxBytes + 1);
+    let total = 0;
+    while (total < bounded.length) {
+      const { bytesRead } = await fh.read(bounded, total, bounded.length - total, total);
+      if (bytesRead === 0) break;
+      total += bytesRead;
+    }
+    if (total > deps.maxBytes) {
+      throw new FileTooLargeError(total, deps.maxBytes);
+    }
+    buf = bounded.subarray(0, total);
+  } finally {
+    await fh.close();
   }
   // Refuse anything that isn't UTF-8 text — binary files surface as
   // a clear error rather than as garbled bytes inside a JSON tool
   // result. Detection is "decode strict, fail on replacement char".
-  const buf = await fs.readFile(sp.resolved);
   // `ignoreBOM: true` KEEPS a leading U+FEFF (#209). The default strips it, so
   // this port returned "hello" where the Python port returns "\ufeffhello", and
   // a read-then-write here silently dropped the BOM.
