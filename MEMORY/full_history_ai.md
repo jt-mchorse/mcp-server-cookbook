@@ -2402,3 +2402,22 @@ context_for_next_session:
   - ONLY_THE_UNDELIVERABLE_ON_THE_LAST_LINE_IS_RACE_FREE_BY_DESIGN_214_the_two_tests_pinning_that_still_close_immediately
 followups: []
 ---
+
+---
+session: 2026-10-05T08:21Z
+duration_min: 2   # computed: started 08:20Z -> 08:21Z
+issue: 215
+branch: session/2026-10-05-0820-issue-215
+focus: check_readme_DROPPED_A_ROOT_CLAIM_WHOSE_DESCRIPTION_HAD_A_HASH_AFTER_THE_COUNT_AND_PASSED_WITH_ONE_FEWER_now_first_hash_parse_plus_one_claim_per_server
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 6
+  suite: "tools/check-readme.test.mjs 29 -> 35; every tools/*.test.mjs green; real README 5 claims / 5 servers"
+decisions_made: []
+measured: "main: '# 9999 bridge (see #212)' passed with 4 root claims; now exit 1 naming the mismatch, and a deleted bridge line exit 1 naming the server. Probes: old regex 2 red, coverage unwired from main 1 red (end-to-end arm only)"
+context_for_next_session:
+  - FOUND_BY_MY_OWN_SLIP_WRITING_214_an_issue_ref_on_a_quickstart_line_silently_turned_the_lock_off_A_LOCK_MUST_ALSO_ASSERT_ITS_POPULATION_one_claim_per_server
+  - MCP_CHECK_README_PATH_IS_A_TEST_SEAM_ONLY_the_end_to_end_arm_is_the_only_thing_that_sees_main_stop_calling_the_coverage_rule
+followups: []
+---

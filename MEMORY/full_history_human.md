@@ -2153,3 +2153,13 @@ the replies it checks have arrived, the way a real client does. It passed 30
 times in a row. With the wait removed it failed 13 of 30. The two tests that
 deliberately end the input right after a bad request still do so: #214
 guarantees that answer regardless of timing.
+
+## 2026-10-05 — the README count check can't be switched off by an issue number (#215)
+
+The check that keeps the README's per-server test counts honest skipped any
+Quickstart line that had a `#` after the count, such as an issue reference. It
+then passed while checking one server fewer, so a line claiming 9999 tests
+went green. I found this while editing the README for #214. The check now reads
+the number right after the comment marker, and requires exactly one count line
+per server, so a deleted or unreadable line fails too. New tests run the
+script end to end against edited copies of the real README.
