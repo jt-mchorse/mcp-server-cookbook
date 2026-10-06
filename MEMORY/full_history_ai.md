@@ -2478,3 +2478,23 @@ context_for_next_session:
   - MERGE_NOTE_214_216_218_221_TOUCH_COUNTS_RECOUNT
 followups: []
 ---
+
+---
+session: 2026-10-06T09:32Z
+duration_min: 2   # computed: plan comment 09:30:11Z -> 09:32Z (date -u)
+issue: 229
+branch: session/2026-10-06-0930-issue-229
+focus: postgres_readonly_STATEMENT_TIMEOUT_IS_SET_AFTER_CONNECT_and_the_client_had_no_connect_or_query_timeout_a_silent_database_hung_the_tool_call
+phase: shipped
+delta:
+  files_changed: 5
+  tests_added: 1
+  suite: "postgres-readonly 289 -> 290 (test-counts.json + root README); all checkers, lint, typecheck ok"
+decisions_made: []
+measured: "silent loopback host at statementTimeoutMs 1000: main pending after 8003 ms; fixed rejects 'timeout expired'. Revert probe: the arm hangs to its 20 s timeout."
+context_for_next_session:
+  - A_SERVER_SIDE_TIMEOUT_CANNOT_BOUND_THE_CONNECT_THAT_DELIVERS_IT_sibling_of_aop_175_found_by_sweeping_every_pg_client_in_the_portfolio
+  - A_DERIVED_CONNECT_TIMEOUT_NEEDS_A_FLOOR_a_tight_query_budget_must_not_make_connecting_impossible
+  - MERGE_ORDER_mcp_226_228_230_all_touch_test_counts_json_or_README_recount
+followups: []
+---

@@ -2186,3 +2186,12 @@ The gists server's env template said the GitHub token is optional for public
 gists, but shipped a fake one. Loading the file sent that fake token, so every
 public read failed with "Bad credentials". It now ships empty, and a test loads
 the template and checks that no token is set.
+
+## 2026-10-06 — postgres-readonly gives up on a silent database (#229)
+
+The read-only Postgres server limits query time with a database-side timeout,
+but that setting is only sent after a connection succeeds, and the client
+itself waited forever. A database that accepted the connection and then said
+nothing left the tool call hanging. The client now gives up connecting after
+the configured timeout (at least five seconds) and on a query one second after
+the database's own limit. The server README says so.
