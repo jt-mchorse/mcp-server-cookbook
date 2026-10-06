@@ -56,14 +56,23 @@ test("buildSandboxLayout creates the expected files (idempotent)", () => {
   }
 });
 
-test("extractFixtureGistId parses the gist_id line from the demo fixture doc", () => {
-  // The committed doc must contain a gist_id token — script falls
-  // back to a placeholder if not, but that's a demo-quality
-  // degradation, not an invariant we want silently.
+test("extractFixtureGistId parses the gist_id line format", () => {
+  assert.equal(extractFixtureGistId("`gist_id`: `0123abcdef_x-y`"), "0123abcdef_x-y");
+  assert.equal(extractFixtureGistId("`gist_id`: `<unset>`"), null);
+});
+
+test("the committed fixture doc never presents a placeholder as a resolved gist id (#219)", () => {
+  // It used to hold a made-up id beside "This is a placeholder"; the script
+  // took its RESOLVED branch and printed it as the "Deterministic input",
+  // which 404s. Either the doc pins a real id (and stops calling it a
+  // placeholder), or it yields none and STAGE 3 says it is using one.
   const docText = readFileSync(path.join(REPO_ROOT, FIXTURE_DOC_PATH), "utf-8");
   const id = extractFixtureGistId(docText);
-  assert.ok(id, `expected a gist_id in ${FIXTURE_DOC_PATH}`);
-  assert.match(id, /^[A-Za-z0-9_-]+$/);
+  if (id !== null) {
+    assert.doesNotMatch(docText, /this is a placeholder|made-up/i);
+  } else {
+    assert.match(renderStage3Cheatsheet({ fixtureGistId: id }), /using placeholder/);
+  }
 });
 
 test("extractFixtureGistId returns null when the format isn't matched", () => {

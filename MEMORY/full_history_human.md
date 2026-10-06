@@ -2171,3 +2171,11 @@ added to seven Python repos (portfolio-ops#79). This repo's Python server is a
 Python test suite too, but it sits in a subfolder, so the port skipped it. It
 now has the same guard. A throwaway test that edited the README failed the
 session as intended.
+
+## 2026-10-05 — the demo stops presenting a fake gist as real (#219)
+
+The demo-fixture document held a made-up gist ID labelled as a placeholder,
+but because it looked like a real ID, the capture script printed it as the
+demo's input. Fetching it returns 404. The document now says the gist isn't
+pinned yet, and the script says it's using a placeholder until someone pins a
+real public gist. Choosing that gist is left to JT.
