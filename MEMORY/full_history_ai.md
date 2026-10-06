@@ -2385,7 +2385,7 @@ followups: ["#215"]
 
 ---
 session: 2026-10-06T07:26Z
-duration_min: 4   # plan comment 2026-10-06T07:23:11Z -> 07:26Z (date -u); the diagnosis started ~07:20Z in Phase A
+duration_min: 3   # plan comment 2026-10-06T07:23:11Z -> 07:26Z (date -u); the diagnosis started ~07:20Z in Phase A
 issue: 223
 branch: session/2026-10-06-0722-issue-223
 focus: MAIN_RED_AFTER_214_MERGED_test_undeliverable_request_CLOSED_STDIN_BEFORE_REQUEST_5_WAS_ANSWERED_AND_THE_SDK_CANCELS_IN_FLIGHT_HANDLERS_AT_EOF
