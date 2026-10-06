@@ -2363,6 +2363,27 @@ followups: []
 ---
 
 ---
+session: 2026-10-05T07:49Z
+duration_min: 7   # plan comment 07:43:52Z -> 07:49Z (date -u); reading the SDK's stdio.py started ~07:42Z
+issue: 210
+branch: session/2026-10-05-0743-issue-210
+focus: fs_sandbox_py_LEFT_A_REQUEST_ID_UNANSWERED_WHEN_THE_SDK_TRANSPORTS_PYDANTIC_PARSER_REJECTED_ITS_LINE_now_answered_with_a_JSON_RPC_error_through_the_SDKS_OWN_WRITE_STREAM
+phase: shipped
+delta:
+  files_changed: 7
+  tests_added: 9
+  suite: "fs-sandbox-py 314 -> 323 (runtime count, test-counts.json and both README claims updated); check-readme, check-architecture-doc, check-test-count ok; ruff clean"
+decisions_made: [D-015]
+measured: "real stdio session: id 4 lone-surrogate read unanswered on main, -32602 after; id 5 served on the same session. Probes: filter unwired 3 red (and the unfixed server did not exit within 30s of EOF); answers not forwarded 3 red; neighbour cancel-forwarder-when-run-returns GREEN, recorded as a known blind spot of the last-line arm"
+context_for_next_session:
+  - THE_FILTER_IS_A_stdin_ARGUMENT_TO_stdio_server_mcp_1_x_only_iterates_it_with_async_for_so_an_async_generator_works_RECHECK_THIS_SEAM_WHEN_177_PORTS_TO_2_X
+  - ANSWERS_GO_THROUGH_THE_SDKS_WRITE_STREAM_NEVER_DIRECTLY_TO_STDOUT_two_writers_on_one_fd_interleave_mid_line
+  - FOUND_WHILE_EDITING_check_readme_SILENTLY_DROPS_A_ROOT_CLAIM_WHOSE_DESCRIPTION_HAS_A_HASH_AFTER_THE_COUNT_9999_passed_filed_215_DO_NOT_PUT_ISSUE_REFS_ON_A_QUICKSTART_COUNT_LINE_UNTIL_IT_IS_FIXED
+  - GOTCHA_ln_sfn_INTO_A_DIRECTORY_WHOSE_node_modules_IS_REAL_PLANTS_node_modules_node_modules_A_SELF_LINK_removed_it_only_symlink_node_modules_in_SCRATCH_clones
+followups: ["#215"]
+---
+
+---
 session: 2026-10-05T08:21Z
 duration_min: 2   # computed: started 08:20Z -> 08:21Z
 issue: 215
