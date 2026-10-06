@@ -33,14 +33,15 @@ into the server's startup command; recording shows a successful
 
 Fixture gist (public; pin so re-captures look identical):
 
-`gist_id`: `aa5a3adaae1c2f8b7e9b1c0d4f6e8a9c`
+`gist_id`: `<unset>`
 
-This is a placeholder — the actual public fixture gist is whichever
-one the operator picks on first capture. To make the recording
-identical across re-captures, replace the value above with the gist
-ID of any small, stable public gist (a one-file README is enough)
-and commit. The script will then print the same fixture ID every
-run.
+Not pinned yet. The fixture gist is whichever small, stable public gist
+the operator picks on first capture (a one-file README is enough):
+replace `<unset>` above with its ID and commit, and the script will
+print the same fixture ID every run. Until then the script says it is
+using a placeholder rather than presenting one as a real input. This
+line used to hold a made-up ID, which the script printed as the
+"Deterministic input" and which returned 404 from `get_gist` (#219).
 
 For the error-path / token-redaction half of the stage, the script
 intentionally uses a non-existent gist id (`this-id-does-not-exist-anywhere`)

@@ -125,7 +125,11 @@ def _json_wellformed(value: str) -> str:
     legal **JSON escape syntax**, so `json.loads('"\ud800bad.txt"')` on an
     incoming JSON-RPC argument produces one with no filesystem or `argv`
     involved. The docstring below used to say it "cannot reach this port at
-    all"; it reaches it in one hop.
+    all"; it reaches ``_dispatch_tool`` in one hop. Over stdio it does not get
+    that far: the SDK transport's pydantic parser rejects the escape first, so
+    `_serve` answers that request with a JSON-RPC error instead (#210, D-015).
+    This escaping covers every other road -- a direct `_dispatch_tool` call, or
+    an SDK that accepts the escape.
 
     `ensure_ascii=True` is not the fix. It matches JS on this codepoint and
     diverges on every other non-ASCII one -- `café.txt` would become
@@ -167,10 +171,12 @@ def _error_message(err: BaseException) -> str:
     message, and ambiguity is exactly what a sandbox refusal must not have.
     ``json.dumps(..., ensure_ascii=False)`` and JavaScript's ``JSON.stringify``
     agree on eight of nine awkward codepoints. The ninth is a lone surrogate,
-    and this docstring used to say it "cannot reach this port at all" -- it
-    reaches it in one hop, because a lone surrogate is legal JSON escape syntax
-    and this is a JSON-RPC server (#163). ``_json_wellformed`` above closes it
-    by reproducing ES2019's well-formed ``JSON.stringify``, so all nine agree.
+    and this docstring used to say it "cannot reach this port at all". It is
+    legal JSON escape syntax, so ``json.loads`` produces one (#163), and
+    ``_json_wellformed`` above escapes it the way ES2019's well-formed
+    ``JSON.stringify`` does, so all nine agree here. Over stdio under mcp 1.x
+    the SDK's parser refuses the line before this function runs, and `_serve`
+    answers it with a JSON-RPC error (#210, D-015).
 
     The typed sandbox / tool errors carry messages that are already safe to
     show — they never echo allow-list contents or absolute paths beyond what
@@ -269,12 +275,109 @@ def _build_server(deps: ToolDeps) -> Any:
     return server
 
 
+# JSON-RPC 2.0 error codes for a request the SDK transport cannot deliver.
+_INVALID_REQUEST = -32600
+_INVALID_PARAMS = -32602
+
+
+def _undeliverable_request(line: str) -> tuple[str | int, int, str] | None:
+    """``(id, code, message)`` for a request the SDK transport would drop, else None.
+
+    The pinned SDK (mcp 1.x) validates every stdio line with pydantic's JSON
+    parser. A line that parser rejects is turned into an exception the server
+    logs as a ``notifications/message`` "Internal Server Error" -- and its
+    request id is **never answered**, so the client hangs (#210). The common
+    case is a lone surrogate escape (``"path": "/etc/\\ud800x"``): legal JSON
+    escape syntax that ``json.loads`` accepts, and that pydantic refuses before
+    any tool runs. A hang is what #163 said a sandbox refusal must never be.
+
+    A line is answered here only when it is a request this port could reply to:
+    the SDK rejects it, ``json.loads`` reads an object with a ``method`` and a
+    string or integer ``id``. A notification has no id to answer; a line
+    neither parser can read has no id either. Both still reach the SDK
+    unchanged, as does every line the SDK accepts. The message never echoes
+    the offending value: a lone surrogate has no UTF-8 encoding, so it cannot
+    be written back to the transport.
+    """
+    from mcp import types
+
+    try:
+        types.JSONRPCMessage.model_validate_json(line)
+        return None
+    except ValueError:
+        pass
+    try:
+        obj = json.loads(line)
+    except ValueError:
+        return None
+    if not isinstance(obj, dict) or not isinstance(obj.get("method"), str):
+        return None
+    request_id = obj.get("id")
+    if isinstance(request_id, bool) or not isinstance(request_id, (str, int)):
+        return None
+    if isinstance(request_id, str) and _LONE_SURROGATE_RE.search(request_id):
+        return None
+    if _LONE_SURROGATE_RE.search(json.dumps(obj, ensure_ascii=False)):
+        return (
+            request_id,
+            _INVALID_PARAMS,
+            "Invalid params: the request contains a lone surrogate escape (U+D800-U+DFFF), "
+            "which the MCP Python SDK's transport cannot accept; no tool was called",
+        )
+    return (
+        request_id,
+        _INVALID_REQUEST,
+        "Invalid Request: the MCP Python SDK's transport rejected this message",
+    )
+
+
+async def _answer_undeliverable(lines: Any, answers: Any) -> Any:
+    """Yield `lines` to the SDK, diverting each undeliverable request to `answers`.
+
+    `answers` is the send side of a stream that `_serve` forwards into the SDK's
+    own write stream, so an answer reaches stdout through the same writer as
+    every other response and can never interleave with one mid-line.
+    """
+    from mcp import types
+    from mcp.shared.message import SessionMessage
+
+    async with answers:
+        async for line in lines:
+            undeliverable = _undeliverable_request(line)
+            if undeliverable is None:
+                yield line
+                continue
+            request_id, code, message = undeliverable
+            error = types.JSONRPCError(
+                jsonrpc="2.0", id=request_id, error=types.ErrorData(code=code, message=message)
+            )
+            await answers.send(SessionMessage(types.JSONRPCMessage(error)))
+
+
 async def _serve(deps: ToolDeps) -> None:
-    """Run `_build_server(deps)` over stdio."""
+    """Run `_build_server(deps)` over stdio, answering what the SDK would drop (#210)."""
+    import math
+    from io import TextIOWrapper
+
+    import anyio
     from mcp.server.stdio import stdio_server
 
     server = _build_server(deps)
-    async with stdio_server() as (read, write):
+    # The SDK's own default stdin, wrapped so an undeliverable request gets an
+    # answer instead of a hang.
+    stdin = anyio.wrap_file(TextIOWrapper(sys.stdin.buffer, encoding="utf-8", errors="replace"))
+    answers_send, answers_recv = anyio.create_memory_object_stream(math.inf)
+
+    async def forward_answers(write: Any) -> None:
+        async with answers_recv:
+            async for answer in answers_recv:
+                await write.send(answer)
+
+    filtered = _answer_undeliverable(stdin, answers_send)
+    async with stdio_server(stdin=filtered) as (read, write), anyio.create_task_group() as tg:
+        # Ends when the filter closes `answers_send` at end of input, so an
+        # answer to the very last line is still written before shutdown.
+        tg.start_soon(forward_answers, write)
         await server.run(read, write, server.create_initialization_options())
 
 
