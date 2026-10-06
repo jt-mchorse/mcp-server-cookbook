@@ -148,3 +148,15 @@
   reversibility: cheap
   related_issues: ["#197", "#189", "#190", "#195"]
   superseded_by: null
+
+- id: D-015
+  date: 2026-10-05
+  decision: fs_sandbox_py_ANSWERS_A_REQUEST_ITS_SDK_TRANSPORT_WOULD_DROP_a_line_pydantic_rejects_that_json_loads_reads_as_a_request_with_a_str_or_int_id_gets_a_JSON_RPC_error_for_that_id_through_the_SDKS_OWN_WRITE_STREAM_minus_32602_for_a_lone_surrogate_minus_32600_otherwise
+  rationale: mcp_1_x_validates_every_stdio_line_with_pydantic_which_refuses_a_lone_surrogate_escape_that_json_loads_accepts_the_line_became_a_logged_Internal_Server_Error_and_ITS_ID_WAS_NEVER_ANSWERED_a_hang_which_163_said_a_sandbox_refusal_must_never_be_the_TS_port_answers_the_same_request
+  THROUGH_THE_WRITE_STREAM_NOT_STDOUT: "the answer is a SessionMessage sent into the stream the SDK's stdout writer drains, so it cannot interleave with another response mid-line; a forwarder task drains a side channel the stdin filter writes to, and ends when the filter closes it at end of input, so an answer to the last line is written before shutdown"
+  NEVER_ECHOES_THE_VALUE: "a lone surrogate has no UTF-8 encoding, so the message is fixed text; a request whose id is itself a lone surrogate, a boolean id, a notification, and a line json.loads also rejects all reach the SDK unchanged"
+  alternatives_rejected: ["ESCAPE_BEFORE_VALIDATION_REJECTED_rewrites_the_clients_value_into_one_it_never_sent", "DOCUMENT_ONLY_AND_WAIT_FOR_THE_2_X_PORT_177_REJECTED_leaves_a_hang_in_the_shipped_server", "TOOL_LEVEL_isError_PARITY_WITH_TS_NOT_REACHABLE_UNDER_1_X_pydantic_refuses_the_string_before_any_tool_runs"]
+  measured: "real stdio session on main: id 4 (read_file /etc/\\ud800x) unanswered, id 5 answered; after: id 4 -> error -32602, id 5 -> sandbox_escape isError result. Revert (filter unwired) 3 red, the unfixed server also failed to exit within 30s of EOF; answers not forwarded 3 red; neighbour cancel-the-forwarder-when-run-returns GREEN (answers flush before run returns, so the last-line arm cannot separate it)"
+  reversibility: cheap
+  related_issues: ["#210", "#163", "#177"]
+  superseded_by: null
