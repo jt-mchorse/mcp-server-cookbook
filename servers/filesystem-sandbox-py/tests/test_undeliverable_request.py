@@ -20,6 +20,7 @@ import json
 import os
 import subprocess
 import sys
+import threading
 from pathlib import Path
 
 import pytest
@@ -56,12 +57,22 @@ def _read(request_id: int, path: str) -> str:
     )
 
 
-def _session(tmp_path: Path, *lines: str) -> dict[object, dict]:
+def _session(
+    tmp_path: Path, *lines: str, before_eof: frozenset[object] = frozenset()
+) -> dict[object, dict]:
     """Send `lines` over a real stdio session, close stdin, return replies by id.
 
-    `communicate` closes stdin after writing, so the server sees end of input
-    and must exit by itself: a request left unanswered shows up as a missing
-    id, and a server that hangs at shutdown fails the timeout.
+    The server must exit by itself once stdin closes: a request left
+    unanswered shows up as a missing id, and a server that hangs at shutdown
+    fails the timeout.
+
+    Stdin stays open until a reply for every id in `before_eof` has arrived,
+    the way a client waits for its answers (#223). The SDK's `Server.run`
+    cancels in-flight handlers when the transport closes, so a valid request
+    sent just before end of input is answered only if its handler beats EOF.
+    A session that closed right away lost id 5 in 7 of 20 runs. An
+    undeliverable request on the last line is the exception: #214 answers it
+    whatever the timing, and the tests that pin that pass no `before_eof`.
     """
     pytest.importorskip("mcp")
     env = {**os.environ, "MCP_FS_SANDBOX_ALLOWLIST": str(tmp_path)}
@@ -73,15 +84,36 @@ def _session(tmp_path: Path, *lines: str) -> dict[object, dict]:
         ],
         stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
+        stderr=subprocess.DEVNULL,
         env=env,
     )
+    # Kills the server if a reply never comes, so a readline below cannot
+    # block forever; the missing id then fails the test's own assertion.
+    deadline = threading.Timer(30, proc.kill)
+    deadline.start()
     try:
-        out, _ = proc.communicate(("\n".join(lines) + "\n").encode(), timeout=30)
+        assert proc.stdin is not None
+        assert proc.stdout is not None
+        proc.stdin.write(("\n".join(lines) + "\n").encode())
+        proc.stdin.flush()
+        replies: list[dict] = []
+        waiting = set(before_eof)
+        while waiting:
+            raw = proc.stdout.readline()
+            if not raw:
+                break
+            if raw.strip():
+                replies.append(json.loads(raw))
+                waiting.discard(replies[-1].get("id"))
+        proc.stdin.close()
+        rest = proc.stdout.read()
+        assert proc.wait(timeout=10) == 0, "the server did not exit cleanly at end of input"
+        assert deadline.is_alive(), "the server needed the 30 s deadline to finish"
     finally:
+        deadline.cancel()
         proc.kill()
         proc.wait(timeout=10)
-    replies = [json.loads(line) for line in out.decode().splitlines() if line.strip()]
+    replies += [json.loads(line) for line in rest.decode().splitlines() if line.strip()]
     return {r["id"]: r for r in replies if "id" in r}
 
 
@@ -92,6 +124,7 @@ def test_a_lone_surrogate_request_is_answered_and_the_session_continues(tmp_path
         json.dumps(_INITIALIZED),
         _LONE_SURROGATE_READ,
         _read(5, "/etc/passwd"),
+        before_eof=frozenset({4, 5}),
     )
     assert replies[4]["error"]["code"] == -32602
     assert "lone surrogate" in replies[4]["error"]["message"]
