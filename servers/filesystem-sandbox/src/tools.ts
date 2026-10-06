@@ -180,8 +180,12 @@ export function isSandboxEscape(err: unknown): err is SandboxEscape {
  * carrying a space, a trailing separator, or a NUL is ambiguous in a refusal
  * message, and ambiguity is exactly what a sandbox refusal must not have.
  * `JSON.stringify` and Python's `json.dumps(..., ensure_ascii=False)` agree on
- * eight of nine awkward codepoints; the ninth is a lone surrogate, which Python
- * cannot encode to UTF-8 and so cannot reach its port at all.
+ * eight of nine awkward codepoints; the ninth is a lone surrogate, which the
+ * Python port escapes the way ES2019's well-formed `JSON.stringify` does (#163).
+ * Over stdio the two ports still answer such a request differently: this port
+ * returns the refusal below, and the Python port answers with a JSON-RPC error
+ * (-32602), because its SDK transport rejects the line before any tool runs
+ * (#210, D-015).
  *
  * The typed errors' messages are already safe to show: they never echo
  * allow-list contents or absolute paths beyond what the caller supplied.
