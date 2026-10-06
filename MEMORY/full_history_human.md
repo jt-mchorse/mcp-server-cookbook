@@ -2141,3 +2141,15 @@ output channel. Everything else passes through untouched. Three tests run a
 real stdio session. While editing the README I found that the README count
 check silently ignores a count line containing a `#` after the number, and
 filed it as #215.
+
+## 2026-10-06 — main went red on a race in a test (#223)
+
+Merging #214 turned `main` red. One of its new tests sent a valid request
+and then immediately closed the server's input. The MCP SDK cancels any
+request still running when its input closes, so the reply only came back when
+the handler happened to finish first. Locally that failed 7 times in 20. The
+PR's own CI run had just been lucky. The test now keeps the input open until
+the replies it checks have arrived, the way a real client does. It passed 30
+times in a row. With the wait removed it failed 13 of 30. The two tests that
+deliberately end the input right after a bad request still do so: #214
+guarantees that answer regardless of timing.
