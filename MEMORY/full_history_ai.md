@@ -2567,5 +2567,19 @@ measured: "Postgres 17 (private, :54391, pg_ctl stop): E'\\'' length 1; U&\"pg\\
 context_for_next_session:
   - A_HAND_WRITTEN_LEXER_IS_A_LIST_OF_LEXICAL_FORMS_enumerate_the_dialects_forms_E_strings_U_amp_dollar_quotes_B_X_N_prefixes_and_check_each_scanner_handles_each
   - EVERY_SCANNER_CHANGE_NEEDS_ITS_OWN_RED_ARM_stripComments_was_0_red_until_a_comment_marker_inside_an_E_string_arm
+session: 2026-10-07T09:05Z
+duration_min: 7
+issue: 238
+branch: session/2026-10-07-mcp-write-root
+focus: WRITE_FILE_ON_THE_ALLOWLIST_ROOT_STAGED_THE_CALLERS_BYTES_OUTSIDE_THE_SANDBOX_BOTH_PORTS
+phase: shipped
+delta:
+  files_changed: 8
+  tests_added: 12
+  suite: "TS 253 -> 259, Py 332 -> 338 (py re-run after commit); check-readme, check-architecture-doc, tsc, eslint, ruff ok"
+decisions_made: []
+measured: "revert: main 5/6 red in each port; parent dir listing unchanged after refusal."
+context_for_next_session:
+  - AN_ATOMIC_WRITER_STAGES_IN_THE_PARENT_so_ANY_PATH_WHOSE_PARENT_IS_OUTSIDE_THE_JAIL_THE_ROOT_ITSELF_escapes_on_the_temp_file_ask_where_the_temp_lives
 followups: []
 ---
