@@ -274,17 +274,17 @@ export class GistsClient {
       throw new Error("gist_id must be a non-empty string");
     }
     const endpoint = `/gists/${encodeURIComponent(gistId.trim())}`;
-    const res = await this.request("GET", endpoint, undefined);
-    if (!res.ok) {
-      throw new GithubApiError(
-        res.status,
-        `GET ${endpoint}`,
-        await this.reasonFromResponse(res),
-        extractGithubDiagnostics(res.headers),
-      );
-    }
-    const body = (await res.json()) as Gist;
-    return body;
+    return this.request("GET", endpoint, undefined, async (res) => {
+      if (!res.ok) {
+        throw new GithubApiError(
+          res.status,
+          `GET ${endpoint}`,
+          await this.reasonFromResponse(res),
+          extractGithubDiagnostics(res.headers),
+        );
+      }
+      return (await res.json()) as Gist;
+    });
   }
 
   /**
@@ -340,24 +340,35 @@ export class GistsClient {
     if (args.description !== undefined) {
       payload.description = args.description;
     }
-    const res = await this.request("PATCH", endpoint, JSON.stringify(payload));
-    if (!res.ok) {
-      throw new GithubApiError(
-        res.status,
-        `PATCH ${endpoint}`,
-        await this.reasonFromResponse(res),
-        extractGithubDiagnostics(res.headers),
-      );
-    }
-    return (await res.json()) as Gist;
+    return this.request("PATCH", endpoint, JSON.stringify(payload), async (res) => {
+      if (!res.ok) {
+        throw new GithubApiError(
+          res.status,
+          `PATCH ${endpoint}`,
+          await this.reasonFromResponse(res),
+          extractGithubDiagnostics(res.headers),
+        );
+      }
+      return (await res.json()) as Gist;
+    });
   }
 
-  /** Internal request builder. Attaches headers, applies timeout, converts AbortError → RequestTimeoutError. */
-  private async request(
+  /**
+   * Internal request builder. Attaches headers and applies the per-call
+   * timeout to the WHOLE exchange: `read` -- the status check, the error-body
+   * read, `res.json()` -- runs before the timer is cleared (#227). The timer
+   * used to be cleared as soon as `fetch` resolved, which is when the headers
+   * arrive, so a server that sent headers and then stalled its body hung the
+   * tool call forever under a README that promises `request_timed_out`.
+   * Abort is read from the signal, not the error's name: a body read cut off by
+   * the abort does not reliably reject with an `AbortError`.
+   */
+  private async request<T>(
     method: string,
     endpoint: string,
     body: string | undefined,
-  ): ReturnType<FetchLike> {
+    read: (res: Awaited<ReturnType<FetchLike>>) => Promise<T>,
+  ): Promise<T> {
     const url = this.cfg.baseUrl + endpoint;
     const headers: Record<string, string> = {
       Accept: "application/vnd.github+json",
@@ -374,14 +385,15 @@ export class GistsClient {
     const ac = new AbortController();
     const timer = setTimeout(() => ac.abort(), this.cfg.timeoutMs);
     try {
-      return await this.fetchImpl(url, {
+      const res = await this.fetchImpl(url, {
         method,
         headers,
         body,
         signal: ac.signal,
       });
+      return await read(res);
     } catch (err) {
-      if ((err as { name?: string }).name === "AbortError") {
+      if (ac.signal.aborted || (err as { name?: string }).name === "AbortError") {
         throw new RequestTimeoutError(`${method} ${endpoint}`, this.cfg.timeoutMs);
       }
       throw err;
