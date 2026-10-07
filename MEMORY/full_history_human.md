@@ -2197,3 +2197,11 @@ fixture document, the script stops when the file does not match it, and a
 test makes sure the two are updated together. The document also notes that
 this checks the file, not an already-running database built from an older
 copy, and gives the command to rebuild it.
+
+## 2026-10-06 — github-gists' timeout covers the whole response (#227)
+
+The gists server's README promises that a slow GitHub gives a clear timeout
+error instead of a hang. The timer was stopped as soon as the response headers
+arrived, so a server that sent headers and then stalled left the tool call
+waiting forever. The timer now runs until the body has been read, and the same
+stalled server now gets a timeout error after about a second.

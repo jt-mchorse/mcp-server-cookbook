@@ -2496,3 +2496,22 @@ context_for_next_session:
   - A_PRINTED_FINGERPRINT_WITH_NOTHING_TO_COMPARE_IS_A_CLAIM_WITHOUT_A_CHECK_pin_it_beside_the_other_fixture_pins_and_lock_the_pin_to_the_file
 followups: []
 ---
+
+---
+session: 2026-10-06T09:15Z
+duration_min: 3   # computed: plan comment 09:12:44Z -> 09:15Z (date -u)
+issue: 227
+branch: session/2026-10-06-0912-issue-227
+focus: github_gists_TIMEOUT_CLEARED_WHEN_HEADERS_ARRIVED_a_stalled_body_hung_get_gist_forever_under_a_README_that_promises_request_timed_out
+phase: shipped
+delta:
+  files_changed: 5
+  tests_added: 3
+  suite: "github-gists 173 -> 176 (test-counts.json + both README claims); check-readme, check-test-count, tools tests, lint, typecheck ok"
+decisions_made: []
+measured: "stdio, 1000 ms timeout: main no reply after 8003 ms on a stalled 200 body; fixed request_timed_out after 1131 ms. Revert probe: all 3 loopback arms hang to vitest's 10 s timeout."
+context_for_next_session:
+  - A_TIMEOUT_CLEARED_IN_finally_AROUND_await_fetch_COVERS_ONLY_THE_HEADERS_the_body_read_needs_to_run_inside_it_check_every_fetch_wrapper
+  - DETECT_ABORT_FROM_signal_aborted_NOT_err_name_a_cut_off_body_read_may_reject_with_another_error_type
+followups: []
+---
