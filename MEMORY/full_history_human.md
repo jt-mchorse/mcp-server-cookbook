@@ -2186,3 +2186,14 @@ The gists server's env template said the GitHub token is optional for public
 gists, but shipped a fake one. Loading the file sent that fake token, so every
 public read failed with "Bad credentials". It now ships empty, and a test loads
 the template and checks that no token is set.
+
+## 2026-10-06 — the demo checks its database seed against a pinned hash (#225)
+
+The demo script printed a fingerprint of the sample database's seed file, "so
+a re-capture can confirm the schema hasn't drifted". Nothing recorded what
+the fingerprint should be, so an edited seed just printed a different value
+and the demo carried on. The expected fingerprint is now written in the demo
+fixture document, the script stops when the file does not match it, and a
+test makes sure the two are updated together. The document also notes that
+this checks the file, not an already-running database built from an older
+copy, and gives the command to rebuild it.
