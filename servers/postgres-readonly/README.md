@@ -36,7 +36,11 @@ The agent emits `DROP TABLE`, `DELETE`, `UPDATE`, `INSERT`, `TRUNCATE`,
   - strips comments before any keyword check (an attacker can't hide writes
     inside a `--` or `/* */` comment),
   - splits on `;` while honoring single, double, and dollar-quoted strings
-    (so `SELECT 'a;b'` doesn't get falsely split),
+    (so `SELECT 'a;b'` doesn't get falsely split), and `E'...'` escape
+    strings, where `\'` does not end the literal (#236),
+  - decodes `U&"..."` identifiers before the keyword scan, so
+    `U&"pg\005fsleep"` is seen as `pg_sleep`; a custom `UESCAPE` is
+    refused (#236),
   - rejects multi-statement input outright,
   - requires the leading keyword be in a small allow-list,
   - rejects any input where any forbidden keyword (every write/DDL verb

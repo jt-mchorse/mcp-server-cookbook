@@ -276,6 +276,81 @@ export interface GuardResult {
  * `SELECT 'a -- b', pg_sleep(1)` — valid SQL Postgres runs — was reduced to
  * `SELECT 'a ` before the keyword scan and wrongly passed the guard.
  */
+/**
+ * Postgres lexical forms the scanners below must know, because each one
+ * changes where a literal ENDS or what an identifier SAYS (#236):
+ *
+ * - `E'...'` escape strings. Inside one, a backslash escapes the next
+ *   character, so `E'\''` is a complete 3-character literal. The scanners
+ *   knew only the `''` escape, read `\'` as the end of the string, and so
+ *   saw the rest of the input as still inside it: `SELECT E'\''; COMMIT;
+ *   BEGIN READ WRITE; DROP TABLE t; COMMIT; --'` passed as ONE statement and
+ *   dropped `t` on a superuser connection (measured on Postgres 17).
+ * - `U&"..."` Unicode-escape identifiers. `U&"pg\005fsleep"` IS `pg_sleep`,
+ *   and the keyword scan saw the escaped spelling and let it through.
+ *
+ * `E` and `U&` start these forms only at a token start, so a letter that
+ * ends a longer identifier does not.
+ */
+function startsToken(sql: string, i: number): boolean {
+  return i === 0 || !/[A-Za-z0-9_$\u0080-\uffff]/.test(sql[i - 1] ?? "");
+}
+
+function isEscapeStringStart(sql: string, i: number): boolean {
+  return (sql[i] === "E" || sql[i] === "e") && sql[i + 1] === "'" && startsToken(sql, i);
+}
+
+/** Index just past the closing quote of the E-string whose `E` is at `i`, or -1. */
+function escapeStringEnd(sql: string, i: number): number {
+  let j = i + 2;
+  while (j < sql.length) {
+    if (sql[j] === "\\") {
+      j += 2;
+      continue;
+    }
+    if (sql[j] === "'") {
+      if (sql[j + 1] === "'") {
+        j += 2;
+        continue;
+      }
+      return j + 1;
+    }
+    j++;
+  }
+  return -1;
+}
+
+function isUnicodeIdentifierStart(sql: string, i: number): boolean {
+  return (sql[i] === "U" || sql[i] === "u") && sql[i + 1] === "&" && sql[i + 2] === '"' && startsToken(sql, i);
+}
+
+/**
+ * Decode the body of a `U&"..."` identifier (default escape character `\`).
+ * Returns null on an escape Postgres would reject, so the caller fails closed.
+ */
+function decodeUnicodeEscapes(body: string): string | null {
+  let out = "";
+  for (let k = 0; k < body.length; k++) {
+    if (body[k] !== "\\") {
+      out += body[k];
+      continue;
+    }
+    if (body[k + 1] === "\\") {
+      out += "\\";
+      k++;
+      continue;
+    }
+    const m = body.slice(k + 1).match(/^(\+[0-9A-Fa-f]{6}|[0-9A-Fa-f]{4})/);
+    if (!m) return null;
+    const hex = m[1].startsWith("+") ? m[1].slice(1) : m[1];
+    const cp = Number.parseInt(hex, 16);
+    if (cp > 0x10ffff) return null;
+    out += String.fromCodePoint(cp);
+    k += m[1].length;
+  }
+  return out;
+}
+
 function stripComments(sql: string): string {
   let out = "";
   let i = 0;
@@ -300,6 +375,18 @@ function stripComments(sql: string): string {
         i = end + tag.length;
         continue;
       }
+    }
+
+    // E'...' escape string (#236): backslash escapes, so find its real end.
+    if (isEscapeStringStart(sql, i)) {
+      const end = escapeStringEnd(sql, i);
+      if (end === -1) {
+        out += sql.slice(i);
+        break;
+      }
+      out += sql.slice(i, end);
+      i = end;
+      continue;
     }
 
     // Single-quoted string literal ('...' with '' escape): copy verbatim.
@@ -399,6 +486,16 @@ function splitStatements(sql: string): string[] {
       continue;
     }
 
+    if (!inSingle && !inDouble && isEscapeStringStart(sql, i)) {
+      // E'...' escape string (#236): its `\'` does not close it, so a `;`
+      // after one is still string content until the real closing quote.
+      const end = escapeStringEnd(sql, i);
+      const stop = end === -1 ? sql.length : end;
+      buf += sql.slice(i, stop);
+      i = stop;
+      continue;
+    }
+
     if (!inSingle && !inDouble && c === "$") {
       // Detect a dollar-quoted string opening like $foo$ or $$.
       const m = sql.slice(i).match(/^\$([A-Za-z_][A-Za-z0-9_]*)?\$/);
@@ -479,12 +576,69 @@ function splitStatements(sql: string): string[] {
  * opener (e.g. `SELECT 1, $x$DROP TABLE users` — the `$x$...` runs to EOF and
  * the keyword scan never sees DROP). `guardQuery` fails closed on this flag.
  */
-function stripStringLiterals(sql: string): { text: string; unterminated: boolean } {
+function stripStringLiterals(sql: string): {
+  text: string;
+  unterminated: boolean;
+  malformed?: string;
+} {
   let out = "";
   let unterminated = false;
   let i = 0;
   while (i < sql.length) {
     const c = sql[i];
+
+    // E'...' escape string (#236): replaced like any literal, but ended where
+    // Postgres ends it.
+    if (isEscapeStringStart(sql, i)) {
+      const end = escapeStringEnd(sql, i);
+      out += " ";
+      if (end === -1) {
+        unterminated = true;
+        i = sql.length;
+      } else {
+        i = end;
+      }
+      continue;
+    }
+
+    // U&"..." identifier (#236): decoded, so the keyword scan sees the name
+    // Postgres sees. A custom UESCAPE character or an escape Postgres would
+    // reject is refused outright rather than modelled.
+    if (isUnicodeIdentifierStart(sql, i)) {
+      let j = i + 3;
+      let body = "";
+      let closed = false;
+      while (j < sql.length) {
+        if (sql[j] === '"' && sql[j + 1] === '"') {
+          body += '"';
+          j += 2;
+          continue;
+        }
+        if (sql[j] === '"') {
+          j++;
+          closed = true;
+          break;
+        }
+        body += sql[j];
+        j++;
+      }
+      if (!closed) {
+        unterminated = true;
+        out += " ";
+        i = sql.length;
+        continue;
+      }
+      if (/^\s*UESCAPE\b/i.test(sql.slice(j))) {
+        return { text: out, unterminated, malformed: "U&\"...\" UESCAPE is not supported" };
+      }
+      const decoded = decodeUnicodeEscapes(body);
+      if (decoded === null) {
+        return { text: out, unterminated, malformed: "invalid escape in a U&\"...\" identifier" };
+      }
+      out += '"' + decoded.replace(/"/g, '""') + '"';
+      i = j;
+      continue;
+    }
 
     // Dollar-quoted string: $tag$...$tag$ or $$...$$
     if (c === "$") {
@@ -612,7 +766,11 @@ export function guardQuery(sqlInput: string): GuardResult {
   // Strip string literals before keyword scanning so a SELECT containing the
   // literal 'INSERT INTO foo' doesn't false-positive. Double-quoted identifiers
   // are NOT stripped (they're identifiers, not string contents in Postgres).
-  const { text: scanText, unterminated } = stripStringLiterals(stmt);
+  const { text: scanText, unterminated, malformed } = stripStringLiterals(stmt);
+
+  if (malformed !== undefined) {
+    return { ok: false, reason: malformed };
+  }
 
   // Fail closed on a malformed (unterminated) literal (#55). Otherwise the
   // swallow-to-EOF needed to consume the open literal would hide any forbidden
