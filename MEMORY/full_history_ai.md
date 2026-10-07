@@ -2480,6 +2480,24 @@ followups: []
 ---
 
 ---
+session: 2026-10-06T08:17Z
+duration_min: 1   # computed: plan comment 08:16:36Z -> 08:17Z (date -u); the code path was read from ~08:15Z after a sweep agent's report
+issue: 225
+branch: session/2026-10-06-0816-issue-225
+focus: capture_demo_PRINTED_THE_SEED_SHA256_SO_A_RECAPTURE_CAN_CONFIRM_NO_DRIFT_WITH_NO_PINNED_VALUE_ANYWHERE_now_pinned_in_demo_fixture_md_and_compared
+phase: shipped
+delta:
+  files_changed: 3
+  tests_added: 4
+  suite: "tools/capture-demo.test.mjs 33 -> 37; all tools tests, check-readme, check-architecture-doc ok; no server count moved"
+decisions_made: []
+measured: "partial revert (helpers kept, STAGE 1 return 1 dropped): exactly the main arm red. Container-staleness half NOT measured (no docker here); stated as the postgres image's documented initdb behaviour."
+context_for_next_session:
+  - A_PRINTED_FINGERPRINT_WITH_NOTHING_TO_COMPARE_IS_A_CLAIM_WITHOUT_A_CHECK_pin_it_beside_the_other_fixture_pins_and_lock_the_pin_to_the_file
+followups: []
+---
+
+---
 session: 2026-10-06T09:15Z
 duration_min: 3   # computed: plan comment 09:12:44Z -> 09:15Z (date -u)
 issue: 227

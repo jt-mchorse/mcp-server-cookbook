@@ -13,9 +13,20 @@ sees what to fill in.
 ## STAGE 1 — `postgres-readonly`
 
 Seed file: `servers/postgres-readonly/sample-db/init.sql` (committed,
-load via `docker compose up -d --wait` in that server's directory). The
-sha256 of the seed file is printed by `tools/capture-demo.mjs` so a
-re-capture can confirm the schema hasn't drifted.
+load via `docker compose up -d --wait` in that server's directory).
+
+`seed_sha256`: `bca28b674b42d81325f1350d696199a84bb7a211387eafba07386c519da59492`
+
+`tools/capture-demo.mjs` compares the seed file's sha256 with that pin and
+stops on a mismatch, so a re-capture cannot run against a seed that changed
+without anyone deciding it should (#225). Change the seed and the pin in the
+same commit; `tools/capture-demo.test.mjs` fails until they agree.
+
+The check is on the *file*. The postgres image runs
+`docker-entrypoint-initdb.d` scripts only when its data directory is empty,
+so a container created from an older seed keeps that seed's data across
+`docker compose up -d --wait`. After a seed change, recreate it:
+`docker compose down -v && docker compose up -d --wait`.
 
 The exact tool invocations are documented inline in the STAGE 1
 cheat-sheet — see the script.
