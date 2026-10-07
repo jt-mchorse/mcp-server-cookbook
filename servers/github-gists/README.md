@@ -87,6 +87,19 @@ Mirrors the `BridgeConfig` validation pattern in
 | `MCP_GITHUB_GISTS_USER_AGENT` | no | `mcp-cookbook-github-gists/0.1.0` | UA string sent on every request. GitHub rejects requests with no UA header. |
 | `MCP_GITHUB_GISTS_TIMEOUT_MS` | no | `10000` | Per-call request timeout in milliseconds. Must be a positive integer. Tools surface a clear `request_timed_out` error rather than hanging. |
 
+### Error messages
+
+Every failure a tool returns names the request it made and never carries the
+token or the request body (D-007):
+
+| situation | tool result text |
+| --------- | ---------------- |
+| GitHub answered with an error status | `github_api_error (404 GET /gists/abc): Not Found` |
+| GitHub answered 2xx with a body that is not JSON (a proxy or captive portal page) | `github_api_error (200 GET /gists/abc): response was not JSON` |
+| no response before `MCP_GITHUB_GISTS_TIMEOUT_MS`, headers or body | `request_timed_out (GET /gists/abc, 10000ms)` |
+| no connection at all (refused, unresolvable host, TLS failure) | `upstream_unreachable (GET /gists/abc): connect ECONNREFUSED 127.0.0.1:443` |
+| `update_gist_file` with no `GITHUB_TOKEN` | `token_required for update_gist_file (set GITHUB_TOKEN)` |
+
 ## Tools
 
 ### `get_gist(gist_id)`
@@ -175,7 +188,7 @@ For an interactive REPL across all your servers, use the
 ## Tests
 
 ```bash
-npm test          # vitest, 176 hermetic unit tests, no network beyond loopback
+npm test          # vitest, 183 hermetic unit tests, no network beyond loopback
 npm run typecheck # tsc --noEmit
 npm run lint      # eslint
 ```
