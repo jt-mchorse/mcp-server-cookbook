@@ -2517,8 +2517,8 @@ followups: []
 ---
 
 ---
-session: 2026-10-07T07:35Z
-duration_min: 12   # computed: plan comment ~07:23Z -> PR 07:35Z (date -u)
+session: 2026-10-07T07:23Z
+duration_min: 3   # computed: plan comment 07:20:44Z -> PR 07:23:00Z (GitHub timestamps)
 issue: 231
 branch: session/2026-10-07-0725-issue-231
 focus: github_gists_A_REFUSED_CONNECTION_SAID_fetch_failed_AND_AN_HTML_200_SAID_A_RAW_SyntaxError_NEITHER_NAMED_THE_REQUEST
