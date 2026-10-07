@@ -2186,3 +2186,31 @@ The gists server's env template said the GitHub token is optional for public
 gists, but shipped a fake one. Loading the file sent that fake token, so every
 public read failed with "Bad credentials". It now ships empty, and a test loads
 the template and checks that no token is set.
+
+## 2026-10-06 — the demo checks its database seed against a pinned hash (#225)
+
+The demo script printed a fingerprint of the sample database's seed file, "so
+a re-capture can confirm the schema hasn't drifted". Nothing recorded what
+the fingerprint should be, so an edited seed just printed a different value
+and the demo carried on. The expected fingerprint is now written in the demo
+fixture document, the script stops when the file does not match it, and a
+test makes sure the two are updated together. The document also notes that
+this checks the file, not an already-running database built from an older
+copy, and gives the command to rebuild it.
+
+## 2026-10-06 — github-gists' timeout covers the whole response (#227)
+
+The gists server's README promises that a slow GitHub gives a clear timeout
+error instead of a hang. The timer was stopped as soon as the response headers
+arrived, so a server that sent headers and then stalled left the tool call
+waiting forever. The timer now runs until the body has been read, and the same
+stalled server now gets a timeout error after about a second.
+
+## 2026-10-06 — postgres-readonly gives up on a silent database (#229)
+
+The read-only Postgres server limits query time with a database-side timeout,
+but that setting is only sent after a connection succeeds, and the client
+itself waited forever. A database that accepted the connection and then said
+nothing left the tool call hanging. The client now gives up connecting after
+the configured timeout (at least five seconds) and on a query one second after
+the database's own limit. The server README says so.

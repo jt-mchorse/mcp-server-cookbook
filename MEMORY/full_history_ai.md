@@ -2478,3 +2478,60 @@ context_for_next_session:
   - MERGE_NOTE_214_216_218_221_TOUCH_COUNTS_RECOUNT
 followups: []
 ---
+
+---
+session: 2026-10-06T08:17Z
+duration_min: 1   # computed: plan comment 08:16:36Z -> 08:17Z (date -u); the code path was read from ~08:15Z after a sweep agent's report
+issue: 225
+branch: session/2026-10-06-0816-issue-225
+focus: capture_demo_PRINTED_THE_SEED_SHA256_SO_A_RECAPTURE_CAN_CONFIRM_NO_DRIFT_WITH_NO_PINNED_VALUE_ANYWHERE_now_pinned_in_demo_fixture_md_and_compared
+phase: shipped
+delta:
+  files_changed: 3
+  tests_added: 4
+  suite: "tools/capture-demo.test.mjs 33 -> 37; all tools tests, check-readme, check-architecture-doc ok; no server count moved"
+decisions_made: []
+measured: "partial revert (helpers kept, STAGE 1 return 1 dropped): exactly the main arm red. Container-staleness half NOT measured (no docker here); stated as the postgres image's documented initdb behaviour."
+context_for_next_session:
+  - A_PRINTED_FINGERPRINT_WITH_NOTHING_TO_COMPARE_IS_A_CLAIM_WITHOUT_A_CHECK_pin_it_beside_the_other_fixture_pins_and_lock_the_pin_to_the_file
+followups: []
+---
+
+---
+session: 2026-10-06T09:15Z
+duration_min: 3   # computed: plan comment 09:12:44Z -> 09:15Z (date -u)
+issue: 227
+branch: session/2026-10-06-0912-issue-227
+focus: github_gists_TIMEOUT_CLEARED_WHEN_HEADERS_ARRIVED_a_stalled_body_hung_get_gist_forever_under_a_README_that_promises_request_timed_out
+phase: shipped
+delta:
+  files_changed: 5
+  tests_added: 3
+  suite: "github-gists 173 -> 176 (test-counts.json + both README claims); check-readme, check-test-count, tools tests, lint, typecheck ok"
+decisions_made: []
+measured: "stdio, 1000 ms timeout: main no reply after 8003 ms on a stalled 200 body; fixed request_timed_out after 1131 ms. Revert probe: all 3 loopback arms hang to vitest's 10 s timeout."
+context_for_next_session:
+  - A_TIMEOUT_CLEARED_IN_finally_AROUND_await_fetch_COVERS_ONLY_THE_HEADERS_the_body_read_needs_to_run_inside_it_check_every_fetch_wrapper
+  - DETECT_ABORT_FROM_signal_aborted_NOT_err_name_a_cut_off_body_read_may_reject_with_another_error_type
+followups: []
+---
+
+---
+session: 2026-10-06T09:32Z
+duration_min: 2   # computed: plan comment 09:30:11Z -> 09:32Z (date -u)
+issue: 229
+branch: session/2026-10-06-0930-issue-229
+focus: postgres_readonly_STATEMENT_TIMEOUT_IS_SET_AFTER_CONNECT_and_the_client_had_no_connect_or_query_timeout_a_silent_database_hung_the_tool_call
+phase: shipped
+delta:
+  files_changed: 5
+  tests_added: 1
+  suite: "postgres-readonly 289 -> 290 (test-counts.json + root README); all checkers, lint, typecheck ok"
+decisions_made: []
+measured: "silent loopback host at statementTimeoutMs 1000: main pending after 8003 ms; fixed rejects 'timeout expired'. Revert probe: the arm hangs to its 20 s timeout."
+context_for_next_session:
+  - A_SERVER_SIDE_TIMEOUT_CANNOT_BOUND_THE_CONNECT_THAT_DELIVERS_IT_sibling_of_aop_175_found_by_sweeping_every_pg_client_in_the_portfolio
+  - A_DERIVED_CONNECT_TIMEOUT_NEEDS_A_FLOOR_a_tight_query_budget_must_not_make_connecting_impossible
+  - MERGE_ORDER_mcp_226_228_230_all_touch_test_counts_json_or_README_recount
+followups: []
+---
