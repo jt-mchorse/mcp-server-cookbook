@@ -149,6 +149,9 @@ export function validateDbConfig(cfg: DbConfig): void {
  * lives for the duration of one client conversation; per-call clients keep the
  * blast radius of any leaked state to one statement.
  */
+/** Lowest connect timeout `withClient` uses, whatever `statementTimeoutMs` is (#229). */
+export const CONNECT_TIMEOUT_FLOOR_MS = 5_000;
+
 export async function withClient<T>(
   cfg: DbConfig,
   fn: (c: pg.Client) => Promise<T>,
@@ -157,7 +160,21 @@ export async function withClient<T>(
   // must fail loud before any connection or SQL is issued. Reasoning
   // and gap inventory live on `validateDbConfig` above.
   validateDbConfig(cfg);
-  const client = new Client({ connectionString: cfg.connectionString });
+  // Bounded on the client side too (#229). `statement_timeout` is a SERVER
+  // setting, sent only once `connect()` has succeeded, and `pg` waits forever
+  // for both the connection and each query by default: a host that accepted
+  // TCP and never spoke Postgres hung the tool call before the advertised
+  // bound could apply. The connect gets the operator's budget, but never less
+  // than CONNECT_TIMEOUT_FLOOR_MS: connection setup (TCP, TLS, auth) costs the
+  // same whatever the query budget, and a deliberately tight statement timeout
+  // must not make connecting impossible. The client-side query backstop is a
+  // second longer than the server's, so the server's cancellation (and its
+  // clearer error) normally wins.
+  const client = new Client({
+    connectionString: cfg.connectionString,
+    connectionTimeoutMillis: Math.max(cfg.statementTimeoutMs, CONNECT_TIMEOUT_FLOOR_MS),
+    query_timeout: cfg.statementTimeoutMs + 1000,
+  });
   await client.connect();
   try {
     await client.query(`SET statement_timeout = ${cfg.statementTimeoutMs}`);

@@ -52,7 +52,10 @@ The agent emits `SELECT * FROM big_table CROSS JOIN big_table` or sleeps.
 
 **Defenses:**
 - `statement_timeout` is set per session (default 5s, configurable via
-  `STATEMENT_TIMEOUT_MS`).
+  `STATEMENT_TIMEOUT_MS`). The client is bounded too: connecting waits at
+  most `max(STATEMENT_TIMEOUT_MS, 5s)` and each query at most
+  `STATEMENT_TIMEOUT_MS + 1s`, so a database that accepts the connection and
+  never answers fails the call instead of hanging it (#229).
 - `pg_sleep` is in the forbidden-keywords list.
 - `MAX_ROWS` (default 1000) caps the result set returned to the client.
   Postgres still does the work, but the MCP transport doesn't carry the

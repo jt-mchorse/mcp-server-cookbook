@@ -2205,3 +2205,12 @@ error instead of a hang. The timer was stopped as soon as the response headers
 arrived, so a server that sent headers and then stalled left the tool call
 waiting forever. The timer now runs until the body has been read, and the same
 stalled server now gets a timeout error after about a second.
+
+## 2026-10-06 — postgres-readonly gives up on a silent database (#229)
+
+The read-only Postgres server limits query time with a database-side timeout,
+but that setting is only sent after a connection succeeds, and the client
+itself waited forever. A database that accepted the connection and then said
+nothing left the tool call hanging. The client now gives up connecting after
+the configured timeout (at least five seconds) and on a query one second after
+the database's own limit. The server README says so.
