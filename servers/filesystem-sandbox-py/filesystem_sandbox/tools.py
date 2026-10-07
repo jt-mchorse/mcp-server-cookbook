@@ -16,7 +16,7 @@ from dataclasses import dataclass
 from typing import Literal
 
 from .atomic_write import atomic_write_bytes
-from .sandbox import Sandbox
+from .sandbox import Sandbox, SandboxEscape
 
 DirEntryKind = Literal["file", "directory", "symlink", "other"]
 
@@ -128,6 +128,14 @@ def write_file(deps: ToolDeps, file_path: str, content: str) -> dict[str, int]:
     if len(data) > deps.max_bytes:
         raise FileTooLargeError(len(data), deps.max_bytes)
     sp = deps.sandbox.resolve(file_path, must_exist=False)
+    # A directory is not a writable file, and the allow-list root is one (#238).
+    # ``resolve`` accepts the root itself, and ``atomic_write_bytes`` stages its
+    # temp file in the target's PARENT -- for the root, outside the sandbox --
+    # so the caller's bytes were written there before ``os.replace`` failed.
+    # Refused before any write, with the reason the read path uses; parity with
+    # the TS twin.
+    if os.path.isdir(sp.resolved):
+        raise SandboxEscape("not_a_file", file_path)
     # Atomic write (temp + fsync + os.replace) so a mid-write crash can't leave a
     # partial/truncated file — parity with the TS twin's `atomicWriteFile`.
     atomic_write_bytes(sp.resolved, data)

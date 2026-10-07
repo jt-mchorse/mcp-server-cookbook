@@ -178,6 +178,16 @@ export async function writeFile(
   // The file may not exist yet; resolve with `mustExist: false` so
   // the sandbox checks the parent's containment instead.
   const sp = await deps.sandbox.resolve(file, { mustExist: false });
+  // A directory is not a writable file, and the allow-list root is one (#238).
+  // `resolve` accepts the root itself (`R`, `R/.`, `R/`, `R/sub/..`), and
+  // `atomicWriteFile` stages its temp file in the target's PARENT -- for the
+  // root, a directory outside the sandbox -- so the caller's bytes were written
+  // and fsynced outside it before the rename failed with EISDIR. Refused here,
+  // before any filesystem write, with the same reason the read path uses.
+  const existing = await fs.stat(sp.resolved).catch(() => null);
+  if (existing?.isDirectory()) {
+    throw new SandboxEscape("not_a_file", file);
+  }
   await atomicWriteFile(sp.resolved, data);
   return { bytes_written: data.byteLength };
 }
