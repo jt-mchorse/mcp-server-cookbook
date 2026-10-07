@@ -2205,3 +2205,12 @@ error instead of a hang. The timer was stopped as soon as the response headers
 arrived, so a server that sent headers and then stalled left the tool call
 waiting forever. The timer now runs until the body has been read, and the same
 stalled server now gets a timeout error after about a second.
+
+## 2026-10-07 — github-gists' upstream failures name the request (#231)
+
+Two failures reached the MCP client as text nobody could act on. A refused
+connection said only "fetch failed", and a proxy page returned with status 200
+said "Unexpected token '<'". Both now name the request: the first becomes
+`upstream_unreachable (GET /gists/abc): connect ECONNREFUSED …` and the second
+becomes `github_api_error (200 GET /gists/abc): response was not JSON`. The
+server README now lists every error message the tools can return.

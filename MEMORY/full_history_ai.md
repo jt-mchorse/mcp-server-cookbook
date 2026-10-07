@@ -2515,3 +2515,22 @@ context_for_next_session:
   - DETECT_ABORT_FROM_signal_aborted_NOT_err_name_a_cut_off_body_read_may_reject_with_another_error_type
 followups: []
 ---
+
+---
+session: 2026-10-07T07:35Z
+duration_min: 12   # computed: plan comment ~07:23Z -> PR 07:35Z (date -u)
+issue: 231
+branch: session/2026-10-07-0725-issue-231
+focus: github_gists_A_REFUSED_CONNECTION_SAID_fetch_failed_AND_AN_HTML_200_SAID_A_RAW_SyntaxError_NEITHER_NAMED_THE_REQUEST
+phase: shipped
+delta:
+  files_changed: 6
+  tests_added: 7
+  suite: "github-gists 176 -> 183 (test-counts.json + both README claims); check-readme, check-architecture-doc, tools tests, lint, typecheck ok"
+decisions_made: []
+measured: "real fetch, closed loopback port: 'upstream_unreachable (GET /gists/abc): connect ECONNREFUSED 127.0.0.1:65011'. Revert probe with main's src/: 5 of 7 red, the 2 controls (own abort still request_timed_out; 502 HTML keeps reasonFromResponse) green."
+context_for_next_session:
+  - WRAP_ONLY_THE_fetch_CALL_NOT_read_a_wrap_around_both_would_have_turned_GithubApiError_from_read_into_upstream_unreachable
+  - GOTCHA_PORT_9_IS_A_FETCH_SPEC_BAD_PORT_a_probe_against_127_0_0_1_9_says_bad_port_not_ECONNREFUSED_use_a_just_closed_ephemeral_port
+followups: []
+---
