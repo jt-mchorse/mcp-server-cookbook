@@ -232,10 +232,59 @@ export class RequestTimeoutError extends Error {
   }
 }
 
+/**
+ * The request never got an HTTP response: the connection was refused, the
+ * host did not resolve, TLS failed. `fetch` rejects these with a bare
+ * `TypeError("fetch failed")` and keeps the real reason on `err.cause`, so
+ * passing the error through told the operator nothing (#231). The message
+ * names the request and the cause's code and text, never the token.
+ */
+export class UpstreamUnreachableError extends Error {
+  constructor(public readonly endpoint: string, public readonly reason: string) {
+    super(`upstream_unreachable (${endpoint}): ${reason}`);
+    this.name = "UpstreamUnreachableError";
+  }
+}
+
+/** One line naming why `fetch` rejected, from its `cause` when it has one. */
+function describeFetchFailure(err: unknown): string {
+  const cause = (err as { cause?: unknown } | null)?.cause;
+  const source = cause instanceof Error ? cause : err;
+  const code = (source as { code?: unknown } | null)?.code;
+  const message = source instanceof Error ? source.message : String(source);
+  let text = typeof code === "string" && !message.includes(code) ? `${code} ${message}` : message;
+  if (text.length === 0) text = "fetch failed";
+  return text.length > 200 ? text.slice(0, 200) + "…" : text;
+}
+
 export class TokenRequiredError extends Error {
   constructor(public readonly operation: string) {
     super(`token_required for ${operation} (set GITHUB_TOKEN)`);
     this.name = "TokenRequiredError";
+  }
+}
+
+/**
+ * Parse a 2xx body as JSON. A proxy or captive portal answering 200 with an
+ * HTML page used to surface as the raw `SyntaxError` text, a fragment of the
+ * page with no endpoint (#231). It is a GithubApiError now, naming the status
+ * and request and carrying none of the body. Any other rejection (a read cut
+ * off by our own abort) rethrows unchanged so `request` reports the timeout.
+ */
+async function readJson(
+  res: { status: number; headers: HeadersLike; json(): Promise<unknown> },
+  endpoint: string,
+): Promise<unknown> {
+  try {
+    return await res.json();
+  } catch (err) {
+    if (!(err instanceof SyntaxError)) throw err;
+    throw new GithubApiError(
+      res.status,
+      endpoint,
+      "response was not JSON",
+      extractGithubDiagnostics(res.headers),
+    );
   }
 }
 
@@ -283,7 +332,7 @@ export class GistsClient {
           extractGithubDiagnostics(res.headers),
         );
       }
-      return (await res.json()) as Gist;
+      return (await readJson(res, `GET ${endpoint}`)) as Gist;
     });
   }
 
@@ -349,7 +398,7 @@ export class GistsClient {
           extractGithubDiagnostics(res.headers),
         );
       }
-      return (await res.json()) as Gist;
+      return (await readJson(res, `PATCH ${endpoint}`)) as Gist;
     });
   }
 
@@ -385,12 +434,20 @@ export class GistsClient {
     const ac = new AbortController();
     const timer = setTimeout(() => ac.abort(), this.cfg.timeoutMs);
     try {
-      const res = await this.fetchImpl(url, {
-        method,
-        headers,
-        body,
-        signal: ac.signal,
-      });
+      let res: Awaited<ReturnType<FetchLike>>;
+      try {
+        res = await this.fetchImpl(url, {
+          method,
+          headers,
+          body,
+          signal: ac.signal,
+        });
+      } catch (err) {
+        // A rejection before any response is either our abort (reported
+        // below as request_timed_out) or the connection itself failing (#231).
+        if (ac.signal.aborted || (err as { name?: string }).name === "AbortError") throw err;
+        throw new UpstreamUnreachableError(`${method} ${endpoint}`, describeFetchFailure(err));
+      }
       return await read(res);
     } catch (err) {
       if (ac.signal.aborted || (err as { name?: string }).name === "AbortError") {

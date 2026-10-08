@@ -2214,3 +2214,12 @@ itself waited forever. A database that accepted the connection and then said
 nothing left the tool call hanging. The client now gives up connecting after
 the configured timeout (at least five seconds) and on a query one second after
 the database's own limit. The server README says so.
+
+## 2026-10-07 — github-gists' upstream failures name the request (#231)
+
+Two failures reached the MCP client as text nobody could act on. A refused
+connection said only "fetch failed", and a proxy page returned with status 200
+said "Unexpected token '<'". Both now name the request: the first becomes
+`upstream_unreachable (GET /gists/abc): connect ECONNREFUSED …` and the second
+becomes `github_api_error (200 GET /gists/abc): response was not JSON`. The
+server README now lists every error message the tools can return.

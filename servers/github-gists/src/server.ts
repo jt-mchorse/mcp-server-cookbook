@@ -12,6 +12,7 @@ import {
   GithubApiError,
   RequestTimeoutError,
   TokenRequiredError,
+  UpstreamUnreachableError,
   formatGithubApiError,
 } from "./client.js";
 import { type GistsConfig, hasToken, readGistsConfigFromEnv } from "./config.js";
@@ -150,6 +151,7 @@ function errorMessage(err: unknown): string {
   // else falls through to a generic Error.message.
   if (err instanceof GithubApiError) return formatGithubApiError(err);
   if (err instanceof RequestTimeoutError) return err.message;
+  if (err instanceof UpstreamUnreachableError) return err.message;
   if (err instanceof TokenRequiredError) return err.message;
   return err instanceof Error ? err.message : String(err);
 }
