@@ -2583,3 +2583,20 @@ context_for_next_session:
   - AN_ATOMIC_WRITER_STAGES_IN_THE_PARENT_so_ANY_PATH_WHOSE_PARENT_IS_OUTSIDE_THE_JAIL_THE_ROOT_ITSELF_escapes_on_the_temp_file_ask_where_the_temp_lives
 followups: []
 ---
+---
+session: 2026-10-08T08:05Z
+duration_min: 15
+issue: 247
+branch: session/2026-10-08-issue-247
+focus: RUN_SELECT_AND_SAMPLE_ROWS_RE_PARSED_JSON_JSONB_WITH_JSON_PARSE_BIG_INTS_ROUNDED_1E400_BECAME_INFINITY_DUPLICATE_JSON_KEYS_DROPPED
+phase: shipped
+delta:
+  files_changed: 5
+  tests_added: 6
+  suite: "postgres-readonly 309 -> 315 (test-counts.json + root README claim); check-readme, check-test-count, check-architecture-doc, tsc, eslint ok"
+decisions_made: []
+measured: "Postgres 17 (private, :55432): jsonb {\"id\": 12345678901234567891} -> 12345678901234567000 on main, exact after; 1e400 -> \"Infinity\" on main; '{\"a\":1,\"a\":2}'::json -> {\"a\":2} on main. jsonb[] with an escaped quote and NULL, 2-D json[] verified on the real server. Revert: main 4/6 red, the 2 shape controls green."
+context_for_next_session:
+  - A_FIDELITY_FIX_PER_TYPE_LEAVES_THE_OTHER_TYPES_207_covered_date_timestamp_float_and_json_jsonb_went_through_JSON_PARSE_unchanged_enumerate_every_pg_default_parser_that_converts
+  - SPLICE_RAW_JSON_TEXT_WITH_A_PER_CALL_NONCE_PLACEHOLDER_node_20_has_no_JSON_rawJSON
+followups: []
