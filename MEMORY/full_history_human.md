@@ -2239,3 +2239,11 @@ itself (rather than a file inside it) made the safe-write helper create its
 temporary file one level up, outside the sandbox, before failing. Both servers
 now refuse any write whose target is a folder, before touching the disk, with
 the same message the read side uses.
+
+## 2026-10-08 — github-gists lists a gist's files in the same order everywhere (#243)
+
+The gists server sorted a gist's files using the computer's language settings,
+so the same gist came back in a different order on a US machine than on a
+Swedish or Danish one. The filesystem server had exactly this problem and was
+fixed in #209; the gists server had the same line and was missed. It now sorts
+by plain character code, the same order the filesystem server uses.
