@@ -20,6 +20,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { stripComments } from "./lib/strip-comments.mjs";
+import { isMain } from "./lib/is-main.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -75,7 +76,7 @@ export function check(root = ROOT) {
   return { servers: servers.map(([name]) => name), problems };
 }
 
-if (process.argv[1] === fileURLToPath(import.meta.url)) {
+if (isMain(import.meta.url)) {
   const { servers, problems } = check();
   if (servers.length === 0) {
     console.error("check-tool-args: no TypeScript server found under servers/");
