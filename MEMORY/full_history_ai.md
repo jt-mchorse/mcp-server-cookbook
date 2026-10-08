@@ -2583,3 +2583,22 @@ context_for_next_session:
   - AN_ATOMIC_WRITER_STAGES_IN_THE_PARENT_so_ANY_PATH_WHOSE_PARENT_IS_OUTSIDE_THE_JAIL_THE_ROOT_ITSELF_escapes_on_the_temp_file_ask_where_the_temp_lives
 followups: []
 ---
+
+---
+session: 2026-10-08T08:05Z
+duration_min: 12   # computed: lead received ~07:38Z -> PR ~08:06Z (date -u), issue filed ~07:42Z
+issue: 245
+branch: session/2026-10-08-issue-245
+focus: TOOLS_ENTRY_GUARDS_COMPARED_argv1_WITH_import_meta_url_WHICH_IS_THE_REALPATH_AND_URL_ENCODED_a_symlinked_or_spaced_checkout_made_every_gate_exit_0_unrun
+phase: shipped
+delta:
+  files_changed: 19
+  tests_added: 5
+  suite: "tools tests 284 green (new tools/lib/is-main.test.mjs registered in package.json + ci.yml); every checker green when run directly; no server count moved"
+decisions_made: []
+measured: "main, macOS: check-test-count with a 1-case report: relative path from the worktree rc=1, the same script by absolute /tmp path rc=0 silent, via a symlink rc=0, from a dir with a space rc=0; check-readme from the spaced dir printed nothing rc=0. Revert probe (main's 15 guards, helper kept): 3 of 5 red (symlink, space, lock); the 2 helper unit arms green. Neighbour path.resolve guard on check-test-count: 2 red (symlink, lock), space arm green as expected."
+context_for_next_session:
+  - import_meta_url_IS_A_REALPATH_AND_A_URL_any_guard_comparing_it_with_argv1_is_false_through_a_symlink_or_a_space_and_a_false_guard_on_a_CLI_is_a_silent_exit_0
+  - LEAD_FROM_ai_app_integration_tests_169_grep_the_other_node_repos_for_the_same_guard
+followups: []
+---

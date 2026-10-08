@@ -2239,3 +2239,13 @@ itself (rather than a file inside it) made the safe-write helper create its
 temporary file one level up, outside the sandbox, before failing. Both servers
 now refuse any write whose target is a folder, before touching the disk, with
 the same message the read side uses.
+
+## 2026-10-08 — the repo's check scripts run from any path (#245)
+
+Each check script under `tools/` decided "was I run directly?" by comparing
+two spellings of its own path that only agree when the path has no symlink
+and no space. From a symlinked folder (macOS `/tmp` is one) or a folder with a
+space in its name, every check did nothing and still reported success. CI's
+path has neither, so it never showed. All fifteen scripts now share one
+helper that compares the real paths, and a test runs a check from both kinds
+of path and confirms it actually checks.
