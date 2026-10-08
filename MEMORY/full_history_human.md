@@ -2232,3 +2232,10 @@ With the first, a query that sneaked in `COMMIT; BEGIN READ WRITE; DROP TABLE`
 passed the guard and dropped a table on a superuser connection. With the
 second, blocked functions ran under a disguise. The guard now reads both the
 way Postgres does, and refuses the rarer custom-escape variant outright.
+## 2026-10-07 — the filesystem sandbox won't write to its own root folder (#238)
+
+Asking either filesystem server to write a file at the sandbox's root folder
+itself (rather than a file inside it) made the safe-write helper create its
+temporary file one level up, outside the sandbox, before failing. Both servers
+now refuse any write whose target is a folder, before touching the disk, with
+the same message the read side uses.
