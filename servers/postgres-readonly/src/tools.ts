@@ -1,6 +1,7 @@
 import pg from "pg";
 import { type DbConfig, withClient } from "./db.js";
 import { guardQuery } from "./sqlGuard.js";
+import { exactTimestamptzParser } from "./timestamptz.js";
 
 export interface ToolResult {
   content: Array<{ type: "text"; text: string }>;
@@ -128,15 +129,15 @@ export interface RunSelectArgs {
 // pg's default parser turned them into a JS `Date` at the SERVER's local time,
 // and JSON wrote that as UTC: `2024-01-01` came back as
 // `2023-12-31T23:00:00.000Z` under TZ=Europe/Berlin. Keep the database's own
-// text. `timestamptz` IS an instant and keeps pg's parser. The array forms
+// text. `timestamptz` IS an instant and keeps pg's instant (#249). The array forms
 // reuse pg's text[] parser so they stay JS arrays, of the raw strings.
 const DATE_OIDS = new Set([1082, 1114]);
 const DATE_ARRAY_OIDS = new Set([1182, 1115]);
 const TEXT_ARRAY_OID = 1009;
 
-// pg's typings key `getTypeParser` on its `TypeId` enum, which omits the array
-// oids; the runtime takes any oid.
-const pgParser = pg.types.getTypeParser as (oid: number, format?: string) => (value: string) => unknown;
+// pg's own parsers, except that `timestamptz` and its array keep the
+// database's microseconds and a year past `Date`'s range (#249).
+const pgParser = exactTimestamptzParser;
 
 export const SELECT_TYPES = {
   getTypeParser(oid: number, format?: string): (value: string) => unknown {
