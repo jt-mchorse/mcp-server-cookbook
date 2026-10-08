@@ -2239,3 +2239,12 @@ itself (rather than a file inside it) made the safe-write helper create its
 temporary file one level up, outside the sandbox, before failing. Both servers
 now refuse any write whose target is a folder, before touching the disk, with
 the same message the read side uses.
+## 2026-10-08 — the Postgres server keeps timestamps to the microsecond (#249)
+
+Postgres stores timestamps-with-time-zone to the microsecond, but the server
+turned them into JavaScript dates, which only keep milliseconds. Two events
+0.0005 s apart came back with the same timestamp. A date far in the future,
+past the year 275760 (allowed by Postgres, not by JavaScript), came back as
+an empty value that looked like a missing one. Timestamps now keep every digit
+the database stored, in the same format as before. A date JavaScript can't
+represent is returned as the database's own text instead of an empty value.
