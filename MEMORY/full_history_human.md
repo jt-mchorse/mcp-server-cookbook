@@ -2223,3 +2223,12 @@ said "Unexpected token '<'". Both now name the request: the first becomes
 `upstream_unreachable (GET /gists/abc): connect ECONNREFUSED …` and the second
 becomes `github_api_error (200 GET /gists/abc): response was not JSON`. The
 server README now lists every error message the tools can return.
+## 2026-10-07 — the read-only SQL guard understands two more Postgres string forms (#236)
+
+Security fix. The guard that keeps the Postgres server read-only mis-read two
+Postgres syntaxes: escape strings (`E'...'`, where `\'` doesn't end the
+string) and Unicode-escaped names (`U&"pg\005fsleep"`, which is `pg_sleep`).
+With the first, a query that sneaked in `COMMIT; BEGIN READ WRITE; DROP TABLE`
+passed the guard and dropped a table on a superuser connection. With the
+second, blocked functions ran under a disguise. The guard now reads both the
+way Postgres does, and refuses the rarer custom-escape variant outright.

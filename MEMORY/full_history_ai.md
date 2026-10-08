@@ -2552,5 +2552,20 @@ measured: "real fetch, closed loopback port: 'upstream_unreachable (GET /gists/a
 context_for_next_session:
   - WRAP_ONLY_THE_fetch_CALL_NOT_read_a_wrap_around_both_would_have_turned_GithubApiError_from_read_into_upstream_unreachable
   - GOTCHA_PORT_9_IS_A_FETCH_SPEC_BAD_PORT_a_probe_against_127_0_0_1_9_says_bad_port_not_ECONNREFUSED_use_a_just_closed_ephemeral_port
+session: 2026-10-07T08:52Z
+duration_min: 8
+issue: 236
+branch: session/2026-10-07-mcp-sqlguard-escapes
+focus: SECURITY_THE_SQL_GUARD_MIS_LEXED_E_ESCAPE_STRINGS_STACKED_DROP_PASSED_AND_U_AMP_IDENTIFIERS_BYPASSED_THE_BLOCKLIST
+phase: shipped
+delta:
+  files_changed: 5
+  tests_added: 19
+  suite: "postgres-readonly 290 -> 309; check-readme, check-architecture-doc, tsc, eslint ok"
+decisions_made: []
+measured: "Postgres 17 (private, :54391, pg_ctl stop): E'\\'' length 1; U&\"pg\\005fsleep\"(0.01) runs. Guard revert: main 12/19, per scanner 3/2/7/1 (stripComments arm added after a 0-red probe)."
+context_for_next_session:
+  - A_HAND_WRITTEN_LEXER_IS_A_LIST_OF_LEXICAL_FORMS_enumerate_the_dialects_forms_E_strings_U_amp_dollar_quotes_B_X_N_prefixes_and_check_each_scanner_handles_each
+  - EVERY_SCANNER_CHANGE_NEEDS_ITS_OWN_RED_ARM_stripComments_was_0_red_until_a_comment_marker_inside_an_E_string_arm
 followups: []
 ---
