@@ -2732,3 +2732,22 @@ context_for_next_session:
   - SPI_RUNS_THE_INNER_QUERY_READ_ONLY_so_DDL_is_refused_BUT_EVERY_GUARD_ONLY_FUNCTION_RUNS
 followups: []
 ---
+
+---
+session: 2026-10-09T08:22Z
+duration_min: 8   # computed: sweep started ~08:14Z, issue filed 2026-10-09T08:19:53Z, PR 2026-10-09T08:22:46Z (gh createdAt)
+issue: 258
+branch: session/2026-10-09-0825-issue-258
+focus: VOLATILE_PG_CATALOG_SWEEP_FOUND_pg_sleep_for_until_pg_log_standby_snapshot_pg_nextoid_AND_CONFIG_FILE_READERS_PASSING_THE_GUARD
+phase: shipped
+delta:
+  files_changed: 6
+  tests_added: 248
+  suite: "postgres-readonly 367 -> 615 (one case per volatile function); check-readme, tsc green"
+decisions_made: []
+measured: "PG 17.6 BEGIN READ ONLY: pg_sleep_for 1.002 s; pg_log_standby_snapshot moved insert LSN 0/1A09AF0 -> 0/1A09B28; pg_nextoid 16445 -> 16446; pg_hba_file_rules returned 'local {all} {all} trust'; pg_show_all_file_settings returned postgresql.conf path + settings. All passed guardQuery on main. Revert 17 red."
+context_for_next_session:
+  - ENUMERATE_THE_DENY_LIST_FROM_THE_CATALOG_provolatile_v_IS_THE_SIDE_EFFECT_POPULATION_and_lock_it_as_a_fixture_test_with_categorised_reasons
+  - PROCESS_SLIP_THE_PLAN_COMMENT_WAS_POSTED_AFTER_THE_CODE_ON_THIS_ONE_do_not_repeat
+followups: []
+---
