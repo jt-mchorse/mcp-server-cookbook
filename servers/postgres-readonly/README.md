@@ -48,7 +48,10 @@ The agent emits `DROP TABLE`, `DELETE`, `UPDATE`, `INSERT`, `TRUNCATE`,
     whole word.
 - **Session-side enforcement.** Each query is run inside a session that
   has `default_transaction_read_only = on` set, so even if both of the
-  above were bypassed the engine would refuse.
+  above were bypassed the engine would refuse. The session also pins
+  `standard_conforming_strings = on`, so the server reads every `'...'`
+  literal the way the guard does even when the database or role has it off
+  (with it off, `'\''` ends where the guard does not) (#252).
 
 ### 2. Server denial-of-service via expensive queries
 
