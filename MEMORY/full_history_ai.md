@@ -2585,6 +2585,24 @@ followups: []
 ---
 
 ---
+session: 2026-10-08T07:45Z
+duration_min: 12   # computed: hunt start 07:33Z -> PR ~07:45Z (date -u)
+issue: 241
+branch: session/2026-10-08-issue-241
+focus: github_gists_A_GIST_ID_OF_DOT_OR_DOT_DOT_WAS_A_URL_DOT_SEGMENT_fetch_RESOLVED_IT_TO_slash_gists_slash_OR_THE_API_ROOT_and_get_gist_returned_an_empty_gist_as_success
+phase: shipped
+delta:
+  files_changed: 5
+  tests_added: 8
+  suite: "github-gists 183 -> 191 (test-counts.json + both README claims); check-readme, check-test-count, lint, typecheck, every tools test green"
+decisions_made: []
+measured: "loopback server, real fetch, main: '.' -> GET /gists/, '..' and ' .. ' -> GET /, PATCH likewise, all with the bearer header; get_gist returned {description:null,public:false,files:[]}. Revert probe (main's client.ts): 6 of 8 red, the 2 controls ('abc123', '...') green."
+context_for_next_session:
+  - encodeURIComponent_DOES_NOT_ESCAPE_DOT_so_a_whole_segment_of_dot_or_dot_dot_is_resolved_by_the_URL_parser_check_every_caller_id_interpolated_into_a_path
+followups: []
+---
+
+---
 session: 2026-10-08T07:55Z
 duration_min: 8   # computed: issue filed ~07:48Z -> PR ~07:56Z (date -u)
 issue: 243

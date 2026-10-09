@@ -288,6 +288,25 @@ async function readJson(
   }
 }
 
+/**
+ * `/gists/<id>` for a caller-supplied id, refusing a dot segment (#241).
+ *
+ * `encodeURIComponent` escapes every character that could change the path
+ * except `.`, so an id of `.` or `..` became `/gists/.` or `/gists/..` -- and
+ * the URL parser inside `fetch` resolves dot segments before sending. The
+ * token-bearing request went to `/gists/` (the token user's gist list) or to
+ * the API root, both answered 200, and `get_gist` reported an empty "gist" as
+ * success while any error would have named a path that was never requested.
+ * No real gist id is a dot segment, so these are refused before any request.
+ */
+function gistEndpoint(gistId: string): string {
+  const id = gistId.trim();
+  if (id === "." || id === "..") {
+    throw new Error(`gist_id must not be a path dot segment; got ${JSON.stringify(id)}`);
+  }
+  return `/gists/${encodeURIComponent(id)}`;
+}
+
 export interface GistsClientDeps {
   cfg: GistsConfig;
   fetch?: FetchLike;
@@ -322,7 +341,7 @@ export class GistsClient {
     if (!gistId || typeof gistId !== "string" || gistId.trim().length === 0) {
       throw new Error("gist_id must be a non-empty string");
     }
-    const endpoint = `/gists/${encodeURIComponent(gistId.trim())}`;
+    const endpoint = gistEndpoint(gistId);
     return this.request("GET", endpoint, undefined, async (res) => {
       if (!res.ok) {
         throw new GithubApiError(
@@ -367,7 +386,7 @@ export class GistsClient {
     if (typeof args.content !== "string") {
       throw new Error("content must be a string");
     }
-    const endpoint = `/gists/${encodeURIComponent(args.gistId.trim())}`;
+    const endpoint = gistEndpoint(args.gistId);
     const payload: Record<string, unknown> = {
       files: {
         // Use the trimmed filename as the key, matching the validation above
