@@ -2310,3 +2310,13 @@ string like `'\''` ends. A stacked `DROP TABLE` passed the guard and ran; I
 measured this on a local Postgres 17. The server now fixes the setting for its
 own session before running anything, so the database always reads strings the
 way the guard did.
+
+## 2026-10-09 — postgres-readonly refuses functions that run a string as SQL (#254)
+
+Before looking for forbidden words, the guard blanks out what is inside
+strings, so that `SELECT 'DROP'` is not refused. A few Postgres functions
+(`query_to_xml`, `ts_stat`, `ts_rewrite`, and `crosstab`/`connectby` from an
+extension) take a string and run it as a query. Anything forbidden written
+inside that string went unseen. Measured on a local Postgres 17, one such query
+killed another database session. All five functions are now refused. The
+similar functions that take a table name rather than SQL text still work.

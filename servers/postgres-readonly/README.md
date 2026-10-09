@@ -81,7 +81,11 @@ The agent emits `SELECT * FROM big_table CROSS JOIN big_table` or sleeps.
 The agent emits `pg_terminate_backend(...)`, `pg_cancel_backend(...)`,
 `pg_reload_conf(...)`, `LISTEN`, `pg_notify`, etc.
 
-**Defenses:** every one is in the forbidden-keywords list.
+**Defenses:** every one is in the forbidden-keywords list. So are the
+functions that run a string argument as SQL (`query_to_xml*`, `ts_stat`,
+`ts_rewrite`, and `tablefunc`'s `crosstab`/`connectby`). The keyword scan
+cannot see inside a string, so `query_to_xml('SELECT pg_terminate_backend(…)',
+…)` would otherwise run a forbidden call (#254).
 
 ### 4. Identifier injection via `sample_rows`
 
