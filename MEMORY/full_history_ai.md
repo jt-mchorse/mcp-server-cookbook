@@ -2735,7 +2735,7 @@ followups: []
 
 ---
 session: 2026-10-09T08:13Z
-duration_min: 6   # computed: issue filed 2026-10-09T08:12:02Z -> PR 2026-10-09T08:13:11Z (gh createdAt); hunt-agent lead re-measured first
+duration_min: 6   # computed: repro started ~08:07Z (after the aiapp#176 PR), issue filed 2026-10-09T08:12:02Z, PR 2026-10-09T08:13:11Z (gh createdAt)
 issue: 256
 branch: session/2026-10-09-0820-issue-256
 focus: MAX_ROWS_TRUNCATED_AFTER_THE_WHOLE_RESULT_WAS_IN_SERVER_MEMORY_NOW_A_CURSOR_FETCHES_MAX_ROWS_PLUS_ONE
