@@ -2249,3 +2249,14 @@ parser resolved before sending, so the request (with the token attached) went
 to the user's gist list or to the API root instead of to a gist. Both answer
 successfully, so `get_gist` returned an empty, id-less "gist" rather than an
 error. Both tools now refuse those two ids before sending anything.
+
+## 2026-10-09 — postgres-readonly pins standard_conforming_strings (#252)
+
+The guard reads a `'...'` string the modern, standard way, where a backslash
+is just a character. Postgres still lets an administrator switch an old
+setting back on per database or per role, so that a backslash escapes the next
+quote. With that setting on, the guard and the server disagreed about where a
+string like `'\''` ends. A stacked `DROP TABLE` passed the guard and ran; I
+measured this on a local Postgres 17. The server now fixes the setting for its
+own session before running anything, so the database always reads strings the
+way the guard did.

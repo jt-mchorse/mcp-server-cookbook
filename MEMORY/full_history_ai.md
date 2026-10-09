@@ -2601,3 +2601,22 @@ context_for_next_session:
   - encodeURIComponent_DOES_NOT_ESCAPE_DOT_so_a_whole_segment_of_dot_or_dot_dot_is_resolved_by_the_URL_parser_check_every_caller_id_interpolated_into_a_path
 followups: []
 ---
+
+---
+session: 2026-10-09T08:20Z
+duration_min: 25   # computed: found ~07:58Z while closing #240 -> PR ~08:20Z (date -u)
+issue: 252
+branch: session/2026-10-09-0805-issue-252
+focus: POSTGRES_READONLY_INHERITED_standard_conforming_strings_WITH_IT_OFF_BACKSLASH_QUOTE_ENDS_WHERE_THE_GUARD_DOES_NOT_AND_A_STACKED_DROP_RAN
+phase: shipped
+delta:
+  files_changed: 6
+  tests_added: 3
+  suite: "postgres-readonly 309 -> 312; check-readme, check-architecture-doc, tsc, every tools test green"
+decisions_made: []
+measured: "Postgres 17.6, ALTER ROLE postgres SET standard_conforming_strings = off, through runSelect. main: the stacked DROP passed the guard and dropped victim; pg_sleep(2) query ran 2009 ms. Branch, same role setting: both return the rest of the statement as one text value; victim intact, 4 ms. Revert: 3 of 3 red."
+context_for_next_session:
+  - A_LEXER_GUARD_HAS_AN_ASSUMPTION_ABOUT_SERVER_SETTINGS_ask_which_GUCs_change_lexing_and_whether_the_session_PINS_them_standard_conforming_strings_is_the_one_that_mattered
+  - FOUND_BY_ASKING_WHAT_THE_SCANNER_COMMENT_SAYS_IT_ASSUMES_the_default_since_9_1
+followups: []
+---
