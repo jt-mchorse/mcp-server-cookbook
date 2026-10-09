@@ -2603,8 +2603,8 @@ followups: []
 ---
 
 ---
-session: 2026-10-09T07:55Z
-duration_min: 40   # computed: plan comment ~07:30Z -> PR ~07:55Z + memory (date -u)
+session: 2026-10-09T07:22Z
+duration_min: 6   # computed: plan comment 07:16:45Z -> PR 07:22:18Z (gh createdAt)
 issue: 240
 branch: session/2026-10-09-0730-issue-240
 focus: SQL_GUARD_DOLLAR_OPENER_MATCHED_INSIDE_AN_IDENTIFIER_x$y$_ASCII_ONLY_DOLLAR_TAG_AND_NON_NESTING_BLOCK_COMMENTS_ALL_BYPASSED_TO_STACKED_DDL
