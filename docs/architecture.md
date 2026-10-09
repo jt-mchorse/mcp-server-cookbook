@@ -133,7 +133,9 @@ Three defense layers (D-004):
    only `SELECT` on `public`.
 2. **Session-side.** Each query runs inside a session with
    `default_transaction_read_only = on`, so the engine refuses writes
-   even if the role were mis-configured.
+   even if the role were mis-configured. It also pins
+   `standard_conforming_strings = on`, so the server ends every `'...'`
+   literal where the statement-side guard ends it (#252).
 3. **Statement-side.** Every input to `run_select` passes through
    [`src/sqlGuard.ts`](../servers/postgres-readonly/src/sqlGuard.ts),
    which strips comments + string literals, splits on `;` while

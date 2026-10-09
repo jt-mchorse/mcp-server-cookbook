@@ -57,7 +57,11 @@ export function projectGist(g: Gist, maxBytesPerFile: number): ProjectedGist {
       content: overCap ? null : content,
     });
   }
-  files.sort((a, b) => a.filename.localeCompare(b.filename));
+  // By code point (#243), the order filesystem-sandbox's `list_directory` uses
+  // since #209. `localeCompare` collated by the HOST locale: `ä.md` sorted
+  // before `B.md` under en_US and after `z.md` under sv_SE, so one gist came
+  // back in a different order depending on where the server ran.
+  files.sort((a, b) => compareCodePoints(a.filename, b.filename));
   return {
     id: g.id,
     description: g.description ?? null,
@@ -65,6 +69,26 @@ export function projectGist(g: Gist, maxBytesPerFile: number): ProjectedGist {
     html_url: g.html_url,
     files,
   };
+}
+
+/**
+ * Order two strings by Unicode code point, independent of the host locale.
+ *
+ * Not `<`: JavaScript compares UTF-16 code units, which puts an astral
+ * character (a surrogate pair, 0xD800-0xDBFF) before U+E000-U+FFFF while code
+ * point order puts it after. A copy of filesystem-sandbox's helper, not an
+ * import: the servers share no runtime (D-002).
+ */
+export function compareCodePoints(a: string, b: string): number {
+  const ia = a[Symbol.iterator]();
+  const ib = b[Symbol.iterator]();
+  for (;;) {
+    const x = ia.next();
+    const y = ib.next();
+    if (x.done || y.done) return x.done === y.done ? 0 : x.done ? -1 : 1;
+    const d = x.value.codePointAt(0)! - y.value.codePointAt(0)!;
+    if (d !== 0) return d;
+  }
 }
 
 export async function getGist(deps: ToolDeps, gistId: string): Promise<ProjectedGist> {

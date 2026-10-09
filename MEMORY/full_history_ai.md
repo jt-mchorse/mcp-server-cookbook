@@ -2603,6 +2603,118 @@ followups: []
 ---
 
 ---
+session: 2026-10-08T07:55Z
+duration_min: 8   # computed: issue filed ~07:48Z -> PR ~07:56Z (date -u)
+issue: 243
+branch: session/2026-10-08-issue-243
+focus: github_gists_projectGist_SORTED_FILES_WITH_localeCompare_SO_ONE_GIST_CAME_BACK_IN_A_HOST_LOCALE_DEPENDENT_ORDER_the_sibling_209_did_not_reach
+phase: shipped
+delta:
+  files_changed: 5
+  tests_added: 4
+  suite: "github-gists 183 -> 187 on main (test-counts.json + both README claims); lint, typecheck, check-readme, check-test-count, every tools test green"
+decisions_made: []
+measured: "main: en_US [_x,a,ä,B,z], sv_SE and da_DK [_x,a,B,z,ä]. Revert probe (sort line back to localeCompare, helper kept): 3 of 4 red under en_US, sv_SE and da_DK; the compareCodePoints unit arm green. Neighbour fix a<b (UTF-16 units): 1 red, the astral arm."
+context_for_next_session:
+  - A_FIX_TO_ONE_SERVERS_SORT_IS_A_PROMPT_TO_GREP_EVERY_SERVER_209_named_localeCompare_and_fixed_one_file_the_gists_projection_had_the_same_line
+  - MERGE_NOTE_242_AND_THIS_PR_BOTH_MOVE_github_gists_COUNT_whichever_lands_second_recounts_191_plus_4_equals_195
+followups: []
+---
+
+---
+session: 2026-10-08T08:05Z
+duration_min: 12   # computed: lead received ~07:38Z -> PR ~08:06Z (date -u), issue filed ~07:42Z
+issue: 245
+branch: session/2026-10-08-issue-245
+focus: TOOLS_ENTRY_GUARDS_COMPARED_argv1_WITH_import_meta_url_WHICH_IS_THE_REALPATH_AND_URL_ENCODED_a_symlinked_or_spaced_checkout_made_every_gate_exit_0_unrun
+phase: shipped
+delta:
+  files_changed: 19
+  tests_added: 5
+  suite: "tools tests 284 green (new tools/lib/is-main.test.mjs registered in package.json + ci.yml); every checker green when run directly; no server count moved"
+decisions_made: []
+measured: "main, macOS: check-test-count with a 1-case report: relative path from the worktree rc=1, the same script by absolute /tmp path rc=0 silent, via a symlink rc=0, from a dir with a space rc=0; check-readme from the spaced dir printed nothing rc=0. Revert probe (main's 15 guards, helper kept): 3 of 5 red (symlink, space, lock); the 2 helper unit arms green. Neighbour path.resolve guard on check-test-count: 2 red (symlink, lock), space arm green as expected."
+context_for_next_session:
+  - import_meta_url_IS_A_REALPATH_AND_A_URL_any_guard_comparing_it_with_argv1_is_false_through_a_symlink_or_a_space_and_a_false_guard_on_a_CLI_is_a_silent_exit_0
+  - LEAD_FROM_ai_app_integration_tests_169_grep_the_other_node_repos_for_the_same_guard
+followups: []
+---
+---
+session: 2026-10-08T08:05Z
+duration_min: 15
+issue: 247
+branch: session/2026-10-08-issue-247
+focus: RUN_SELECT_AND_SAMPLE_ROWS_RE_PARSED_JSON_JSONB_WITH_JSON_PARSE_BIG_INTS_ROUNDED_1E400_BECAME_INFINITY_DUPLICATE_JSON_KEYS_DROPPED
+phase: shipped
+delta:
+  files_changed: 5
+  tests_added: 6
+  suite: "postgres-readonly 309 -> 315 (test-counts.json + root README claim); check-readme, check-test-count, check-architecture-doc, tsc, eslint ok"
+decisions_made: []
+measured: "Postgres 17 (private, :55432): jsonb {\"id\": 12345678901234567891} -> 12345678901234567000 on main, exact after; 1e400 -> \"Infinity\" on main; '{\"a\":1,\"a\":2}'::json -> {\"a\":2} on main. jsonb[] with an escaped quote and NULL, 2-D json[] verified on the real server. Revert: main 4/6 red, the 2 shape controls green."
+context_for_next_session:
+  - A_FIDELITY_FIX_PER_TYPE_LEAVES_THE_OTHER_TYPES_207_covered_date_timestamp_float_and_json_jsonb_went_through_JSON_PARSE_unchanged_enumerate_every_pg_default_parser_that_converts
+  - SPLICE_RAW_JSON_TEXT_WITH_A_PER_CALL_NONCE_PLACEHOLDER_node_20_has_no_JSON_rawJSON
+followups: []
+---
+session: 2026-10-08T08:25Z
+duration_min: 15
+issue: 249
+branch: session/2026-10-08-issue-249
+focus: TIMESTAMPTZ_MICROSECONDS_TRUNCATED_TO_MS_AND_A_YEAR_PAST_JS_DATE_RANGE_SERIALISED_AS_NULL_IN_RUN_SELECT_AND_SAMPLE_ROWS
+phase: shipped
+delta:
+  files_changed: 5
+  tests_added: 10
+  suite: "postgres-readonly 309 -> 319 (test-counts.json + root README claim; #248 takes it 309 -> 315, so whichever merges second rebases to 325); check-readme, check-test-count, check-architecture-doc, tsc, eslint, build ok"
+decisions_made: []
+measured: "Postgres 17 (private, :55432): .123456 and .123999 both '...00.123Z' on main; '294276-12-31 23:59:59+00' -> null on main. After: '.123456Z', '.123999Z', far year as database text, BC and LMT-offset values exact. Revert: main 9/10 red, the ms/infinity/NULL control green."
+context_for_next_session:
+  - 207_KEPT_TIMESTAMPTZ_BECAUSE_IT_IS_AN_INSTANT_TRUE_BUT_A_JS_DATE_IS_NOT_EVERY_INSTANT_ms_precision_and_a_275760_year_ceiling_a_reason_for_scope_can_be_true_and_still_too_broad
+  - REMAINING_PG_DEFAULT_PARSERS_interval_bytea_point_are_lossless_objects_not_wrong_values_not_filed
+followups: []
+
+---
+session: 2026-10-09T07:22Z
+duration_min: 6   # computed: plan comment 07:16:45Z -> PR 07:22:18Z (gh createdAt)
+issue: 240
+branch: session/2026-10-09-0730-issue-240
+focus: SQL_GUARD_DOLLAR_OPENER_MATCHED_INSIDE_AN_IDENTIFIER_x$y$_ASCII_ONLY_DOLLAR_TAG_AND_NON_NESTING_BLOCK_COMMENTS_ALL_BYPASSED_TO_STACKED_DDL
+phase: shipped
+delta:
+  files_changed: 5
+  tests_added: 21
+  suite: "postgres-readonly 309 -> 330 (test-counts.json + root README); check-readme, tsc, every tools test green"
+decisions_made: []
+measured: "Postgres 17.6 (Homebrew, port 55440) through runSelect, the issue's 6 queries: main ran all 6 (pg_sleep 2017/2014 ms; victim DROPPED; pwn, pwn2 CREATED); branch refused all 6 at the guard. Revert probe one rule at a time: no startsToken 3 red, ASCII tag 6 red, no nesting 4 red."
+context_for_next_session:
+  - PICKED_UP_UNCOMMITTED_WIP_FROM_THE_2026_10_07_SESSION_IN_THE_MAIN_CHECKOUT_saved_as_a_patch_and_reapplied_on_a_fresh_branch
+  - A_QUOTE_ENDS_A_TOKEN_SO_"int4"$$1$$_IS_A_TYPED_LITERAL_AND_OPENS_A_DOLLAR_STRING_measured_AFTER_A_DIGIT_POSTGRES_ALSO_OPENS_ONE_but_that_input_is_always_a_syntax_error_so_not_modelled
+  - ONLY_stripComments_SEES_COMMENTS_the_other_two_scanners_run_after_it_so_nesting_lives_in_one_place
+  - THE_REPO_HAS_NO_PRETTIER_CONFIG_AND_CI_DOES_NOT_RUN_IT_house_style_is_print_width_120_default_prettier_reflows_to_80
+followups: []
+---
+
+---
+session: 2026-10-09T07:26Z
+duration_min: 4   # computed: found after the 07:22Z #240 PR -> PR 07:26:17Z (gh createdAt)
+issue: 252
+branch: session/2026-10-09-0805-issue-252
+focus: POSTGRES_READONLY_INHERITED_standard_conforming_strings_WITH_IT_OFF_BACKSLASH_QUOTE_ENDS_WHERE_THE_GUARD_DOES_NOT_AND_A_STACKED_DROP_RAN
+phase: shipped
+delta:
+  files_changed: 6
+  tests_added: 3
+  suite: "postgres-readonly 309 -> 312; check-readme, check-architecture-doc, tsc, every tools test green"
+decisions_made: []
+measured: "Postgres 17.6, ALTER ROLE postgres SET standard_conforming_strings = off, through runSelect. main: the stacked DROP passed the guard and dropped victim; pg_sleep(2) query ran 2009 ms. Branch, same role setting: both return the rest of the statement as one text value; victim intact, 4 ms. Revert: 3 of 3 red."
+context_for_next_session:
+  - A_LEXER_GUARD_HAS_AN_ASSUMPTION_ABOUT_SERVER_SETTINGS_ask_which_GUCs_change_lexing_and_whether_the_session_PINS_them_standard_conforming_strings_is_the_one_that_mattered
+  - FOUND_BY_ASKING_WHAT_THE_SCANNER_COMMENT_SAYS_IT_ASSUMES_the_default_since_9_1
+followups: []
+---
+
+---
 session: 2026-10-09T07:33Z
 duration_min: 4   # computed: issue filed 2026-10-09T07:31:17Z, plan 2026-10-09T07:31:27Z -> PR 2026-10-09T07:33:26Z (gh createdAt)
 issue: 254

@@ -28,6 +28,7 @@ import { join, relative } from "node:path";
 
 import { stripComments } from "./lib/strip-comments.mjs";
 import { REPO_ROOT } from "./lib/tools-files.mjs";
+import { isMain } from "./lib/is-main.mjs";
 
 const NAME = "([A-Z][A-Z0-9_]*)";
 const Q = `["']`;
@@ -143,4 +144,4 @@ function main() {
   process.stdout.write(`env-example check ok: ${summary}.\n`);
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) main();
+if (isMain(import.meta.url)) main();

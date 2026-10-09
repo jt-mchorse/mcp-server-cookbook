@@ -2250,6 +2250,67 @@ to the user's gist list or to the API root instead of to a gist. Both answer
 successfully, so `get_gist` returned an empty, id-less "gist" rather than an
 error. Both tools now refuse those two ids before sending anything.
 
+## 2026-10-08 — github-gists lists a gist's files in the same order everywhere (#243)
+
+The gists server sorted a gist's files using the computer's language settings,
+so the same gist came back in a different order on a US machine than on a
+Swedish or Danish one. The filesystem server had exactly this problem and was
+fixed in #209; the gists server had the same line and was missed. It now sorts
+by plain character code, the same order the filesystem server uses.
+
+## 2026-10-08 — the repo's check scripts run from any path (#245)
+
+Each check script under `tools/` decided "was I run directly?" by comparing
+two spellings of its own path that only agree when the path has no symlink
+and no space. From a symlinked folder (macOS `/tmp` is one) or a folder with a
+space in its name, every check did nothing and still reported success. CI's
+path has neither, so it never showed. All fifteen scripts now share one
+helper that compares the real paths, and a test runs a check from both kinds
+of path and confirms it actually checks.
+## 2026-10-08 — the Postgres server returns JSON columns exactly as stored (#247)
+
+When a query returned a `json` or `jsonb` column, the server re-read the
+document as JavaScript numbers before sending it on. A large id inside a
+document, such as `12345678901234567891`, came back as `12345678901234567000`,
+a different id. A huge number like `1e400` came back as the word "Infinity",
+and a `json` value with a repeated key lost one of its values. The same id in a
+plain `numeric` column was already exact. The server now passes the database's
+own JSON text through untouched, so clients still get a nested object, now with
+every digit intact.
+## 2026-10-08 — the Postgres server keeps timestamps to the microsecond (#249)
+
+Postgres stores timestamps-with-time-zone to the microsecond, but the server
+turned them into JavaScript dates, which only keep milliseconds. Two events
+0.0005 s apart came back with the same timestamp. A date far in the future,
+past the year 275760 (allowed by Postgres, not by JavaScript), came back as
+an empty value that looked like a missing one. Timestamps now keep every digit
+the database stored, in the same format as before. A date JavaScript can't
+represent is returned as the database's own text instead of an empty value.
+
+## 2026-10-09 — postgres-readonly's SQL guard lexes three more forms the way Postgres does (#240)
+
+The guard has to know where a quoted string or a comment ends, because
+anything it thinks is inside one is hidden from its keyword checks. It got
+three cases wrong. A `$` in the middle of a name (`x$y$`) was read as the start
+of a dollar-quoted string. A dollar-quote tag with an accented or other
+non-ASCII letter (`$é$`) was not recognised. Nested block comments
+(`/* /* */ */`) were ended at the first `*/`. Each one let a forbidden call
+through. On a superuser connection each also let a stacked `DROP TABLE` or
+`CREATE TABLE` run, and I measured all six on a local Postgres 17. All three
+now follow Postgres's rules, and all six queries are refused. I checked every
+"this should still pass" test case on Postgres first.
+
+## 2026-10-09 — postgres-readonly pins standard_conforming_strings (#252)
+
+The guard reads a `'...'` string the modern, standard way, where a backslash
+is just a character. Postgres still lets an administrator switch an old
+setting back on per database or per role, so that a backslash escapes the next
+quote. With that setting on, the guard and the server disagreed about where a
+string like `'\''` ends. A stacked `DROP TABLE` passed the guard and ran; I
+measured this on a local Postgres 17. The server now fixes the setting for its
+own session before running anything, so the database always reads strings the
+way the guard did.
+
 ## 2026-10-09 — postgres-readonly refuses functions that run a string as SQL (#254)
 
 Before looking for forbidden words, the guard blanks out what is inside

@@ -181,6 +181,16 @@ export async function withClient<T>(
     // Belt & suspenders: this also rejects writes at the server-session level,
     // so even if the role is mis-configured the session can't write.
     await client.query("SET default_transaction_read_only = on");
+    // The guard lexes a plain '...' literal as standard SQL, where a backslash
+    // is an ordinary character (#252). The server, database or role can turn
+    // this off, and then `'\''` is a complete literal to Postgres while the
+    // guard reads the last `'` as opening a new one: measured on Postgres 17
+    // with the role set to off, `SELECT '\''; COMMIT; BEGIN READ WRITE; DROP
+    // TABLE victim; COMMIT; --'` passed the guard and dropped the table. Pin
+    // it so the server reads every literal the way the guard did. The query
+    // cannot undo this: SET and set_config are forbidden, and every call gets
+    // a fresh connection.
+    await client.query("SET standard_conforming_strings = on");
     return await fn(client);
   } finally {
     await client.end();

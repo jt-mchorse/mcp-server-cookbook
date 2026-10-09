@@ -329,6 +329,12 @@ jobs:
       # file went on scanning `tools/` one level deep.
       - name: Run the shared tools-walk's own unit tests
         run: node --test tools/lib/tools-files.test.mjs
+      # The shared direct-run predicate every tools/ entry point uses (#245).
+      # Same registration reasoning as the two lines above. Its arms spawn a
+      # checker through a symlinked and a space-containing path, the two shapes
+      # under which every inline guard was false and the gate exited 0 unrun.
+      - name: Run the shared isMain predicate's own unit tests
+        run: node --test tools/lib/is-main.test.mjs
       - name: Verify every tools test file is registered in package.json
         run: node --test tools/check-tools-test-registration.test.mjs
 
