@@ -2267,3 +2267,13 @@ space in its name, every check did nothing and still reported success. CI's
 path has neither, so it never showed. All fifteen scripts now share one
 helper that compares the real paths, and a test runs a check from both kinds
 of path and confirms it actually checks.
+## 2026-10-08 — the Postgres server returns JSON columns exactly as stored (#247)
+
+When a query returned a `json` or `jsonb` column, the server re-read the
+document as JavaScript numbers before sending it on. A large id inside a
+document, such as `12345678901234567891`, came back as `12345678901234567000`,
+a different id. A huge number like `1e400` came back as the word "Infinity",
+and a `json` value with a repeated key lost one of its values. The same id in a
+plain `numeric` column was already exact. The server now passes the database's
+own JSON text through untouched, so clients still get a nested object, now with
+every digit intact.
