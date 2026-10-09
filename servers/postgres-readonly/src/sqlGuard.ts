@@ -229,6 +229,22 @@ const FORBIDDEN_KEYWORDS_ANYWHERE = [
 //                      not `pg`, so the PG_PREWARM prefix misses them (#110
 //                      sibling gap). Both mutate/side-effect and neither has a
 //                      read-only variant, so the prefix over-blocks no reads.
+//   QUERY_TO_XML* /  — functions that EXECUTE a string argument as SQL (#254).
+//   TS_STAT /          stripStringLiterals blanks every string before the scan,
+//   TS_REWRITE /       so a forbidden call written inside one of these strings
+//   CROSSTAB /         was hidden from every list here. The inner query runs
+//   CONNECTBY          read-only (SPI refuses DDL/DML), but each function on
+//                      these lists that the read-only backstop does NOT cover
+//                      ran: measured on Postgres 17, `query_to_xml('SELECT
+//                      pg_terminate_backend(<pid>)', ...)` passed the guard and
+//                      killed another session. From pg_proc: query_to_xml,
+//                      query_to_xmlschema, query_to_xml_and_xmlschema,
+//                      ts_stat(text[, text]) and ts_rewrite(tsquery, text);
+//                      tablefunc adds crosstab(text...) and connectby(text...).
+//                      ts_rewrite's three-tsquery form is safe and goes too.
+//                      cursor_to_xml* takes a refcursor, which nothing the
+//                      guard allows can open, and table_/schema_/database_to_xml
+//                      take a name, not SQL, so those stay allowed.
 // All of these are exempt from default_transaction_read_only, so like the
 // families above the guard is their sole defense (#94 sibling gap). The guard's
 // stated stance (sqlGuard.ts header) accepts over-blocking a query a security
@@ -254,6 +270,11 @@ const FORBIDDEN_FUNCTION_PREFIXES = [
   "GIN_CLEAN_PENDING_LIST",
   "PG_PREWARM",
   "AUTOPREWARM_",
+  "QUERY_TO_XML",
+  "TS_STAT",
+  "TS_REWRITE",
+  "CROSSTAB",
+  "CONNECTBY",
 ];
 
 export interface GuardResult {
