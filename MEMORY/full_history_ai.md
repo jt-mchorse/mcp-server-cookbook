@@ -2603,8 +2603,8 @@ followups: []
 ---
 
 ---
-session: 2026-10-09T08:20Z
-duration_min: 25   # computed: found ~07:58Z while closing #240 -> PR ~08:20Z (date -u)
+session: 2026-10-09T07:26Z
+duration_min: 4   # computed: found after the 07:22Z #240 PR -> PR 07:26:17Z (gh createdAt)
 issue: 252
 branch: session/2026-10-09-0805-issue-252
 focus: POSTGRES_READONLY_INHERITED_standard_conforming_strings_WITH_IT_OFF_BACKSLASH_QUOTE_ENDS_WHERE_THE_GUARD_DOES_NOT_AND_A_STACKED_DROP_RAN
