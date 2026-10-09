@@ -2249,3 +2249,16 @@ parser resolved before sending, so the request (with the token attached) went
 to the user's gist list or to the API root instead of to a gist. Both answer
 successfully, so `get_gist` returned an empty, id-less "gist" rather than an
 error. Both tools now refuse those two ids before sending anything.
+
+## 2026-10-09 — postgres-readonly's SQL guard lexes three more forms the way Postgres does (#240)
+
+The guard has to know where a quoted string or a comment ends, because
+anything it thinks is inside one is hidden from its keyword checks. It got
+three cases wrong. A `$` in the middle of a name (`x$y$`) was read as the start
+of a dollar-quoted string. A dollar-quote tag with an accented or other
+non-ASCII letter (`$é$`) was not recognised. Nested block comments
+(`/* /* */ */`) were ended at the first `*/`. Each one let a forbidden call
+through. On a superuser connection each also let a stacked `DROP TABLE` or
+`CREATE TABLE` run, and I measured all six on a local Postgres 17. All three
+now follow Postgres's rules, and all six queries are refused. I checked every
+"this should still pass" test case on Postgres first.

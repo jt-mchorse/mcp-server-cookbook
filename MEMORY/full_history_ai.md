@@ -2601,3 +2601,24 @@ context_for_next_session:
   - encodeURIComponent_DOES_NOT_ESCAPE_DOT_so_a_whole_segment_of_dot_or_dot_dot_is_resolved_by_the_URL_parser_check_every_caller_id_interpolated_into_a_path
 followups: []
 ---
+
+---
+session: 2026-10-09T07:55Z
+duration_min: 40   # computed: plan comment ~07:30Z -> PR ~07:55Z + memory (date -u)
+issue: 240
+branch: session/2026-10-09-0730-issue-240
+focus: SQL_GUARD_DOLLAR_OPENER_MATCHED_INSIDE_AN_IDENTIFIER_x$y$_ASCII_ONLY_DOLLAR_TAG_AND_NON_NESTING_BLOCK_COMMENTS_ALL_BYPASSED_TO_STACKED_DDL
+phase: shipped
+delta:
+  files_changed: 5
+  tests_added: 21
+  suite: "postgres-readonly 309 -> 330 (test-counts.json + root README); check-readme, tsc, every tools test green"
+decisions_made: []
+measured: "Postgres 17.6 (Homebrew, port 55440) through runSelect, the issue's 6 queries: main ran all 6 (pg_sleep 2017/2014 ms; victim DROPPED; pwn, pwn2 CREATED); branch refused all 6 at the guard. Revert probe one rule at a time: no startsToken 3 red, ASCII tag 6 red, no nesting 4 red."
+context_for_next_session:
+  - PICKED_UP_UNCOMMITTED_WIP_FROM_THE_2026_10_07_SESSION_IN_THE_MAIN_CHECKOUT_saved_as_a_patch_and_reapplied_on_a_fresh_branch
+  - A_QUOTE_ENDS_A_TOKEN_SO_"int4"$$1$$_IS_A_TYPED_LITERAL_AND_OPENS_A_DOLLAR_STRING_measured_AFTER_A_DIGIT_POSTGRES_ALSO_OPENS_ONE_but_that_input_is_always_a_syntax_error_so_not_modelled
+  - ONLY_stripComments_SEES_COMMENTS_the_other_two_scanners_run_after_it_so_nesting_lives_in_one_place
+  - THE_REPO_HAS_NO_PRETTIER_CONFIG_AND_CI_DOES_NOT_RUN_IT_house_style_is_print_width_120_default_prettier_reflows_to_80
+followups: []
+---
