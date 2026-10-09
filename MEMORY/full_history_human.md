@@ -2286,3 +2286,16 @@ past the year 275760 (allowed by Postgres, not by JavaScript), came back as
 an empty value that looked like a missing one. Timestamps now keep every digit
 the database stored, in the same format as before. A date JavaScript can't
 represent is returned as the database's own text instead of an empty value.
+
+## 2026-10-09 — postgres-readonly's SQL guard lexes three more forms the way Postgres does (#240)
+
+The guard has to know where a quoted string or a comment ends, because
+anything it thinks is inside one is hidden from its keyword checks. It got
+three cases wrong. A `$` in the middle of a name (`x$y$`) was read as the start
+of a dollar-quoted string. A dollar-quote tag with an accented or other
+non-ASCII letter (`$é$`) was not recognised. Nested block comments
+(`/* /* */ */`) were ended at the first `*/`. Each one let a forbidden call
+through. On a superuser connection each also let a stacked `DROP TABLE` or
+`CREATE TABLE` run, and I measured all six on a local Postgres 17. All three
+now follow Postgres's rules, and all six queries are refused. I checked every
+"this should still pass" test case on Postgres first.
