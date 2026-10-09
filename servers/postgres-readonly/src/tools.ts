@@ -54,6 +54,19 @@ export function formatColumnType(dataType: string, udtName: string): string {
   return dataType;
 }
 
+/**
+ * A name or default as `describe_schema` lists it (#260): as-is, unless it
+ * holds a character that ends or bends a line -- a C0/C1 control, U+2028 or
+ * U+2029 -- and then JSON-quoted. The listing is one object per line, and
+ * Postgres allows any character in a quoted identifier and any expression as a
+ * default: `"orders\n  [view] admin_passwords\n    - password: text"` listed
+ * a view and a column that do not exist. Same rule as filesystem-sandbox's
+ * quoted paths.
+ */
+export function listed(text: string): string {
+  return /[\u0000-\u001f\u007f-\u009f\u2028\u2029]/.test(text) ? JSON.stringify(text) : text;
+}
+
 export async function describeSchema(args: DescribeSchemaArgs, cfg: DbConfig): Promise<ToolResult> {
   const schema = args.schema ?? "public";
   // `typeof` first: `IDENT_RE.test(x)` coerces via String(x), so a non-string
@@ -102,12 +115,12 @@ export async function describeSchema(args: DescribeSchemaArgs, cfg: DbConfig): P
     const lines: string[] = [`schema "${schema}":`];
     for (const t of tables.rows) {
       const cols = byTable.get(t.table_name) ?? [];
-      lines.push(`\n  ${t.table_type === "VIEW" ? "[view] " : ""}${t.table_name}`);
+      lines.push(`\n  ${t.table_type === "VIEW" ? "[view] " : ""}${listed(t.table_name)}`);
       for (const col of cols) {
         const nullable = col.is_nullable === "YES" ? "" : " NOT NULL";
-        const dflt = col.column_default ? ` DEFAULT ${col.column_default}` : "";
+        const dflt = col.column_default ? ` DEFAULT ${listed(col.column_default)}` : "";
         const type = formatColumnType(col.data_type, col.udt_name);
-        lines.push(`    - ${col.column_name}: ${type}${nullable}${dflt}`);
+        lines.push(`    - ${listed(col.column_name)}: ${listed(type)}${nullable}${dflt}`);
       }
     }
     return ok(lines.join("\n"));

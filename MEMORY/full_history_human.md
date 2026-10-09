@@ -2320,3 +2320,12 @@ extension) take a string and run it as a query. Anything forbidden written
 inside that string went unseen. Measured on a local Postgres 17, one such query
 killed another database session. All five functions are now refused. The
 similar functions that take a table name rather than SQL text still work.
+
+## 2026-10-09 — The schema listing cannot be forged by a table name (#260)
+
+`describe_schema` gives the model a plain-text list of tables and columns, one
+per line. Postgres lets a table or column name contain a line break, and a
+column default can too. Such a name could therefore add fake lines, for example
+a "view" called admin_passwords that does not exist. Any name or default with a
+line break or control character is now printed in quotes with the break
+escaped, so it stays on one line. Ordinary names print exactly as before.
