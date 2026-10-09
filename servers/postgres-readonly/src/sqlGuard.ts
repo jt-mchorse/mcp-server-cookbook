@@ -351,6 +351,34 @@ function decodeUnicodeEscapes(body: string): string | null {
   return out;
 }
 
+/**
+ * The dollar-quote opener at `i` (`$$` or `$tag$`), or null (#240).
+ *
+ * Two rules the old `^\$([A-Za-z_][A-Za-z0-9_]*)?\$` match got wrong, each
+ * measured as a bypass on Postgres 17:
+ * - An opener counts only at a token START. Postgres allows `$` inside an
+ *   identifier after its first character, so `x$y$` is an alias, and the old
+ *   match blanked everything from that `$y$` to the next one -- hiding
+ *   `txid_current()` and `pg_sleep()` between two such aliases.
+ * - A tag follows the unquoted-identifier rules minus `$`, and Postgres's lexer
+ *   treats every non-ASCII byte as a letter (`ident_start` is
+ *   `[A-Za-z\200-\377_]`). `$é$...$é$` is a dollar string to the server; the
+ *   ASCII-only class read the `'` inside it as a string opener instead.
+ *
+ * `startsToken` is the same rule `E'` uses, measured on Postgres 17: a quote
+ * before the `$` ends a token, so `"int4"$$1$$` and `'a'$$b$$` open a dollar
+ * string here as they do there. Postgres also opens one straight after a
+ * number (`1$$x$$`), which this does not model; that input is a syntax error
+ * on the server whatever follows, so nothing in it runs.
+ */
+const DOLLAR_OPEN = /^\$(?:[A-Za-z_\u0080-\u{10ffff}][A-Za-z0-9_\u0080-\u{10ffff}]*)?\$/u;
+
+function dollarQuoteOpenAt(sql: string, i: number): string | null {
+  if (sql[i] !== "$" || !startsToken(sql, i)) return null;
+  const m = sql.slice(i).match(DOLLAR_OPEN);
+  return m ? m[0] : null;
+}
+
 function stripComments(sql: string): string {
   let out = "";
   let i = 0;
@@ -360,9 +388,8 @@ function stripComments(sql: string): string {
     // Dollar-quoted string ($tag$ ... $tag$ or $$ ... $$): copy verbatim so its
     // contents can't be mistaken for comment markers.
     if (c === "$") {
-      const m = sql.slice(i).match(/^\$([A-Za-z_][A-Za-z0-9_]*)?\$/);
-      if (m) {
-        const tag = m[0];
+      const tag = dollarQuoteOpenAt(sql, i);
+      if (tag !== null) {
         const end = sql.indexOf(tag, i + tag.length);
         if (end === -1) {
           // Unterminated dollar literal: copy the remainder verbatim and stop.
@@ -442,14 +469,25 @@ function stripComments(sql: string): string {
       out += " ";
       continue;
     }
-    // Block comment (note: we don't support nested blocks because Postgres does
-    // and we're erring on the side of strictness — if the comment looks weird
-    // the consumer would have rejected it anyway). Same space-not-empty rule as
-    // the line comment above (#74).
+    // Block comment. Same space-not-empty rule as the line comment above (#74).
     if (c === "/" && sql[i + 1] === "*") {
+      // Postgres block comments NEST (#240): `/* /* */ ' */` is one comment to
+      // the server. Ending at the first `*/` left `' */` outside it, where the
+      // `'` opened a phantom string that hid the rest of the statement --
+      // measured as a stacked `DROP TABLE` passing on a superuser connection.
+      let depth = 1;
       i += 2;
-      while (i < sql.length && !(sql[i] === "*" && sql[i + 1] === "/")) i++;
-      i += 2;
+      while (i < sql.length && depth > 0) {
+        if (sql[i] === "/" && sql[i + 1] === "*") {
+          depth++;
+          i += 2;
+        } else if (sql[i] === "*" && sql[i + 1] === "/") {
+          depth--;
+          i += 2;
+        } else {
+          i++;
+        }
+      }
       out += " ";
       continue;
     }
@@ -498,9 +536,8 @@ function splitStatements(sql: string): string[] {
 
     if (!inSingle && !inDouble && c === "$") {
       // Detect a dollar-quoted string opening like $foo$ or $$.
-      const m = sql.slice(i).match(/^\$([A-Za-z_][A-Za-z0-9_]*)?\$/);
-      if (m) {
-        const tag = m[0];
+      const tag = dollarQuoteOpenAt(sql, i);
+      if (tag !== null) {
         buf += tag;
         i += tag.length;
         dollarTag = tag;
@@ -642,9 +679,8 @@ function stripStringLiterals(sql: string): {
 
     // Dollar-quoted string: $tag$...$tag$ or $$...$$
     if (c === "$") {
-      const m = sql.slice(i).match(/^\$([A-Za-z_][A-Za-z0-9_]*)?\$/);
-      if (m) {
-        const tag = m[0];
+      const tag = dollarQuoteOpenAt(sql, i);
+      if (tag !== null) {
         const start = i + tag.length;
         const end = sql.indexOf(tag, start);
         if (end === -1) {

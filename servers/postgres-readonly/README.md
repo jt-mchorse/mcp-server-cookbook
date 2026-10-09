@@ -15,6 +15,11 @@ Postgres database reachable by `DATABASE_URL`.
 `VALUES`, `TABLE`, or `EXPLAIN` (without `ANALYZE`). Everything else is
 rejected by [`src/sqlGuard.ts`](src/sqlGuard.ts).
 
+`rows` holds what the database returned. `date` and `timestamp` values are
+the database's text (#207). `json` and `jsonb` values are written into the
+payload as the database's JSON text, not re-parsed, so a big integer or `1e400`
+inside a document keeps every digit (#247).
+
 ## Threat model
 
 This server is intended to be wired into an LLM agent that the operator
@@ -34,10 +39,13 @@ The agent emits `DROP TABLE`, `DELETE`, `UPDATE`, `INSERT`, `TRUNCATE`,
 - **Server-side enforcement.** Every input to `run_select` passes through
   [`src/sqlGuard.ts`](src/sqlGuard.ts), which:
   - strips comments before any keyword check (an attacker can't hide writes
-    inside a `--` or `/* */` comment),
+    inside a `--` or `/* */` comment); block comments nest, as they do in
+    Postgres, so `/* /* */ ' */` is one comment (#240),
   - splits on `;` while honoring single, double, and dollar-quoted strings
     (so `SELECT 'a;b'` doesn't get falsely split), and `E'...'` escape
-    strings, where `\'` does not end the literal (#236),
+    strings, where `\'` does not end the literal (#236). A dollar quote
+    opens only at a token start, so the `$y$` in an alias like `x$y$` is not
+    one, and its tag may be non-ASCII (`$é$...$é$`) (#240),
   - decodes `U&"..."` identifiers before the keyword scan, so
     `U&"pg\005fsleep"` is seen as `pg_sleep`; a custom `UESCAPE` is
     refused (#236),
