@@ -791,6 +791,17 @@ function containsFunctionPrefix(text: string, prefix: string): boolean {
   return re.test(text);
 }
 
+/**
+ * The upper-cased leading keyword of a query `guardQuery` accepted -- `SELECT`,
+ * `WITH`, `VALUES`, `TABLE` or `EXPLAIN` -- read the way the guard reads it
+ * (comments stripped first). `runSelect` uses it to decide whether the
+ * statement can be the body of a cursor (#256).
+ */
+export function leadingKeyword(sqlInput: string): string | undefined {
+  const stmt = splitStatements(stripComments(sqlInput))[0] ?? "";
+  return (stmt.match(/^\s*([A-Za-z]+)/) || [])[1]?.toUpperCase();
+}
+
 export function guardQuery(sqlInput: string): GuardResult {
   if (typeof sqlInput !== "string" || sqlInput.trim().length === 0) {
     return { ok: false, reason: "empty query" };

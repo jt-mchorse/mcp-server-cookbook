@@ -2732,3 +2732,23 @@ context_for_next_session:
   - SPI_RUNS_THE_INNER_QUERY_READ_ONLY_so_DDL_is_refused_BUT_EVERY_GUARD_ONLY_FUNCTION_RUNS
 followups: []
 ---
+
+---
+session: 2026-10-09T08:13Z
+duration_min: 6   # computed: repro started ~08:07Z (after the aiapp#176 PR), issue filed 2026-10-09T08:12:02Z, PR 2026-10-09T08:13:11Z (gh createdAt)
+issue: 256
+branch: session/2026-10-09-0820-issue-256
+focus: MAX_ROWS_TRUNCATED_AFTER_THE_WHOLE_RESULT_WAS_IN_SERVER_MEMORY_NOW_A_CURSOR_FETCHES_MAX_ROWS_PLUS_ONE
+phase: shipped
+delta:
+  files_changed: 6
+  tests_added: 14
+  suite: "postgres-readonly 367 -> 381; check-readme, check-architecture-doc, tsc green"
+decisions_made: []
+measured: "Postgres 17.6, maxRows=10, 400k x 1000-char rows: main 656 ms, RSS 86 -> 629 MB; branch 32 ms, 84 -> 86 MB. UNION, EXPLAIN, trailing '; --' all correct on the branch. Revert 10 red / 4 controls."
+context_for_next_session:
+  - A_CURSOR_IS_NOT_THE_LIMIT_REWRITE_THE_CODE_DECLINED_the_statement_is_planned_as_written
+  - EXPLAIN_CANNOT_BE_A_CURSOR_BODY_leadingKeyword_mirrors_the_guards_reading_so_guardQuery_keeps_its_ok_true_shape
+  - THE_WORKTREE_HAS_NO_ROOT_node_modules_three_tools_tests_fail_on_yaml_import_there_not_a_regression
+followups: []
+---
