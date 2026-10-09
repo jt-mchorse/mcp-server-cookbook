@@ -2239,6 +2239,34 @@ itself (rather than a file inside it) made the safe-write helper create its
 temporary file one level up, outside the sandbox, before failing. Both servers
 now refuse any write whose target is a folder, before touching the disk, with
 the same message the read side uses.
+
+## 2026-10-08 — github-gists refuses a gist id of "." or ".." (#241)
+
+The gists server puts the caller's gist id into the request path after
+percent-encoding it, but percent-encoding leaves dots alone. An id of `.` or
+`..` therefore became a "this folder" / "parent folder" step that the URL
+parser resolved before sending, so the request (with the token attached) went
+to the user's gist list or to the API root instead of to a gist. Both answer
+successfully, so `get_gist` returned an empty, id-less "gist" rather than an
+error. Both tools now refuse those two ids before sending anything.
+
+## 2026-10-08 — github-gists lists a gist's files in the same order everywhere (#243)
+
+The gists server sorted a gist's files using the computer's language settings,
+so the same gist came back in a different order on a US machine than on a
+Swedish or Danish one. The filesystem server had exactly this problem and was
+fixed in #209; the gists server had the same line and was missed. It now sorts
+by plain character code, the same order the filesystem server uses.
+
+## 2026-10-08 — the repo's check scripts run from any path (#245)
+
+Each check script under `tools/` decided "was I run directly?" by comparing
+two spellings of its own path that only agree when the path has no symlink
+and no space. From a symlinked folder (macOS `/tmp` is one) or a folder with a
+space in its name, every check did nothing and still reported success. CI's
+path has neither, so it never showed. All fifteen scripts now share one
+helper that compares the real paths, and a test runs a check from both kinds
+of path and confirms it actually checks.
 ## 2026-10-08 — the Postgres server returns JSON columns exactly as stored (#247)
 
 When a query returned a `json` or `jsonb` column, the server re-read the

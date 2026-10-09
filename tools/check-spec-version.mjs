@@ -22,6 +22,7 @@
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { isMain } from "./lib/is-main.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..");
@@ -210,8 +211,6 @@ async function main() {
 }
 
 // Only run main when executed directly, not when imported by tests.
-const isDirectInvocation =
-  process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
-if (isDirectInvocation) {
+if (isMain(import.meta.url)) {
   main();
 }

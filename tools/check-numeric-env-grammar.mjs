@@ -32,6 +32,7 @@ import { dirname, join, relative, resolve } from "node:path";
 import { stripComments } from "./lib/strip-comments.mjs";
 
 import { fileURLToPath } from "node:url";
+import { isMain } from "./lib/is-main.mjs";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const SERVERS_DIR = join(ROOT, "servers");
@@ -188,4 +189,4 @@ function main() {
   );
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) main();
+if (isMain(import.meta.url)) main();
