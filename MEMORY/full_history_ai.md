@@ -2583,6 +2583,79 @@ context_for_next_session:
   - AN_ATOMIC_WRITER_STAGES_IN_THE_PARENT_so_ANY_PATH_WHOSE_PARENT_IS_OUTSIDE_THE_JAIL_THE_ROOT_ITSELF_escapes_on_the_temp_file_ask_where_the_temp_lives
 followups: []
 ---
+
+---
+session: 2026-10-08T07:45Z
+duration_min: 12   # computed: hunt start 07:33Z -> PR ~07:45Z (date -u)
+issue: 241
+branch: session/2026-10-08-issue-241
+focus: github_gists_A_GIST_ID_OF_DOT_OR_DOT_DOT_WAS_A_URL_DOT_SEGMENT_fetch_RESOLVED_IT_TO_slash_gists_slash_OR_THE_API_ROOT_and_get_gist_returned_an_empty_gist_as_success
+phase: shipped
+delta:
+  files_changed: 5
+  tests_added: 8
+  suite: "github-gists 183 -> 191 (test-counts.json + both README claims); check-readme, check-test-count, lint, typecheck, every tools test green"
+decisions_made: []
+measured: "loopback server, real fetch, main: '.' -> GET /gists/, '..' and ' .. ' -> GET /, PATCH likewise, all with the bearer header; get_gist returned {description:null,public:false,files:[]}. Revert probe (main's client.ts): 6 of 8 red, the 2 controls ('abc123', '...') green."
+context_for_next_session:
+  - encodeURIComponent_DOES_NOT_ESCAPE_DOT_so_a_whole_segment_of_dot_or_dot_dot_is_resolved_by_the_URL_parser_check_every_caller_id_interpolated_into_a_path
+followups: []
+---
+
+---
+session: 2026-10-08T07:55Z
+duration_min: 8   # computed: issue filed ~07:48Z -> PR ~07:56Z (date -u)
+issue: 243
+branch: session/2026-10-08-issue-243
+focus: github_gists_projectGist_SORTED_FILES_WITH_localeCompare_SO_ONE_GIST_CAME_BACK_IN_A_HOST_LOCALE_DEPENDENT_ORDER_the_sibling_209_did_not_reach
+phase: shipped
+delta:
+  files_changed: 5
+  tests_added: 4
+  suite: "github-gists 183 -> 187 on main (test-counts.json + both README claims); lint, typecheck, check-readme, check-test-count, every tools test green"
+decisions_made: []
+measured: "main: en_US [_x,a,ä,B,z], sv_SE and da_DK [_x,a,B,z,ä]. Revert probe (sort line back to localeCompare, helper kept): 3 of 4 red under en_US, sv_SE and da_DK; the compareCodePoints unit arm green. Neighbour fix a<b (UTF-16 units): 1 red, the astral arm."
+context_for_next_session:
+  - A_FIX_TO_ONE_SERVERS_SORT_IS_A_PROMPT_TO_GREP_EVERY_SERVER_209_named_localeCompare_and_fixed_one_file_the_gists_projection_had_the_same_line
+  - MERGE_NOTE_242_AND_THIS_PR_BOTH_MOVE_github_gists_COUNT_whichever_lands_second_recounts_191_plus_4_equals_195
+followups: []
+---
+
+---
+session: 2026-10-08T08:05Z
+duration_min: 12   # computed: lead received ~07:38Z -> PR ~08:06Z (date -u), issue filed ~07:42Z
+issue: 245
+branch: session/2026-10-08-issue-245
+focus: TOOLS_ENTRY_GUARDS_COMPARED_argv1_WITH_import_meta_url_WHICH_IS_THE_REALPATH_AND_URL_ENCODED_a_symlinked_or_spaced_checkout_made_every_gate_exit_0_unrun
+phase: shipped
+delta:
+  files_changed: 19
+  tests_added: 5
+  suite: "tools tests 284 green (new tools/lib/is-main.test.mjs registered in package.json + ci.yml); every checker green when run directly; no server count moved"
+decisions_made: []
+measured: "main, macOS: check-test-count with a 1-case report: relative path from the worktree rc=1, the same script by absolute /tmp path rc=0 silent, via a symlink rc=0, from a dir with a space rc=0; check-readme from the spaced dir printed nothing rc=0. Revert probe (main's 15 guards, helper kept): 3 of 5 red (symlink, space, lock); the 2 helper unit arms green. Neighbour path.resolve guard on check-test-count: 2 red (symlink, lock), space arm green as expected."
+context_for_next_session:
+  - import_meta_url_IS_A_REALPATH_AND_A_URL_any_guard_comparing_it_with_argv1_is_false_through_a_symlink_or_a_space_and_a_false_guard_on_a_CLI_is_a_silent_exit_0
+  - LEAD_FROM_ai_app_integration_tests_169_grep_the_other_node_repos_for_the_same_guard
+followups: []
+---
+---
+session: 2026-10-08T08:05Z
+duration_min: 15
+issue: 247
+branch: session/2026-10-08-issue-247
+focus: RUN_SELECT_AND_SAMPLE_ROWS_RE_PARSED_JSON_JSONB_WITH_JSON_PARSE_BIG_INTS_ROUNDED_1E400_BECAME_INFINITY_DUPLICATE_JSON_KEYS_DROPPED
+phase: shipped
+delta:
+  files_changed: 5
+  tests_added: 6
+  suite: "postgres-readonly 309 -> 315 (test-counts.json + root README claim); check-readme, check-test-count, check-architecture-doc, tsc, eslint ok"
+decisions_made: []
+measured: "Postgres 17 (private, :55432): jsonb {\"id\": 12345678901234567891} -> 12345678901234567000 on main, exact after; 1e400 -> \"Infinity\" on main; '{\"a\":1,\"a\":2}'::json -> {\"a\":2} on main. jsonb[] with an escaped quote and NULL, 2-D json[] verified on the real server. Revert: main 4/6 red, the 2 shape controls green."
+context_for_next_session:
+  - A_FIDELITY_FIX_PER_TYPE_LEAVES_THE_OTHER_TYPES_207_covered_date_timestamp_float_and_json_jsonb_went_through_JSON_PARSE_unchanged_enumerate_every_pg_default_parser_that_converts
+  - SPLICE_RAW_JSON_TEXT_WITH_A_PER_CALL_NONCE_PLACEHOLDER_node_20_has_no_JSON_rawJSON
+followups: []
 ---
 session: 2026-10-08T08:25Z
 duration_min: 15

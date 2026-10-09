@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import pg from "pg";
 import { type DbConfig, withClient } from "./db.js";
 import { guardQuery } from "./sqlGuard.js";
@@ -139,10 +140,36 @@ const TEXT_ARRAY_OID = 1009;
 // database's microseconds and a year past `Date`'s range (#249).
 const pgParser = exactTimestamptzParser;
 
+// `json` and `jsonb` (#247). pg's default parser is `JSON.parse`, which turns
+// every number into a double: `{"id": 12345678901234567891}` came back as
+// `12345678901234567000` and `1e400` (a valid jsonb numeric) as `Infinity`, then
+// `"Infinity"` through `nonFiniteAsString`, and a `json` value's repeated key
+// lost all but its last value. A `numeric` column keeps the same id exactly,
+// because pg hands it back as text. The database's JSON text is kept here, and
+// `stringifyPayload` writes it into the payload verbatim, so a client still
+// receives a nested object or array.
+const JSON_OIDS = new Set([114, 3802]);
+const JSON_ARRAY_OIDS = new Set([199, 3807]);
+
+/** A `json`/`jsonb` value as the database's own JSON text (#247). */
+export class RawJson {
+  constructor(readonly text: string) {}
+}
+
+function rawJsonElements(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(rawJsonElements);
+  return typeof value === "string" ? new RawJson(value) : value;
+}
+
 export const SELECT_TYPES = {
   getTypeParser(oid: number, format?: string): (value: string) => unknown {
     if (DATE_OIDS.has(oid)) return (value: string) => value;
     if (DATE_ARRAY_OIDS.has(oid)) return pgParser(TEXT_ARRAY_OID, format ?? "text");
+    if (JSON_OIDS.has(oid)) return (value: string) => new RawJson(value);
+    if (JSON_ARRAY_OIDS.has(oid)) {
+      const parseTextArray = pgParser(TEXT_ARRAY_OID, format ?? "text");
+      return (value: string) => rawJsonElements(parseTextArray(value));
+    }
     return pgParser(oid, format ?? "text");
   },
 };
@@ -155,6 +182,33 @@ export const SELECT_TYPES = {
 export function nonFiniteAsString(_key: string, value: unknown): unknown {
   if (typeof value === "number" && !Number.isFinite(value)) return String(value);
   return value;
+}
+
+/**
+ * The tool payload as pretty-printed JSON, with every `RawJson` written as the
+ * database's text rather than re-serialised (#247).
+ *
+ * Each `RawJson` is first stringified as a placeholder carrying a per-call
+ * random nonce, which no database value can predict, and the placeholder's
+ * quoted form is then replaced by the raw text. That text is valid JSON because
+ * Postgres validated it on input, so the payload stays one valid JSON document.
+ */
+export function stringifyPayload(payload: unknown): string {
+  const nonce = randomUUID();
+  const raws: string[] = [];
+  const text = JSON.stringify(
+    payload,
+    (key: string, value: unknown) => {
+      if (value instanceof RawJson) {
+        raws.push(value.text);
+        return `${nonce}:${raws.length - 1}`;
+      }
+      return nonFiniteAsString(key, value);
+    },
+    2,
+  );
+  if (raws.length === 0) return text;
+  return text.replace(new RegExp(`"${nonce}:(\\d+)"`, "g"), (_m, i: string) => raws[Number(i)]!);
 }
 
 /**
@@ -214,7 +268,7 @@ export async function runSelect(args: RunSelectArgs, cfg: DbConfig): Promise<Too
       rows: visible,
     };
 
-    return ok(JSON.stringify(payload, nonFiniteAsString, 2));
+    return ok(stringifyPayload(payload));
   });
 }
 
@@ -260,15 +314,11 @@ async function runSampleQuery(c: pg.Client, schema: string, table: string, limit
   try {
     const result = await c.query({ text: sql, types: SELECT_TYPES });
     return ok(
-      JSON.stringify(
-        {
-          row_count: result.rows.length,
-          fields: result.fields?.map((f) => ({ name: f.name, dataTypeID: f.dataTypeID })) ?? [],
-          rows: result.rows,
-        },
-        nonFiniteAsString,
-        2,
-      ),
+      stringifyPayload({
+        row_count: result.rows.length,
+        fields: result.fields?.map((f) => ({ name: f.name, dataTypeID: f.dataTypeID })) ?? [],
+        rows: result.rows,
+      }),
     );
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
