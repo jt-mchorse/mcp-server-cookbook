@@ -11,6 +11,10 @@ Postgres database reachable by `DATABASE_URL`.
 | `run_select`      | `{ sql: string }` — single SELECT-shaped statement   | JSON: `{ row_count, truncated, fields, rows }`    |
 | `sample_rows`     | `{ schema?, table, limit? }` (`limit` capped at 50)  | JSON: `{ row_count, fields, rows }`               |
 
+`describe_schema` lists one object per line. A table name, column name or
+default that contains a line break or other control character is printed
+JSON-quoted, so it cannot add lines of its own (#260).
+
 `run_select` accepts statements whose top-level keyword is `SELECT`, `WITH`,
 `VALUES`, `TABLE`, or `EXPLAIN` (without `ANALYZE`). Everything else is
 rejected by [`src/sqlGuard.ts`](src/sqlGuard.ts).
