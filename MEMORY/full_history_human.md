@@ -2299,3 +2299,14 @@ through. On a superuser connection each also let a stacked `DROP TABLE` or
 `CREATE TABLE` run, and I measured all six on a local Postgres 17. All three
 now follow Postgres's rules, and all six queries are refused. I checked every
 "this should still pass" test case on Postgres first.
+
+## 2026-10-09 — postgres-readonly pins standard_conforming_strings (#252)
+
+The guard reads a `'...'` string the modern, standard way, where a backslash
+is just a character. Postgres still lets an administrator switch an old
+setting back on per database or per role, so that a backslash escapes the next
+quote. With that setting on, the guard and the server disagreed about where a
+string like `'\''` ends. A stacked `DROP TABLE` passed the guard and ran; I
+measured this on a local Postgres 17. The server now fixes the setting for its
+own session before running anything, so the database always reads strings the
+way the guard did.
