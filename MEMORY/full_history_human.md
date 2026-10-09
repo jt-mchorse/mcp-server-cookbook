@@ -2257,3 +2257,13 @@ so the same gist came back in a different order on a US machine than on a
 Swedish or Danish one. The filesystem server had exactly this problem and was
 fixed in #209; the gists server had the same line and was missed. It now sorts
 by plain character code, the same order the filesystem server uses.
+
+## 2026-10-08 — the repo's check scripts run from any path (#245)
+
+Each check script under `tools/` decided "was I run directly?" by comparing
+two spellings of its own path that only agree when the path has no symlink
+and no space. From a symlinked folder (macOS `/tmp` is one) or a folder with a
+space in its name, every check did nothing and still reported success. CI's
+path has neither, so it never showed. All fifteen scripts now share one
+helper that compares the real paths, and a test runs a check from both kinds
+of path and confirms it actually checks.
