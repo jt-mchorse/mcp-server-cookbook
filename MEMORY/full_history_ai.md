@@ -2601,3 +2601,22 @@ context_for_next_session:
   - encodeURIComponent_DOES_NOT_ESCAPE_DOT_so_a_whole_segment_of_dot_or_dot_dot_is_resolved_by_the_URL_parser_check_every_caller_id_interpolated_into_a_path
 followups: []
 ---
+
+---
+session: 2026-10-09T07:33Z
+duration_min: 12   # computed: issue filed ~07:33Z, plan 2026-10-09T07:31:27Z -> PR 2026-10-09T07:33:26Z (gh createdAt)
+issue: 254
+branch: session/2026-10-09-0745-issue-254
+focus: SQL_STRING_EXECUTORS_query_to_xml_ts_stat_ts_rewrite_RAN_A_FORBIDDEN_CALL_HIDDEN_INSIDE_A_STRING_THE_KEYWORD_SCAN_BLANKS
+phase: shipped
+delta:
+  files_changed: 5
+  tests_added: 18
+  suite: "postgres-readonly 309 -> 327; check-readme, tsc green"
+decisions_made: []
+measured: "Postgres 17.6 through runSelect. main: query_to_xml('SELECT pg_terminate_backend(<pid>)') passed the guard and the victim session got FATAL terminating connection; txid_current assigned an XID in the read-only session; pg_read_file read PG_VERSION; three pg_sleep(1) via query_to_xml_and_xmlschema/ts_stat/ts_rewrite ran 1008-1012 ms. Branch: all refused, victim exit 0, table_to_xml still runs. Revert one prefix at a time: 7/2/1/2/1 red."
+context_for_next_session:
+  - A_SCAN_THAT_BLANKS_STRINGS_IS_BLIND_TO_ANY_FUNCTION_THAT_EXECUTES_A_STRING_enumerate_them_from_pg_proc_not_from_memory
+  - SPI_RUNS_THE_INNER_QUERY_READ_ONLY_so_DDL_is_refused_BUT_EVERY_GUARD_ONLY_FUNCTION_RUNS
+followups: []
+---
