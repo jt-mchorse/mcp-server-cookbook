@@ -2656,3 +2656,20 @@ context_for_next_session:
   - A_FIDELITY_FIX_PER_TYPE_LEAVES_THE_OTHER_TYPES_207_covered_date_timestamp_float_and_json_jsonb_went_through_JSON_PARSE_unchanged_enumerate_every_pg_default_parser_that_converts
   - SPLICE_RAW_JSON_TEXT_WITH_A_PER_CALL_NONCE_PLACEHOLDER_node_20_has_no_JSON_rawJSON
 followups: []
+---
+session: 2026-10-08T08:25Z
+duration_min: 15
+issue: 249
+branch: session/2026-10-08-issue-249
+focus: TIMESTAMPTZ_MICROSECONDS_TRUNCATED_TO_MS_AND_A_YEAR_PAST_JS_DATE_RANGE_SERIALISED_AS_NULL_IN_RUN_SELECT_AND_SAMPLE_ROWS
+phase: shipped
+delta:
+  files_changed: 5
+  tests_added: 10
+  suite: "postgres-readonly 309 -> 319 (test-counts.json + root README claim; #248 takes it 309 -> 315, so whichever merges second rebases to 325); check-readme, check-test-count, check-architecture-doc, tsc, eslint, build ok"
+decisions_made: []
+measured: "Postgres 17 (private, :55432): .123456 and .123999 both '...00.123Z' on main; '294276-12-31 23:59:59+00' -> null on main. After: '.123456Z', '.123999Z', far year as database text, BC and LMT-offset values exact. Revert: main 9/10 red, the ms/infinity/NULL control green."
+context_for_next_session:
+  - 207_KEPT_TIMESTAMPTZ_BECAUSE_IT_IS_AN_INSTANT_TRUE_BUT_A_JS_DATE_IS_NOT_EVERY_INSTANT_ms_precision_and_a_275760_year_ceiling_a_reason_for_scope_can_be_true_and_still_too_broad
+  - REMAINING_PG_DEFAULT_PARSERS_interval_bytea_point_are_lossless_objects_not_wrong_values_not_filed
+followups: []

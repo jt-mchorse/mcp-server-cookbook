@@ -2277,3 +2277,12 @@ and a `json` value with a repeated key lost one of its values. The same id in a
 plain `numeric` column was already exact. The server now passes the database's
 own JSON text through untouched, so clients still get a nested object, now with
 every digit intact.
+## 2026-10-08 — the Postgres server keeps timestamps to the microsecond (#249)
+
+Postgres stores timestamps-with-time-zone to the microsecond, but the server
+turned them into JavaScript dates, which only keep milliseconds. Two events
+0.0005 s apart came back with the same timestamp. A date far in the future,
+past the year 275760 (allowed by Postgres, not by JavaScript), came back as
+an empty value that looked like a missing one. Timestamps now keep every digit
+the database stored, in the same format as before. A date JavaScript can't
+represent is returned as the database's own text instead of an empty value.
