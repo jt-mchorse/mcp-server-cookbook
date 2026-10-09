@@ -2604,7 +2604,7 @@ followups: []
 
 ---
 session: 2026-10-09T07:33Z
-duration_min: 12   # computed: issue filed ~07:33Z, plan 2026-10-09T07:31:27Z -> PR 2026-10-09T07:33:26Z (gh createdAt)
+duration_min: 4   # computed: issue filed 2026-10-09T07:31:17Z, plan 2026-10-09T07:31:27Z -> PR 2026-10-09T07:33:26Z (gh createdAt)
 issue: 254
 branch: session/2026-10-09-0745-issue-254
 focus: SQL_STRING_EXECUTORS_query_to_xml_ts_stat_ts_rewrite_RAN_A_FORBIDDEN_CALL_HIDDEN_INSIDE_A_STRING_THE_KEYWORD_SCAN_BLANKS
