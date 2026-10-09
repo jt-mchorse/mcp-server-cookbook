@@ -27,6 +27,7 @@
 import { readdirSync, readFileSync, existsSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { isMain } from "./lib/is-main.mjs";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const SERVERS_DIR = join(ROOT, "servers");
@@ -89,8 +90,7 @@ export function check(serversDir = SERVERS_DIR) {
   return servers.flatMap((s) => checkServer(s, serversDir));
 }
 
-const isMain = process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
-if (isMain) {
+if (isMain(import.meta.url)) {
   const problems = check();
   if (problems.length > 0) {
     for (const p of problems) console.error(`error: ${p}`);

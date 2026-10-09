@@ -15,6 +15,11 @@ Postgres database reachable by `DATABASE_URL`.
 `VALUES`, `TABLE`, or `EXPLAIN` (without `ANALYZE`). Everything else is
 rejected by [`src/sqlGuard.ts`](src/sqlGuard.ts).
 
+`rows` holds what the database returned. `date` and `timestamp` values are
+the database's text (#207). `json` and `jsonb` values are written into the
+payload as the database's JSON text, not re-parsed, so a big integer or `1e400`
+inside a document keeps every digit (#247).
+
 ## Threat model
 
 This server is intended to be wired into an LLM agent that the operator
