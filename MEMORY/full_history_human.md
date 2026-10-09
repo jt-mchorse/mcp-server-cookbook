@@ -2320,3 +2320,14 @@ extension) take a string and run it as a query. Anything forbidden written
 inside that string went unseen. Measured on a local Postgres 17, one such query
 killed another database session. All five functions are now refused. The
 similar functions that take a table name rather than SQL text still work.
+
+## 2026-10-09 — The SQL guard is checked against the database's own function list (#258)
+
+The guard's list of forbidden functions had been written by hand. Postgres
+marks every function that can have a side effect as "volatile", so I put each
+of those 234 functions through the guard. Several got through that are close
+relatives of functions already blocked: two variants of `pg_sleep`, one that
+writes to the write-ahead log, one that advances an internal counter, and four
+that read server configuration files. All eight are now blocked. The sweep is
+now a test: every volatile function must be blocked or appear on an allowed
+list with a reason, and each reason was checked on a real Postgres 17.

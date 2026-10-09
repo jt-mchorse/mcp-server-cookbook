@@ -87,6 +87,14 @@ functions that run a string argument as SQL (`query_to_xml*`, `ts_stat`,
 cannot see inside a string, so `query_to_xml('SELECT pg_terminate_backend(…)',
 …)` would otherwise run a forbidden call (#254).
 
+The lists are checked against the catalog, not memory: a test runs every
+`VOLATILE` `pg_catalog` function on PostgreSQL 17 through the guard and
+requires each to be refused or allowed for a stated reason (#258). That sweep
+found `pg_sleep_for`/`pg_sleep_until`, `pg_log_standby_snapshot` (writes WAL),
+`pg_nextoid` (advances the OID counter), and the config-file readers
+`pg_hba_file_rules`, `pg_ident_file_mappings`, `pg_show_all_file_settings` and
+`pg_current_logfile`. All of them are now refused.
+
 ### 4. Identifier injection via `sample_rows`
 
 `sample_rows` interpolates `schema` and `table` into the SQL because
