@@ -2585,6 +2585,43 @@ followups: []
 ---
 
 ---
+session: 2026-10-08T07:45Z
+duration_min: 12   # computed: hunt start 07:33Z -> PR ~07:45Z (date -u)
+issue: 241
+branch: session/2026-10-08-issue-241
+focus: github_gists_A_GIST_ID_OF_DOT_OR_DOT_DOT_WAS_A_URL_DOT_SEGMENT_fetch_RESOLVED_IT_TO_slash_gists_slash_OR_THE_API_ROOT_and_get_gist_returned_an_empty_gist_as_success
+phase: shipped
+delta:
+  files_changed: 5
+  tests_added: 8
+  suite: "github-gists 183 -> 191 (test-counts.json + both README claims); check-readme, check-test-count, lint, typecheck, every tools test green"
+decisions_made: []
+measured: "loopback server, real fetch, main: '.' -> GET /gists/, '..' and ' .. ' -> GET /, PATCH likewise, all with the bearer header; get_gist returned {description:null,public:false,files:[]}. Revert probe (main's client.ts): 6 of 8 red, the 2 controls ('abc123', '...') green."
+context_for_next_session:
+  - encodeURIComponent_DOES_NOT_ESCAPE_DOT_so_a_whole_segment_of_dot_or_dot_dot_is_resolved_by_the_URL_parser_check_every_caller_id_interpolated_into_a_path
+followups: []
+---
+
+---
+session: 2026-10-08T07:55Z
+duration_min: 8   # computed: issue filed ~07:48Z -> PR ~07:56Z (date -u)
+issue: 243
+branch: session/2026-10-08-issue-243
+focus: github_gists_projectGist_SORTED_FILES_WITH_localeCompare_SO_ONE_GIST_CAME_BACK_IN_A_HOST_LOCALE_DEPENDENT_ORDER_the_sibling_209_did_not_reach
+phase: shipped
+delta:
+  files_changed: 5
+  tests_added: 4
+  suite: "github-gists 183 -> 187 on main (test-counts.json + both README claims); lint, typecheck, check-readme, check-test-count, every tools test green"
+decisions_made: []
+measured: "main: en_US [_x,a,ä,B,z], sv_SE and da_DK [_x,a,B,z,ä]. Revert probe (sort line back to localeCompare, helper kept): 3 of 4 red under en_US, sv_SE and da_DK; the compareCodePoints unit arm green. Neighbour fix a<b (UTF-16 units): 1 red, the astral arm."
+context_for_next_session:
+  - A_FIX_TO_ONE_SERVERS_SORT_IS_A_PROMPT_TO_GREP_EVERY_SERVER_209_named_localeCompare_and_fixed_one_file_the_gists_projection_had_the_same_line
+  - MERGE_NOTE_242_AND_THIS_PR_BOTH_MOVE_github_gists_COUNT_whichever_lands_second_recounts_191_plus_4_equals_195
+followups: []
+---
+
+---
 session: 2026-10-08T08:05Z
 duration_min: 12   # computed: lead received ~07:38Z -> PR ~08:06Z (date -u), issue filed ~07:42Z
 issue: 245
