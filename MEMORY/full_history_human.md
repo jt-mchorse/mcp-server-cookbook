@@ -2249,3 +2249,11 @@ parser resolved before sending, so the request (with the token attached) went
 to the user's gist list or to the API root instead of to a gist. Both answer
 successfully, so `get_gist` returned an empty, id-less "gist" rather than an
 error. Both tools now refuse those two ids before sending anything.
+
+## 2026-10-08 — github-gists lists a gist's files in the same order everywhere (#243)
+
+The gists server sorted a gist's files using the computer's language settings,
+so the same gist came back in a different order on a US machine than on a
+Swedish or Danish one. The filesystem server had exactly this problem and was
+fixed in #209; the gists server had the same line and was missed. It now sorts
+by plain character code, the same order the filesystem server uses.
