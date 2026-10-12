@@ -280,6 +280,23 @@ _INVALID_REQUEST = -32600
 _INVALID_PARAMS = -32602
 
 
+class _OversizedInt:
+    """An integer literal too long for `int()`, kept as its digits (#262)."""
+
+    def __init__(self, digits: str) -> None:
+        self.digits = digits
+
+    def __str__(self) -> str:
+        return self.digits
+
+
+def _parse_int(literal: str) -> int | _OversizedInt:
+    try:
+        return int(literal)
+    except ValueError:
+        return _OversizedInt(literal)
+
+
 def _undeliverable_request(line: str) -> tuple[str | int, int, str] | None:
     """``(id, code, message)`` for a request the SDK transport would drop, else None.
 
@@ -306,9 +323,15 @@ def _undeliverable_request(line: str) -> tuple[str | int, int, str] | None:
         return None
     except ValueError:
         pass
+    # `RecursionError` beside `ValueError` (#262): a deeply nested line is not
+    # a `ValueError`, and escaping here killed the whole server. Such a line
+    # has no id this parser can read, so it reaches the SDK unchanged, which
+    # logs it and keeps serving. `parse_int` keeps an integer literal past
+    # CPython's 4300-digit limit unconverted: that limit made `json.loads`
+    # fail, and a request whose id was perfectly readable went unanswered.
     try:
-        obj = json.loads(line)
-    except ValueError:
+        obj = json.loads(line, parse_int=_parse_int)
+    except (ValueError, RecursionError):
         return None
     if not isinstance(obj, dict) or not isinstance(obj.get("method"), str):
         return None
@@ -317,7 +340,17 @@ def _undeliverable_request(line: str) -> tuple[str | int, int, str] | None:
         return None
     if isinstance(request_id, str) and _LONE_SURROGATE_RE.search(request_id):
         return None
-    if _LONE_SURROGATE_RE.search(json.dumps(obj, ensure_ascii=False)):
+    try:
+        serialised = json.dumps(obj, ensure_ascii=False, default=str)
+    except (ValueError, RecursionError):
+        serialised = None
+    if serialised is None:
+        return (
+            request_id,
+            _INVALID_REQUEST,
+            "Invalid Request: the MCP Python SDK's transport rejected this message",
+        )
+    if _LONE_SURROGATE_RE.search(serialised):
         return (
             request_id,
             _INVALID_PARAMS,

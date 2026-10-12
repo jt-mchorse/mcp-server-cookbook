@@ -191,3 +191,76 @@ def test_everything_else_reaches_the_sdk_unchanged(line: str) -> None:
     passed, answers = asyncio.run(run())
     assert passed == [line]  # byte-identical
     assert answers == []
+
+
+# --- input json.loads cannot read the usual way (#262) ------------------------
+
+
+def _deep_read(request_id: int, depth: int) -> str:
+    nested = "[" * depth + "]" * depth
+    return (
+        f'{{"jsonrpc":"2.0","id":{request_id},"method":"tools/call","params":{{"name":"read_file",'
+        f'"arguments":{{"path":"/x","deep":{nested}}}}}}}'
+    )
+
+
+def test_a_deeply_nested_request_does_not_kill_the_server(tmp_path: Path) -> None:
+    # 1,000,000 levels is past what `json.loads` can decode on any CPython the
+    # CI matrix runs. On main the filter's `RecursionError` killed the server at
+    # exit 1 and id 5 was never answered. The line has no id the filter can
+    # read, so it goes to the SDK, which logs it and keeps serving.
+    replies = _session(
+        tmp_path,
+        json.dumps(_INIT),
+        json.dumps(_INITIALIZED),
+        _deep_read(4, 1_000_000),
+        json.dumps({"jsonrpc": "2.0", "id": 5, "method": "tools/list"}),
+        before_eof=frozenset({5}),
+    )
+    assert "tools" in replies[5]["result"]
+
+
+def test_a_surrogate_request_with_an_over_long_integer_is_still_answered(
+    tmp_path: Path,
+) -> None:
+    # pydantic refuses the surrogate. `json.loads` refused the 5000-digit int
+    # (CPython's int-string limit), so the filter returned None and id 4 hung.
+    line = (
+        '{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"read_file",'
+        '"arguments":{"path":"/etc/\\ud800x","n":' + "1" * 5000 + "}}}"
+    )
+    replies = _session(
+        tmp_path,
+        json.dumps(_INIT),
+        json.dumps(_INITIALIZED),
+        line,
+        before_eof=frozenset({4}),
+    )
+    assert replies[4]["error"]["code"] == -32602
+
+
+def test_a_recursion_error_from_json_loads_is_passed_through(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Forced, so the arm holds whatever depth this interpreter can decode.
+    import filesystem_sandbox.server as server
+
+    def deep(*_a: object, **_k: object) -> object:
+        raise RecursionError("maximum recursion depth exceeded")
+
+    monkeypatch.setattr(server.json, "loads", deep)
+    assert _undeliverable_request(_LONE_SURROGATE_READ) is None
+
+
+def test_a_recursion_error_from_json_dumps_is_answered(monkeypatch: pytest.MonkeyPatch) -> None:
+    # The id was read, so the request is answered rather than raised out of the
+    # filter.
+    import filesystem_sandbox.server as server
+
+    def deep(*_a: object, **_k: object) -> str:
+        raise RecursionError("maximum recursion depth exceeded")
+
+    monkeypatch.setattr(server.json, "dumps", deep)
+    answer = _undeliverable_request(_LONE_SURROGATE_READ)
+    assert answer is not None
+    assert answer[:2] == (4, -32600)
