@@ -2807,5 +2807,22 @@ context_for_next_session:
   - A_FILTER_PUT_IN_FRONT_OF_THE_SDK_INHERITS_EVERY_INPUT_THE_SDK_SURVIVED_214_ADDED_A_CRASH_THE_BARE_SDK_DID_NOT_HAVE
   - A_LINE_NO_PARSER_CAN_READ_HAS_NO_ID_pass_it_through_D_015_answered_not_hanging_applies_where_an_id_is_readable
   - parse_int_KEEPS_AN_OVERSIZED_LITERAL_so_one_huge_number_in_params_does_not_cost_the_request_its_id
+
+session: 2026-10-12T08:36:11Z
+duration_min: 1   # computed: plan comment 2026-10-12T08:36:11Z -> PR 2026-10-12T08:38:00Z (gh createdAt)
+issue: 264
+branch: session/2026-10-12-0836-issue-264
+focus: GITHUB_GISTS_ECHOED_THE_TOKEN_INTO_A_TOOL_RESULT_WHEN_IT_HELD_CR_OR_LF_UNDICIS_INVALID_HEADER_MESSAGE_QUOTES_THE_VALUE
+phase: shipped
+delta:
+  files_changed: 6
+  tests_added: 19
+  suite: "github-gists 195 -> 214 passed; lint, typecheck, build, check-test-count, check-readme ok"
+decisions_made: []
+measured: "stdio session, GITHUB_TOKEN with LF/CR mid-token: main -> tool result quotes 'Bearer ghp_SECRET123<LF>ghp_x'. Branch: refuses to boot naming U+000A at position 13, no token anywhere. Revert 18 red / 1 control green."
+context_for_next_session:
+  - A_THIRD_PARTY_ERROR_MESSAGE_CAN_QUOTE_WHAT_YOU_PASSED_IT_redact_secrets_from_any_text_derived_from_a_library_exception
+  - TRIM_THE_ENDS_IS_NOT_VALIDATE_THE_INSIDE
+  - GistsClient_CONSTRUCTOR_VALIDATES_ITS_CFG_so_the_config_rule_is_also_a_client_rule
 followups: []
 ---
