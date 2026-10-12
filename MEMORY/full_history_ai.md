@@ -2771,3 +2771,21 @@ context_for_next_session:
   - PROCESS_SLIP_THE_PLAN_COMMENT_WAS_POSTED_AFTER_THE_CODE_ON_THIS_ONE_do_not_repeat
 followups: []
 ---
+
+---
+session: 2026-10-09T08:26Z
+duration_min: 7   # computed: repro ~08:24Z, issue filed 2026-10-09T08:24:19Z, PR 2026-10-09T08:26:04Z (gh createdAt)
+issue: 260
+branch: session/2026-10-09-0830-issue-260
+focus: DESCRIBE_SCHEMA_PRINTED_NAMES_AND_DEFAULTS_RAW_A_NEWLINE_IN_A_QUOTED_IDENTIFIER_FORGED_A_VIEW_AND_COLUMNS_IN_THE_LISTING
+phase: shipped
+delta:
+  files_changed: 5
+  tests_added: 17
+  suite: "postgres-readonly 367 -> 384; check-readme, tsc green"
+decisions_made: []
+measured: "PG 17.6: table \"orders\n  [view] admin_passwords\n    - password: text\" and DEFAULT E'x\n    - ssn: text NOT NULL' listed a fake view and two fake columns on main; branch prints each JSON-quoted on one line. Revert 16 red (13 by missing export, 3 behavioural) / byte-identical ordinary listing green."
+context_for_next_session:
+  - A_TEXT_RENDERER_BESIDE_TWO_JSON_ONES_IS_THE_ONE_THAT_CAN_BE_FORGED_ask_which_output_of_a_family_is_not_escaped
+followups: []
+---
