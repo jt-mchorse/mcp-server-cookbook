@@ -2320,3 +2320,13 @@ extension) take a string and run it as a query. Anything forbidden written
 inside that string went unseen. Measured on a local Postgres 17, one such query
 killed another database session. All five functions are now refused. The
 similar functions that take a table name rather than SQL text still work.
+
+## 2026-10-09 — The row limit protects the server's memory too (#256)
+
+The Postgres server caps how many rows it returns (MAX_ROWS, 1,000 by
+default). It loaded the entire result into memory first and only then cut it
+down. One query asking for 10 rows out of 400,000 wide ones took the server
+from 86 MB to 629 MB. It now runs the query through a database cursor and reads
+only one row more than the limit; that extra row is how it knows to report
+"truncated". The same query now stays at 86 MB and finishes in 32 ms instead of
+656 ms.

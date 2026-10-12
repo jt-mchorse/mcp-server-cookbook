@@ -72,9 +72,13 @@ The agent emits `SELECT * FROM big_table CROSS JOIN big_table` or sleeps.
   `STATEMENT_TIMEOUT_MS + 1s`, so a database that accepts the connection and
   never answers fails the call instead of hanging it (#229).
 - `pg_sleep` is in the forbidden-keywords list.
-- `MAX_ROWS` (default 1000) caps the result set returned to the client.
-  Postgres still does the work, but the MCP transport doesn't carry the
-  blowup.
+- `MAX_ROWS` (default 1000) caps the rows the server reads, not only the
+  ones it returns: `run_select` runs the query unchanged as the body of a
+  cursor and fetches `MAX_ROWS + 1` rows, the extra one telling it whether to
+  report `truncated` (#256). Before, every row was loaded into the server
+  first. A 400,000-row query asked for 10 rows took the process from 86 MB to
+  629 MB; it now stays at 86 MB. `EXPLAIN` output is a plan, so it is read
+  directly.
 
 ### 3. Backend disruption
 

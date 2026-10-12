@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import pg from "pg";
 import { type DbConfig, withClient } from "./db.js";
-import { guardQuery } from "./sqlGuard.js";
+import { guardQuery, leadingKeyword } from "./sqlGuard.js";
 import { exactTimestamptzParser } from "./timestamptz.js";
 
 export interface ToolResult {
@@ -240,9 +240,26 @@ export async function runSelect(args: RunSelectArgs, cfg: DbConfig): Promise<Too
     try {
       // Append LIMIT cfg.maxRows + 1 if the query has no LIMIT? No — that's a
       // quietly-modify-the-query semantic the operator probably doesn't want.
-      // Instead, fetch through the regular client and truncate afterward.
+      // Nor fetch everything and truncate afterwards, as this did until #256:
+      // the WHOLE result was materialised in this process first, so MAX_ROWS
+      // bounded what the client saw and nothing else. Measured with
+      // maxRows=10, `SELECT g, repeat('x',1000) FROM generate_series(1,400000)`
+      // took the server from 90 MB to a 613 MB peak, and a wider one to 2.8 GB.
+      // The query runs unchanged as the body of a cursor, and only
+      // maxRows + 1 rows are fetched -- the extra one is how `truncated` is
+      // known. EXPLAIN cannot be a cursor body; its output is a plan, not data.
       // The DB-side statement_timeout (set in withClient) bounds runtime.
-      result = await c.query({ text: args.sql, types: SELECT_TYPES });
+      if (leadingKeyword(args.sql) === "EXPLAIN") {
+        result = await c.query({ text: args.sql, types: SELECT_TYPES });
+      } else {
+        await c.query("BEGIN");
+        await c.query(`DECLARE mcp_run_select NO SCROLL CURSOR FOR ${args.sql}`);
+        result = await c.query({
+          text: `FETCH FORWARD ${cfg.maxRows + 1} FROM mcp_run_select`,
+          types: SELECT_TYPES,
+        });
+        await c.query("COMMIT");
+      }
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       return err(`query execution error: ${msg}`);
