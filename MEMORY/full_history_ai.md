@@ -2824,5 +2824,21 @@ context_for_next_session:
   - A_THIRD_PARTY_ERROR_MESSAGE_CAN_QUOTE_WHAT_YOU_PASSED_IT_redact_secrets_from_any_text_derived_from_a_library_exception
   - TRIM_THE_ENDS_IS_NOT_VALIDATE_THE_INSIDE
   - GistsClient_CONSTRUCTOR_VALIDATES_ITS_CFG_so_the_config_rule_is_also_a_client_rule
+
+session: 2026-10-12T08:42:14Z
+duration_min: 1   # computed: plan comment 2026-10-12T08:42:14Z -> PR 2026-10-12T08:43:15Z (gh createdAt)
+issue: 267
+branch: session/2026-10-12-0842-issue-267
+focus: GET_GIST_DROPPED_GITHUBS_GIST_LEVEL_TRUNCATED_FLAG_THE_PER_FILE_ONE_WAS_KEPT
+phase: shipped
+delta:
+  files_changed: 7
+  tests_added: 3
+  suite: "github-gists 195 -> 198 passed; lint, typecheck, build, check-test-count, check-readme ok"
+decisions_made: []
+measured: "hunt agent: 300-file response with truncated:true -> projection had no truncated key. Revert 3 of 3 red."
+context_for_next_session:
+  - A_PROJECTION_THAT_KEEPS_A_FLAG_AT_ONE_LEVEL_check_the_same_flag_at_every_level_of_the_upstream_shape
+  - PR_265_AND_267_BOTH_EDIT_THE_GITHUB_GISTS_COUNT_LINES_resolve_to_main_plus_delta
 followups: []
 ---
