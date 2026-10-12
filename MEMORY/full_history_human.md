@@ -2350,3 +2350,13 @@ column default can too. Such a name could therefore add fake lines, for example
 a "view" called admin_passwords that does not exist. Any name or default with a
 line break or control character is now printed in quotes with the break
 escaped, so it stays on one line. Ordinary names print exactly as before.
+
+## 2026-10-12 — The Python filesystem server survives a deeply nested request (#262)
+
+The Python port reads each incoming line once itself, to answer requests the
+MCP SDK would otherwise silently drop. A request nested a million levels deep
+made that read fail with an error it didn't catch, and the whole server shut
+down. Separately, a request containing an enormous number lost its id and
+was never answered. A line that can't be read at all is now passed on to the
+SDK, which logs it and keeps going. A huge number no longer hides the
+request's id, so the request gets an answer.
