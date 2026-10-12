@@ -50,6 +50,23 @@ const FORBIDDEN_KEYWORDS_ANYWHERE = [
   "PG_LOG_BACKEND_MEMORY_CONTEXTS",
   "PG_PROMOTE", "PG_WAL_REPLAY_PAUSE", "PG_WAL_REPLAY_RESUME",
   "PG_RELOAD_CONF", "PG_SLEEP", "PG_NOTIFY",
+  // Found by sweeping every VOLATILE pg_catalog function through this guard
+  // (#258; test/sqlGuard-volatile-catalog.test.ts keeps the sweep). Each is
+  // the sibling of an entry already here, missed because the list was written
+  // from memory rather than from pg_proc. Measured in a READ ONLY transaction:
+  // - `pg_sleep_for` / `pg_sleep_until` slept, like the whole-word `PG_SLEEP`
+  //   they are not;
+  // - `pg_log_standby_snapshot` WROTE WAL (insert LSN moved), the class of
+  //   `pg_create_restore_point`;
+  // - `pg_nextoid` advanced the cluster OID counter, the class of `nextval`;
+  // - `pg_hba_file_rules` / `pg_ident_file_mappings` returned pg_hba.conf and
+  //   pg_ident.conf, and `pg_show_all_file_settings` postgresql.conf with its
+  //   path -- server-file reads, the class of `pg_read_file`;
+  // - `pg_current_logfile` named the server log file, the class of
+  //   `pg_stat_file`.
+  "PG_SLEEP_FOR", "PG_SLEEP_UNTIL", "PG_LOG_STANDBY_SNAPSHOT", "PG_NEXTOID",
+  "PG_HBA_FILE_RULES", "PG_IDENT_FILE_MAPPINGS", "PG_SHOW_ALL_FILE_SETTINGS",
+  "PG_CURRENT_LOGFILE",
   // pg_sync_replication_slots (PG17) creates/updates logical slots on a standby
   // to match the primary — the standby-side copy verb of the slot lifecycle whose
   // create/drop/advance/consume and the primary-side PG_COPY_ copiers are blocked.
