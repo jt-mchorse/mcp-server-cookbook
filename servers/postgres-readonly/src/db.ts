@@ -42,8 +42,32 @@ export function readDbConfigFromEnv(): DbConfig {
   }
   const maxRows = parseIntEnv("MAX_ROWS", 1000);
   const statementTimeoutMs = parseIntEnv("STATEMENT_TIMEOUT_MS", 5000);
+  // `parseIntEnv` bounds at MAX_SAFE_INTEGER, which is a *precision* bound.
+  // The usable bound is far lower; see MAX_STATEMENT_TIMEOUT_MS (#277).
+  if (statementTimeoutMs > MAX_STATEMENT_TIMEOUT_MS) {
+    throw new Error(
+      `env STATEMENT_TIMEOUT_MS must be <= ${MAX_STATEMENT_TIMEOUT_MS} (2**31 - 1 minus the 1s ` +
+        `query backstop); above it Node's setTimeout fires after ~1ms and every query times out ` +
+        `immediately; got ${statementTimeoutMs}`,
+    );
+  }
   return { connectionString, maxRows, statementTimeoutMs };
 }
+
+/**
+ * Largest `statementTimeoutMs` any of its three consumers can honour (#277).
+ *
+ * `withClient` hands the value to two client-side timers (#229) --
+ * `connectionTimeoutMillis: max(value, 5000)` and `query_timeout: value + 1000`
+ * -- and Node clamps any `setTimeout` delay above `2**31 - 1` to 1 ms. Measured
+ * on PostgreSQL 17.6: `2147482647` ran the query; `2147482648` (query backstop
+ * = `2**31`) failed every call with "Query read timeout" in ~3 ms, and
+ * `2147483648` failed every connect with "timeout expired". Postgres itself
+ * refuses `SET statement_timeout` above `INT_MAX`, so nothing past this bound
+ * works at all. It is the #143 bound github-gists and internal-tools-bridge
+ * already enforce, less the backstop's extra second.
+ */
+export const MAX_STATEMENT_TIMEOUT_MS = 2 ** 31 - 1 - 1000;
 
 /**
  * Parse a positive-integer environment variable, or return `fallback`.
@@ -140,6 +164,13 @@ export function validateDbConfig(cfg: DbConfig): void {
       `DbConfig.statementTimeoutMs must be an integer >= 1; got ${cfg.statementTimeoutMs}. ` +
         `In Postgres semantics, statement_timeout = 0 means no timeout — the per-query timeout ` +
         `is security-relevant defense in depth and must not be silently disabled by a programmatic 0.`,
+    );
+  }
+  if (cfg.statementTimeoutMs > MAX_STATEMENT_TIMEOUT_MS) {
+    throw new Error(
+      `DbConfig.statementTimeoutMs must be <= ${MAX_STATEMENT_TIMEOUT_MS}; got ${cfg.statementTimeoutMs}. ` +
+        `Above it the client's connect and query timers overflow Node's setTimeout and fire after ~1ms, ` +
+        `so every call fails as a timeout (#277).`,
     );
   }
 }
