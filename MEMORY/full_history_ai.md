@@ -2862,3 +2862,23 @@ context_for_next_session:
   - THE_BOOT_TEST_NAMES_THE_VALUE_ROW_ASSERTS_ECHO_so_a_secret_bearing_rejection_needs_its_own_spawned_test
 followups: []
 ---
+
+---
+session: 2026-10-13T07:22:00Z
+duration_min: 8   # computed: branch 2026-10-13T07:22Z -> commit ~07:30Z
+issue: 271
+branch: session/2026-10-13-0722-issue-271
+focus: GITHUB_GISTS_USER_AGENT_WAS_TRIMMED_AT_THE_ENDS_ONLY_A_CONTROL_OR_NON_LATIN1_CHAR_BOOTED_THEN_EVERY_CALL_FAILED_AS_UPSTREAM_UNREACHABLE
+phase: shipped
+delta:
+  files_changed: 5
+  tests_added: 26
+  suite: "github-gists 217 -> 243 passed; lint, typecheck, build, check-test-count, check-readme ok"
+decisions_made: []
+measured: "stdio session, MCP_GITHUB_GISTS_USER_AGENT='my-app/1.0<LF>X-Injected: 1': main -> every get_gist 'upstream_unreachable ... is an invalid header value'. Loopback fetch per code point (Node 25): refused = C0 except TAB, DEL, > U+00FF. Revert 21 red / 5 controls green."
+context_for_next_session:
+  - THE_264_BOOT_GATE_COVERED_ONE_OF_TWO_HEADER_VALUES_THE_CONFIG_SENDS
+  - new_Headers_IS_NOT_fetch_SOH_AND_DEL_PASS_HEADERS_AND_UNDICI_REFUSES_THEM_LATER_measure_the_rule_on_a_real_request
+  - THE_ACCEPTED_ROWS_GO_TO_A_LOOPBACK_SERVER_so_an_over_tight_gate_and_an_under_tight_one_both_go_red
+followups: []
+---

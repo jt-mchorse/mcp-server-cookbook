@@ -2387,3 +2387,13 @@ the HTTP library with an error quoting the whole URL, password included. That
 error was returned to the client as the tool's result. Such a URL, or one that
 can't be parsed at all, is now refused at startup with a message that names
 the host but never the password.
+
+## 2026-10-13 — A broken User-Agent setting is caught at startup (#271)
+
+The gists server sends its User-Agent setting as a request header. The
+previous fix checked the GitHub token for characters a header can't hold, but
+not this setting, which was only trimmed at the ends. A line break or a
+non-Latin character inside it let the server start, and then every request
+failed with a misleading "upstream unreachable" error. The server now refuses
+to start with such a value, naming the character. Values that do work, like a
+tab or an accented letter, are still accepted.
