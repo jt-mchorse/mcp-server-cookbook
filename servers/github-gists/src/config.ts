@@ -75,6 +75,7 @@ export function readGistsConfigFromEnv(env: NodeJS.ProcessEnv = process.env): Gi
       `MCP_GITHUB_GISTS_BASE_URL must start with http:// or https://; got ${JSON.stringify(baseUrl)}`,
     );
   }
+  assertBaseUrlIsFetchable(baseUrl, "MCP_GITHUB_GISTS_BASE_URL");
   // Strip a trailing slash so the request builder can always join with `/gists/<id>`.
   const normalizedBase = baseUrl.endsWith("/") ? baseUrl.slice(0, -1) : baseUrl;
 
@@ -146,6 +147,38 @@ export function readGistsConfigFromEnv(env: NodeJS.ProcessEnv = process.env): Gi
  */
 export const MAX_TIMEOUT_MS = 2 ** 31 - 1;
 
+/**
+ * Refuse a base URL `fetch` would reject on every call, without echoing it (#269).
+ *
+ * The `^https?://` gate above passes `https://user:pass@proxy/api/v3`, the
+ * natural way to write basic auth to a GHE proxy. WHATWG `fetch` refuses any
+ * URL with credentials, and undici's message, `Request cannot be constructed
+ * from a URL that includes credentials: <the whole URL>`, became the
+ * `upstream_unreachable` tool result: the password, echoed to the client on
+ * every call, which D-007 forbids. The same shape as #264, on the other config
+ * value that can hold a secret. A value `new URL()` cannot parse fails every
+ * call too (`Failed to parse URL from <url>`), so it is refused here as well.
+ * Neither message quotes the value: an unparseable one may still hold a
+ * password, and a parseable one names only its host.
+ */
+export function assertBaseUrlIsFetchable(baseUrl: string, label: string): void {
+  let url: URL;
+  try {
+    url = new URL(baseUrl);
+  } catch {
+    throw new Error(
+      `${label} is not a URL fetch can parse; the value is not shown, as it may carry ` +
+        `credentials`,
+    );
+  }
+  if (url.username !== "" || url.password !== "") {
+    throw new Error(
+      `${label} must not contain a username or password (fetch refuses such a URL and its ` +
+        `error quotes them); the credentials for host ${JSON.stringify(url.host)} are not shown`,
+    );
+  }
+}
+
 export function hasToken(cfg: GistsConfig): boolean {
   return cfg.token !== null;
 }
@@ -186,6 +219,7 @@ export function validateGistsConfig(cfg: GistsConfig): void {
       `GistsConfig.baseUrl must start with http:// or https://; got ${JSON.stringify(cfg.baseUrl)}`,
     );
   }
+  assertBaseUrlIsFetchable(cfg.baseUrl, "GistsConfig.baseUrl");
   if (typeof cfg.userAgent !== "string" || cfg.userAgent.length === 0) {
     throw new Error(
       `GistsConfig.userAgent must be a non-empty string; got ${JSON.stringify(cfg.userAgent)}`,
