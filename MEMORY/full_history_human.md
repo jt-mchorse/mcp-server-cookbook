@@ -2397,3 +2397,12 @@ non-Latin character inside it let the server start, and then every request
 failed with a misleading "upstream unreachable" error. The server now refuses
 to start with such a value, naming the character. Values that do work, like a
 tab or an accented letter, are still accepted.
+
+## 2026-10-13 — `EXPLAIN ANALYSE` is refused like `EXPLAIN ANALYZE` (#273)
+
+The guard refuses `EXPLAIN ANALYZE`, which runs the query rather than just
+planning it, and the README promises exactly that. Postgres also accepts the
+British spelling `ANALYSE` as the same keyword, and the guard only knew the
+American one, so `EXPLAIN ANALYSE ...` slipped through and ran. Both
+spellings are now refused. The inner query was still read-only either way;
+this closes a gap in a documented refusal, not a write.

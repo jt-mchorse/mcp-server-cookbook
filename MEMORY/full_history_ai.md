@@ -2882,3 +2882,21 @@ context_for_next_session:
   - THE_ACCEPTED_ROWS_GO_TO_A_LOOPBACK_SERVER_so_an_over_tight_gate_and_an_under_tight_one_both_go_red
 followups: []
 ---
+
+session: 2026-10-13T07:41:10Z
+duration_min: 5   # computed: plan comment 2026-10-13T07:41:10Z -> PR (gh createdAt)
+issue: 273
+branch: session/2026-10-13-0741-issue-273
+focus: POSTGRES_READONLY_REFUSED_EXPLAIN_ANALYZE_BUT_NOT_ANALYSE_THE_SAME_RESERVED_KEYWORD_IN_THE_OTHER_SPELLING
+phase: shipped
+delta:
+  files_changed: 4
+  tests_added: 6
+  suite: "postgres-readonly 646 -> 652 passed; lint, typecheck, build, check-test-count, check-readme ok"
+decisions_made: []
+measured: "PG 17.6: pg_get_keywords() lists analyse and analyze, both reserved; EXPLAIN ANALYSE SELECT ... executed (actual time, Execution Time) under default_transaction_read_only, and passed guardQuery on main. Revert 5 of 6 red (1 control green)."
+context_for_next_session:
+  - A_KEYWORD_DENY_LIST_IS_A_LIST_OF_SPELLINGS_diff_it_against_pg_get_keywords_not_against_the_concept
+  - VIEWS_OVER_REFUSED_FUNCTIONS_SWEPT_on_17_6_every_pg_catalog_and_information_schema_view_that_calls_a_refused_function_is_itself_refused
+followups: []
+---
