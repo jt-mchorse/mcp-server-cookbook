@@ -80,6 +80,7 @@ export function readGistsConfigFromEnv(env: NodeJS.ProcessEnv = process.env): Gi
   const normalizedBase = baseUrl.endsWith("/") ? baseUrl.slice(0, -1) : baseUrl;
 
   const userAgent = (env.MCP_GITHUB_GISTS_USER_AGENT ?? "").trim() || DEFAULT_UA;
+  assertUserAgentIsHeaderSafe(userAgent, "MCP_GITHUB_GISTS_USER_AGENT");
 
   const timeoutRaw = env.MCP_GITHUB_GISTS_TIMEOUT_MS;
   let timeoutMs = DEFAULT_TIMEOUT_MS;
@@ -179,6 +180,31 @@ export function assertBaseUrlIsFetchable(baseUrl: string, label: string): void {
   }
 }
 
+/**
+ * Refuse a User-Agent `fetch` would refuse on every call (#271).
+ *
+ * The token's boot gate (#264) left the config's other header value trimmed at
+ * the ends only. A CR, LF or NUL inside it, or a character above U+00FF, booted
+ * cleanly, and every tool call then failed in undici's `Headers` before any
+ * request left, reported as `upstream_unreachable`. The rule here is the one
+ * a real `fetch` applies, measured per code point on a loopback request (not
+ * on `new Headers()`, which lets SOH and DEL through for undici's request
+ * layer to refuse): every C0 control but TAB, DEL, and anything past Latin-1.
+ * A tab and `é` are sent, so they still boot. A User-Agent is not a secret, so
+ * the message quotes the value, as this file's other non-secret messages do.
+ */
+export function assertUserAgentIsHeaderSafe(userAgent: string, label: string): void {
+  for (let i = 0; i < userAgent.length; i++) {
+    const code = userAgent.charCodeAt(i);
+    if ((code < 0x20 && code !== 0x09) || code === 0x7f || code > 0xff) {
+      throw new Error(
+        `${label} contains U+${code.toString(16).toUpperCase().padStart(4, "0")} at position ` +
+          `${i}, which an HTTP header cannot carry; got ${JSON.stringify(userAgent)}`,
+      );
+    }
+  }
+}
+
 export function hasToken(cfg: GistsConfig): boolean {
   return cfg.token !== null;
 }
@@ -225,6 +251,7 @@ export function validateGistsConfig(cfg: GistsConfig): void {
       `GistsConfig.userAgent must be a non-empty string; got ${JSON.stringify(cfg.userAgent)}`,
     );
   }
+  assertUserAgentIsHeaderSafe(cfg.userAgent, "GistsConfig.userAgent");
   if (!Number.isInteger(cfg.timeoutMs) || cfg.timeoutMs < 1) {
     // `RangeError` matches the prior numeric-field validation shape on
     // this server's `GistsClient` constructor (#34) — existing tests
