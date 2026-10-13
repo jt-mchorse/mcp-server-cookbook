@@ -14,7 +14,8 @@ const ALLOWED_LEADING_KEYWORDS = new Set(["SELECT", "WITH", "VALUES", "TABLE", "
 
 // EXPLAIN is allowed because it never executes the inner statement under default
 // (non-ANALYZE) flags. EXPLAIN ANALYZE *would* execute writes and is rejected
-// below by the "no ANALYZE on writes" check at the keyword scan.
+// below by the "no ANALYZE on writes" check at the keyword scan, in both of the
+// spellings Postgres accepts (ANALYZE and ANALYSE, #273).
 //
 // Statements like SHOW, RESET, BEGIN, COMMIT, etc. are deliberately not allowed.
 // The MCP server is a per-call stateless surface; transactions and session
@@ -32,6 +33,11 @@ const FORBIDDEN_KEYWORDS_ANYWHERE = [
   "GRANT", "REVOKE",
   // Locking and admin
   "LOCK", "REINDEX", "VACUUM", "CLUSTER", "ANALYZE",
+  // `ANALYSE` is the same reserved keyword as `ANALYZE` (pg_get_keywords()
+  // lists both), so `EXPLAIN ANALYSE` / `EXPLAIN (ANALYSE)` executed the
+  // statement while `EXPLAIN ANALYZE` was refused (#273). It is the only
+  // keyword in the grammar that is a spelling of one listed here.
+  "ANALYSE",
   // Function-call escape hatches we never want a read-only client invoking.
   // `pg_signal_backend(pid, sig)` is the generic PARENT of the two children
   // below — it delivers SIGTERM/SIGINT to another backend, so blocking the
