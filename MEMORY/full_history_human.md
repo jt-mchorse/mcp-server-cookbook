@@ -2415,3 +2415,14 @@ those. The Python code even says its output is identical to the TypeScript
 one. A client that checks "is there a size?" to spot files would read the
 two servers differently. The Python port now leaves the key out too, and a
 shared test table checks the whole listing from both sides.
+
+## 2026-10-13 — A very long Postgres timeout no longer makes every query fail instantly (#277)
+
+Setting `STATEMENT_TIMEOUT_MS` to anything above about 24.8 days (2147482647
+ms) was accepted at startup, but then every query failed within a few
+milliseconds with a "timeout" error. The client-side safety timers added in
+#229 use Node's `setTimeout`, which quietly treats any delay that large as
+1 ms. Postgres itself also rejects a statement timeout that big. The GitHub
+and tools-bridge servers had refused this since #143; this server got its
+timers later and missed the limit. A value past it is now refused at startup
+with one line naming the limit.
