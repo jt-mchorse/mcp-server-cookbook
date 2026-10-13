@@ -2370,3 +2370,10 @@ exactly what this server promises never to do. A token with characters a
 header can't hold is now refused at startup, with a message naming the
 character but never the token. Any network error text also has the token
 blanked out, as a second safeguard.
+
+## 2026-10-12 — `get_gist` says when GitHub cut the file list short (#267)
+
+GitHub returns at most 300 files per gist, and sets a `truncated` flag when
+there are more. The tool passed on each file's own "truncated" flag but
+dropped the gist-wide one, so a gist with more than 300 files looked
+complete. The flag is now in the result, and the docs explain it.

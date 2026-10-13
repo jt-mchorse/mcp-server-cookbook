@@ -115,13 +115,16 @@ Read a gist by id. Returns the projected gist shape:
   "files": [
     { "filename": "a.md", "size": 42, "language": "Markdown",
       "truncated": false, "content": "..." }
-  ]
+  ],
+  "truncated": false
 }
 ```
 
 Files larger than the per-file cap (100 KB) come back with
 `truncated: true` and `content: null` so a large committed file does
-not blow the MCP response budget.
+not blow the MCP response budget. The top-level `truncated` is GitHub's
+own flag: the API lists at most 300 files per gist, and `true` means the
+`files` array is partial.
 
 Auth is optional for public gists but used when `GITHUB_TOKEN` is set
 for higher rate limits and access to private gists owned by the
@@ -188,7 +191,7 @@ For an interactive REPL across all your servers, use the
 ## Tests
 
 ```bash
-npm test          # vitest, 214 hermetic unit tests, no network beyond loopback
+npm test          # vitest, 217 hermetic unit tests, no network beyond loopback
 npm run typecheck # tsc --noEmit
 npm run lint      # eslint
 ```

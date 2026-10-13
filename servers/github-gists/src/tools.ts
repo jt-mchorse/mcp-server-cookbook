@@ -36,6 +36,8 @@ export interface ProjectedGist {
   public: boolean;
   html_url: string;
   files: ProjectedGistFile[];
+  /** GitHub lists at most 300 files and sets this when there are more (#267). */
+  truncated: boolean;
 }
 
 /**
@@ -68,6 +70,10 @@ export function projectGist(g: Gist, maxBytesPerFile: number): ProjectedGist {
     public: Boolean(g.public),
     html_url: g.html_url,
     files,
+    // The gist-level flag (#267). GitHub's file list stops at 300 and says so
+    // here; dropping it made a 300+ file gist read as complete. Read the way
+    // the per-file flag above is.
+    truncated: Boolean(g.truncated),
   };
 }
 

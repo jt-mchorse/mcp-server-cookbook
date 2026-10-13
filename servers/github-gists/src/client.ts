@@ -34,6 +34,8 @@ export interface Gist {
   public: boolean;
   html_url: string;
   files: Record<string, GistFile>;
+  /** Set by GitHub when the gist has more than 300 files (#267). */
+  truncated?: boolean;
 }
 
 /**

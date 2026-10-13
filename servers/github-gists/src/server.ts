@@ -75,7 +75,7 @@ const TOOLS = [
   {
     name: "get_gist",
     description:
-      "Read a GitHub Gist by id. Returns id, description, public flag, html_url, and an array of files (filename, size, language, content). Files over the per-call cap are returned with `truncated: true` and no content. Works without a token for public gists; uses `GITHUB_TOKEN` when set for higher rate limits and private gists.",
+      "Read a GitHub Gist by id. Returns id, description, public flag, html_url, and an array of files (filename, size, language, content). Files over the per-call cap are returned with `truncated: true` and no content. GitHub lists at most 300 files; a top-level `truncated: true` says the file list itself is partial. Works without a token for public gists; uses `GITHUB_TOKEN` when set for higher rate limits and private gists.",
     inputSchema: {
       type: "object",
       properties: {
