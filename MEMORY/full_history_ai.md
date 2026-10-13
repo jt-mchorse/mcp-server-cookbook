@@ -2789,3 +2789,23 @@ context_for_next_session:
   - A_TEXT_RENDERER_BESIDE_TWO_JSON_ONES_IS_THE_ONE_THAT_CAN_BE_FORGED_ask_which_output_of_a_family_is_not_escaped
 followups: []
 ---
+
+---
+session: 2026-10-12T08:17:04Z
+duration_min: 1   # computed: plan comment 2026-10-12T08:17:04Z -> PR 2026-10-12T08:18:49Z (gh createdAt)
+issue: 262
+branch: session/2026-10-12-0817-issue-262
+focus: FS_SANDBOX_PY_STDIO_FILTER_CAUGHT_VALUEERROR_ONLY_A_DEEP_LINE_RAISED_RECURSIONERROR_AND_KILLED_THE_SERVER_A_5000_DIGIT_INT_LEFT_A_READABLE_ID_UNANSWERED
+phase: shipped
+delta:
+  files_changed: 5
+  tests_added: 4
+  suite: "fs-sandbox-py 338 -> 342 passed; ruff clean; check-test-count + check-readme ok"
+decisions_made: []
+measured: "3.14 stdio session: main depth 1e6 -> exit 1, only id 1 answered. Branch: depth 1e6 exit 0, id 5 answered; depth 1e5 id 4 -32600 + id 5. Revert 4 of 4 red."
+context_for_next_session:
+  - A_FILTER_PUT_IN_FRONT_OF_THE_SDK_INHERITS_EVERY_INPUT_THE_SDK_SURVIVED_214_ADDED_A_CRASH_THE_BARE_SDK_DID_NOT_HAVE
+  - A_LINE_NO_PARSER_CAN_READ_HAS_NO_ID_pass_it_through_D_015_answered_not_hanging_applies_where_an_id_is_readable
+  - parse_int_KEEPS_AN_OVERSIZED_LITERAL_so_one_huge_number_in_params_does_not_cost_the_request_its_id
+followups: []
+---
