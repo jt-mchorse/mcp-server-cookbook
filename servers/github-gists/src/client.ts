@@ -246,13 +246,21 @@ export class UpstreamUnreachableError extends Error {
   }
 }
 
-/** One line naming why `fetch` rejected, from its `cause` when it has one. */
-function describeFetchFailure(err: unknown): string {
+/**
+ * One line naming why `fetch` rejected, from its `cause` when it has one.
+ *
+ * The configured token is redacted from it (#264). undici's invalid-header
+ * message quotes the whole `Bearer <token>` value, and this text becomes the
+ * tool result. The config now refuses such a token at boot; the redaction is
+ * the second layer, for any message that quotes a header.
+ */
+export function describeFetchFailure(err: unknown, token: string | null = null): string {
   const cause = (err as { cause?: unknown } | null)?.cause;
   const source = cause instanceof Error ? cause : err;
   const code = (source as { code?: unknown } | null)?.code;
   const message = source instanceof Error ? source.message : String(source);
   let text = typeof code === "string" && !message.includes(code) ? `${code} ${message}` : message;
+  if (token) text = text.split(token).join("[REDACTED]");
   if (text.length === 0) text = "fetch failed";
   return text.length > 200 ? text.slice(0, 200) + "…" : text;
 }
@@ -465,7 +473,10 @@ export class GistsClient {
         // A rejection before any response is either our abort (reported
         // below as request_timed_out) or the connection itself failing (#231).
         if (ac.signal.aborted || (err as { name?: string }).name === "AbortError") throw err;
-        throw new UpstreamUnreachableError(`${method} ${endpoint}`, describeFetchFailure(err));
+        throw new UpstreamUnreachableError(
+          `${method} ${endpoint}`,
+          describeFetchFailure(err, this.cfg.token),
+        );
       }
       return await read(res);
     } catch (err) {

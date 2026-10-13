@@ -36,9 +36,35 @@ const DEFAULT_BASE = "https://api.github.com";
 const DEFAULT_UA = "mcp-cookbook-github-gists/0.1.0";
 const DEFAULT_TIMEOUT_MS = 10_000;
 
+/**
+ * Refuse a token an HTTP header cannot carry, without echoing it (#264).
+ *
+ * The ends are trimmed above, but nothing looked inside. A CR or LF in the
+ * middle (a wrapped paste, an escaped newline in a `.env`) made undici reject
+ * the header with `Headers.append: "Bearer <token>" is an invalid header
+ * value`, and that message reached the client as the tool result: the token,
+ * echoed, which D-007 forbids. A header value is Latin-1 without controls, so
+ * anything else is refused at boot. The message names the character's code
+ * point and position, never the value.
+ */
+export function assertTokenIsHeaderSafe(token: string | null): void {
+  if (token === null) return;
+  for (let i = 0; i < token.length; i++) {
+    const code = token.charCodeAt(i);
+    if (code < 0x20 || code === 0x7f || code > 0xff) {
+      throw new Error(
+        `GITHUB_TOKEN contains U+${code.toString(16).toUpperCase().padStart(4, "0")} at ` +
+          `position ${i}, which an HTTP header cannot carry; the token is not shown; ` +
+          `re-copy it as one line`,
+      );
+    }
+  }
+}
+
 export function readGistsConfigFromEnv(env: NodeJS.ProcessEnv = process.env): GistsConfig {
   const rawToken = env.GITHUB_TOKEN ?? "";
   const token = rawToken.trim().length > 0 ? rawToken.trim() : null;
+  assertTokenIsHeaderSafe(token);
 
   const baseUrl = (env.MCP_GITHUB_GISTS_BASE_URL ?? DEFAULT_BASE).trim() || DEFAULT_BASE;
   // Refuse a base URL that obviously isn't a URL — a `gh://` or empty
@@ -194,5 +220,6 @@ export function validateGistsConfig(cfg: GistsConfig): void {
           `auth-configured to hasToken() — set null explicitly to opt out of auth.`,
       );
     }
+    assertTokenIsHeaderSafe(cfg.token);
   }
 }

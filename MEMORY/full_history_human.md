@@ -2360,3 +2360,13 @@ down. Separately, a request containing an enormous number lost its id and
 was never answered. A line that can't be read at all is now passed on to the
 SDK, which logs it and keeps going. A huge number no longer hides the
 request's id, so the request gets an answer.
+
+## 2026-10-12 — The GitHub token can't leak into a tool result (#264)
+
+If `GITHUB_TOKEN` had a line break in the middle (a wrapped paste, say), the
+HTTP library refused to send it and printed an error quoting the whole token.
+That error went straight back to the client as the tool's result, which is
+exactly what this server promises never to do. A token with characters a
+header can't hold is now refused at startup, with a message naming the
+character but never the token. Any network error text also has the token
+blanked out, as a second safeguard.
