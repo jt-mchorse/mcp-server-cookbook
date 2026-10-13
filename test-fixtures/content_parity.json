@@ -72,5 +72,22 @@
     "\u00e4",
     "\ue000",
     "\ud83d\ude00"
-  ]
+  ],
+  "list_entries": {
+    "_comment": [
+      "#275: the listing as a client parses it. `size` is present only for a regular",
+      "file; the Python port emitted \"size\": null for every other entry while the TS",
+      "port omitted the key. `tree` kinds: file (with content), dir, symlink (to target)."
+    ],
+    "tree": [
+      {"name": "a.txt", "kind": "file", "content": "hi\n"},
+      {"name": "sub", "kind": "dir"},
+      {"name": "link", "kind": "symlink", "target": "a.txt"}
+    ],
+    "expect": [
+      {"name": "a.txt", "kind": "file", "size": 3},
+      {"name": "link", "kind": "symlink"},
+      {"name": "sub", "kind": "directory"}
+    ]
+  }
 }
