@@ -40,7 +40,7 @@ export function readDbConfigFromEnv(): DbConfig {
       "DATABASE_URL is required. Use a connection string for a READ-ONLY role; this server enforces query-level read-only on top, but the role enforcement is your defense-in-depth.",
     );
   }
-  const maxRows = parseIntEnv("MAX_ROWS", 1000);
+  const maxRows = boundMaxRows(parseIntEnv("MAX_ROWS", 1000));
   const statementTimeoutMs = parseIntEnv("STATEMENT_TIMEOUT_MS", 5000);
   // `parseIntEnv` bounds at MAX_SAFE_INTEGER, which is a *precision* bound.
   // The usable bound is far lower; see MAX_STATEMENT_TIMEOUT_MS (#277).
@@ -123,6 +123,29 @@ function parseIntEnv(name: string, fallback: number): number {
 }
 
 /**
+ * Largest `MAX_ROWS` `run_select` can fetch with (#280).
+ *
+ * `parseIntEnv` bounds at MAX_SAFE_INTEGER, which is a *precision* bound.
+ * Since #256 `run_select` sends `FETCH FORWARD <MAX_ROWS + 1>`, and Postgres
+ * reads a FETCH count as a 32-bit integer. Measured on PostgreSQL 17.6:
+ * `MAX_ROWS=2147483646` returned rows; `2147483647` booted and then failed
+ * every `run_select` with `syntax error at or near "2147483648"` -- an error
+ * that points the model at SQL it did not write.
+ */
+export const MAX_MAX_ROWS = 2 ** 31 - 1 - 1;
+
+function boundMaxRows(maxRows: number): number {
+  if (maxRows > MAX_MAX_ROWS) {
+    throw new Error(
+      `env MAX_ROWS must be <= ${MAX_MAX_ROWS} (2**31 - 1 minus the one extra row run_select ` +
+        `fetches to detect truncation); above it Postgres refuses the cursor's FETCH count and ` +
+        `every run_select fails; got ${maxRows}`,
+    );
+  }
+  return maxRows;
+}
+
+/**
  * Validate a `DbConfig` at the programmatic entry of `withClient` so the
  * security-relevant numeric fields cannot be silently degenerate when a
  * caller (test, custom driver, future cross-server import per D-002's
@@ -158,6 +181,12 @@ export function validateDbConfig(cfg: DbConfig): void {
   }
   if (!Number.isInteger(cfg.maxRows) || cfg.maxRows < 1) {
     throw new Error(`DbConfig.maxRows must be an integer >= 1; got ${cfg.maxRows}`);
+  }
+  if (cfg.maxRows > MAX_MAX_ROWS) {
+    throw new Error(
+      `DbConfig.maxRows must be <= ${MAX_MAX_ROWS}; got ${cfg.maxRows}. run_select fetches ` +
+        `maxRows + 1 rows, and Postgres reads a FETCH count as a 32-bit integer (#280).`,
+    );
   }
   if (!Number.isInteger(cfg.statementTimeoutMs) || cfg.statementTimeoutMs < 1) {
     throw new Error(
