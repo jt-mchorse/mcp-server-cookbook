@@ -2918,3 +2918,22 @@ context_for_next_session:
   - asdict_EMITS_EVERY_DEFAULTED_FIELD_an_optional_TS_property_is_an_absent_key_not_a_null
 followups: []
 ---
+
+session: 2026-10-13T08:04:43Z
+duration_min: 10   # plan comment 2026-10-13T08:04:43Z -> PR (approx)
+issue: 277
+branch: session/2026-10-13-0804-issue-277
+focus: POSTGRES_READONLY_STATEMENT_TIMEOUT_MS_HAD_NO_UPPER_BOUND_THE_229_CLIENT_TIMERS_OVERFLOW_SETTIMEOUT_AND_FIRE_AFTER_1MS
+phase: shipped
+delta:
+  files_changed: 6
+  tests_added: 15
+  suite: "postgres-readonly 646 -> 661 passed; lint, typecheck, build, check-test-count, check-readme, string/numeric env grammar ok"
+decisions_made: []
+measured: "PG 17.6 via readDbConfigFromEnv + runSelect: 2147482647 ran; 2147482648 and 2147483647 -> 'Query read timeout' in ~3 ms; 2147483648 and 1e10 -> connect 'timeout expired' in ~2 ms. Postgres refuses SET statement_timeout above INT_MAX. Guard-only revert 12 of 15 red (3 green: arithmetic pin + two accepts-the-bound controls)."
+context_for_next_session:
+  - A_FIX_THAT_ADDS_A_TIMER_INHERITS_EVERY_TIMER_BOUND_143_bounded_gists_and_bridge_229_added_pg_timers_six_weeks_later_without_it
+  - THE_BOUND_IS_THE_SUM_query_timeout_is_value_plus_1000_so_the_limit_is_2_31_minus_1_minus_1000
+  - check-string-env-grammar_FLAGS_A_SECOND_process_env_READ_echo_the_parsed_value_not_the_raw_env
+followups: []
+---

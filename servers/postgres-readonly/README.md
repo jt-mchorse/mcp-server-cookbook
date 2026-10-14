@@ -74,7 +74,11 @@ The agent emits `SELECT * FROM big_table CROSS JOIN big_table` or sleeps.
   `STATEMENT_TIMEOUT_MS`). The client is bounded too: connecting waits at
   most `max(STATEMENT_TIMEOUT_MS, 5s)` and each query at most
   `STATEMENT_TIMEOUT_MS + 1s`, so a database that accepts the connection and
-  never answers fails the call instead of hanging it (#229).
+  never answers fails the call instead of hanging it (#229). Because those
+  are Node timers, `STATEMENT_TIMEOUT_MS` is capped at `2147482647`
+  (`2**31 - 1` less the 1s backstop): above it `setTimeout` fires after ~1 ms
+  and every call would fail as a timeout, so the server refuses to start
+  (#277).
 - `pg_sleep` is in the forbidden-keywords list.
 - `MAX_ROWS` (default 1000) caps the rows the server reads, not only the
   ones it returns: `run_select` runs the query unchanged as the body of a

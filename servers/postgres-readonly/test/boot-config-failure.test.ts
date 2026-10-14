@@ -123,6 +123,8 @@ const BAD_ENVS: ReadonlyArray<readonly [string, Record<string, string>]> = [
   ["non-numeric MAX_ROWS", { DATABASE_URL: DSN, MAX_ROWS: "abc" }],
   ["zero MAX_ROWS", { DATABASE_URL: DSN, MAX_ROWS: "0" }],
   ["negative STATEMENT_TIMEOUT_MS", { DATABASE_URL: DSN, STATEMENT_TIMEOUT_MS: "-1" }],
+  // Past the 32-bit setTimeout range of the client timers #229 added (#277).
+  ["STATEMENT_TIMEOUT_MS past the timer range", { DATABASE_URL: DSN, STATEMENT_TIMEOUT_MS: "2147483648" }],
 ];
 
 describe("postgres-readonly refuses a bad boot config with one line", () => {
