@@ -249,6 +249,24 @@ export class UpstreamUnreachableError extends Error {
 }
 
 /**
+ * `text` capped at `maxUnits` UTF-16 code units, with `…` appended when it was
+ * cut. If the cut would keep the high half of a surrogate pair without its low
+ * half, it keeps one unit fewer (#282).
+ *
+ * A bare `slice(0, 200)` on an upstream body of emoji can end in a lone
+ * `\ud83d`. `JSON.stringify` writes that as an unpaired escape, and the MCP
+ * Python client's strict JSON parser rejects the whole response line
+ * ("unexpected end of hex escape"), so the call is never answered.
+ */
+export function capErrorText(text: string, maxUnits: number): string {
+  if (text.length <= maxUnits) return text;
+  let end = maxUnits;
+  const last = text.charCodeAt(end - 1);
+  if (last >= 0xd800 && last <= 0xdbff) end -= 1;
+  return text.slice(0, end) + "…";
+}
+
+/**
  * One line naming why `fetch` rejected, from its `cause` when it has one.
  *
  * The configured token is redacted from it (#264). undici's invalid-header
@@ -264,7 +282,7 @@ export function describeFetchFailure(err: unknown, token: string | null = null):
   let text = typeof code === "string" && !message.includes(code) ? `${code} ${message}` : message;
   if (token) text = text.split(token).join("[REDACTED]");
   if (text.length === 0) text = "fetch failed";
-  return text.length > 200 ? text.slice(0, 200) + "…" : text;
+  return capErrorText(text, 200);
 }
 
 export class TokenRequiredError extends Error {
@@ -530,6 +548,6 @@ export class GistsClient {
     }
     // Cap the length so a misconfigured endpoint can't dump megabytes through
     // our errors — applied to the JSON `message` and the raw-text fallback alike.
-    return reason.length > 200 ? reason.slice(0, 200) + "…" : reason;
+    return capErrorText(reason, 200);
   }
 }

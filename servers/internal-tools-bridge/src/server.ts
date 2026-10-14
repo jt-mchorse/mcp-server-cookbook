@@ -10,6 +10,7 @@ import {
 import {
   AllowlistError,
   BridgeError,
+  capCodeUnits,
   NonZeroExitError,
   OutputCapError,
   TimeoutError,
@@ -127,7 +128,7 @@ function errorMessage(err: unknown): string {
   if (err instanceof TimeoutError) return err.message;
   if (err instanceof OutputCapError) return err.message;
   if (err instanceof NonZeroExitError) {
-    return `${err.message}${err.stderr ? `; stderr: ${err.stderr.slice(0, 500)}` : ""}`;
+    return `${err.message}${err.stderr ? `; stderr: ${capCodeUnits(err.stderr, 500)}` : ""}`;
   }
   if (err instanceof BridgeError) return err.message;
   return err instanceof Error ? err.message : String(err);

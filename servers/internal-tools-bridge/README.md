@@ -170,7 +170,7 @@ this paragraph has to change with it.
 ## Tests
 
 ```bash
-npm test          # 74 tests (30 bridge, 10 tools, 3 public-surface, 3 repo-stats-readme, 10 timeout-clamp, 12 server-boot-config, 6 cwd-kind-and-args) — ~5s
+npm test          # 81 tests (30 bridge, 10 tools, 3 public-surface, 3 repo-stats-readme, 10 timeout-clamp, 12 server-boot-config, 6 cwd-kind-and-args, 7 error-text-surrogate) — ~5s
 npm run lint
 npm run typecheck
 ```
