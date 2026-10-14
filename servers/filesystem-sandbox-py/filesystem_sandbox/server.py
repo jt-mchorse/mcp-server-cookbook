@@ -201,7 +201,13 @@ def _dispatch_tool(name: str, arguments: dict[str, Any], deps: ToolDeps) -> tupl
     try:
         if name == "list_directory":
             out = list_directory(deps, arguments["path"])
-            payload = [asdict(e) for e in out]
+            # `size` only where there is one (#275). `asdict` kept the
+            # dataclass default, so every directory, symlink and special file
+            # read `"size": null`, where the TS port's entry has no key at all
+            # (`DirEntry.size?`) -- a different value for the same listing.
+            payload = [
+                {k: v for k, v in asdict(e).items() if not (k == "size" and v is None)} for e in out
+            ]
             return json.dumps(payload, indent=2), False
         if name == "read_file":
             text = read_file(deps, arguments["path"])

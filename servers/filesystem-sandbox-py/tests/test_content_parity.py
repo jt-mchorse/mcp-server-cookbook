@@ -59,3 +59,21 @@ def test_list_directory_orders_by_code_point(deps: ToolDeps, tmp_path: Path) -> 
     for name in TABLE["list_names"]:
         Path(root, name).write_text("")
     assert [e.name for e in list_directory(deps, root)] == TABLE["list_order"]
+
+
+def test_list_directory_entry_shape(deps: ToolDeps, tmp_path: Path) -> None:
+    """The listing a client parses matches the TS port's: no ``size`` key on a
+    non-file entry, rather than ``"size": null`` (#275)."""
+    table = TABLE["list_entries"]
+    root = os.path.realpath(tmp_path)
+    for node in table["tree"]:
+        full = os.path.join(root, node["name"])
+        if node["kind"] == "file":
+            Path(full).write_text(node["content"], encoding="utf-8")
+        elif node["kind"] == "dir":
+            os.mkdir(full)
+        else:
+            os.symlink(node["target"], full)
+    text, is_error = _dispatch_tool("list_directory", {"path": root}, deps)
+    assert not is_error
+    assert json.loads(text) == table["expect"]

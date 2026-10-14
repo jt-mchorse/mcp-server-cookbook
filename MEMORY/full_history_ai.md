@@ -2900,3 +2900,21 @@ context_for_next_session:
   - VIEWS_OVER_REFUSED_FUNCTIONS_SWEPT_on_17_6_every_pg_catalog_and_information_schema_view_that_calls_a_refused_function_is_itself_refused
 followups: []
 ---
+
+session: 2026-10-13T07:45:20Z
+duration_min: 5   # computed: plan comment 2026-10-13T07:45:20Z -> PR (gh createdAt)
+issue: 275
+branch: session/2026-10-13-0745-issue-275
+focus: FS_SANDBOX_PY_LIST_DIRECTORY_EMITTED_SIZE_NULL_FOR_EVERY_NON_FILE_ENTRY_THE_TS_PORT_OMITS_THE_KEY
+phase: shipped
+delta:
+  files_changed: 8
+  tests_added: 2
+  suite: "filesystem-sandbox 259 -> 260, fs-sandbox-py 342 -> 343 passed; ruff check + format, lint, typecheck, build, check-test-count, check-readme ok"
+decisions_made: []
+measured: "same tree (file, fifo, symlink, dir): TS listing has size only on a.txt; Python _dispatch_tool text parsed to size:null on the other three. Revert 1 of 2 red (the TS row is the shared-table pin; TS was already right)."
+context_for_next_session:
+  - A_PARITY_TABLE_THAT_COMPARES_ONE_FIELD_OF_A_RECORD_compare_the_parsed_value_the_client_gets_not_the_field_the_last_bug_was_in
+  - asdict_EMITS_EVERY_DEFAULTED_FIELD_an_optional_TS_property_is_an_absent_key_not_a_null
+followups: []
+---

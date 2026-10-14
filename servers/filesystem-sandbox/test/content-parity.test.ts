@@ -21,6 +21,10 @@ const TABLE = JSON.parse(
   read_cases: { label: string; bytes_hex: string; text: string }[];
   list_names: string[];
   list_order: string[];
+  list_entries: {
+    tree: { name: string; kind: "file" | "dir" | "symlink"; content?: string; target?: string }[];
+    expect: unknown[];
+  };
 };
 
 let root: string;
@@ -66,6 +70,18 @@ describe("list_directory (#209)", () => {
     for (const name of TABLE.list_names) await fs.writeFile(path.join(root, name), "");
     const names = (await listDirectory(deps, root)).map((e) => e.name);
     expect(names).toEqual(TABLE.list_order);
+  });
+
+  it("an entry carries size only when it is a regular file, as the Python port's does (#275)", async () => {
+    for (const node of TABLE.list_entries.tree) {
+      const full = path.join(root, node.name);
+      if (node.kind === "file") await fs.writeFile(full, node.content ?? "");
+      else if (node.kind === "dir") await fs.mkdir(full);
+      else await fs.symlink(node.target ?? "", full);
+    }
+    // The text server.ts returns, parsed the way a client parses it.
+    const text = JSON.stringify(await listDirectory(deps, root), null, 2);
+    expect(JSON.parse(text)).toEqual(TABLE.list_entries.expect);
   });
 
   it("compareCodePoints puts an astral character after U+E000 (where `<` would not)", () => {

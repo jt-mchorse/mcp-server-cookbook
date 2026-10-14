@@ -2406,3 +2406,12 @@ British spelling `ANALYSE` as the same keyword, and the guard only knew the
 American one, so `EXPLAIN ANALYSE ...` slipped through and ran. Both
 spellings are now refused. The inner query was still read-only either way;
 this closes a gap in a documented refusal, not a write.
+
+## 2026-10-13 — Both file-server ports list a directory the same way (#275)
+
+The Python port's directory listing added `"size": null` to every folder,
+link and special file, while the TypeScript port just leaves `size` out for
+those. The Python code even says its output is identical to the TypeScript
+one. A client that checks "is there a size?" to spot files would read the
+two servers differently. The Python port now leaves the key out too, and a
+shared test table checks the whole listing from both sides.
