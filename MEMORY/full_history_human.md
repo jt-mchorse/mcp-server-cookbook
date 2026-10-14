@@ -2377,3 +2377,13 @@ GitHub returns at most 300 files per gist, and sets a `truncated` flag when
 there are more. The tool passed on each file's own "truncated" flag but
 dropped the gist-wide one, so a gist with more than 300 files looked
 complete. The flag is now in the result, and the docs explain it.
+
+## 2026-10-13 — A password in the GitHub base URL can't leak into a tool result (#269)
+
+The gists server's base URL setting was only checked to start with http or
+https. A URL with a username and password in it, the usual way to reach a
+proxy that needs a login, started fine, and then every request failed inside
+the HTTP library with an error quoting the whole URL, password included. That
+error was returned to the client as the tool's result. Such a URL, or one that
+can't be parsed at all, is now refused at startup with a message that names
+the host but never the password.

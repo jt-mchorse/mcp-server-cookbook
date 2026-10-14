@@ -2842,3 +2842,23 @@ context_for_next_session:
   - PR_265_AND_267_BOTH_EDIT_THE_GITHUB_GISTS_COUNT_LINES_resolve_to_main_plus_delta
 followups: []
 ---
+
+---
+session: 2026-10-13T07:18:26Z
+duration_min: 3   # computed: plan comment 2026-10-13T07:18:26Z -> commit ~07:20Z
+issue: 269
+branch: session/2026-10-13-0718-issue-269
+focus: GITHUB_GISTS_BASE_URL_WITH_USERINFO_BOOTED_THEN_EVERY_CALL_RETURNED_UNDICIS_URL_INCLUDES_CREDENTIALS_MESSAGE_QUOTING_THE_PASSWORD
+phase: shipped
+delta:
+  files_changed: 5
+  tests_added: 21
+  suite: "github-gists 217 -> 238 passed (rebased onto #265 + #268); lint, typecheck, build, check-test-count, check-readme ok"
+decisions_made: []
+measured: "stdio session, MCP_GITHUB_GISTS_BASE_URL=https://ci-bot:PROXYSECRET42@ghe-proxy.example.test/api/v3: main -> get_gist result 'Request cannot be constructed from a URL that includes credentials: https://ci-bot:PROXYSECRET42@...'. Branch: refuses to boot naming the host only. Revert 17 red / 4 controls green."
+context_for_next_session:
+  - 264_GUARDED_THE_TOKEN_THE_OTHER_CONFIG_VALUE_THAT_CAN_HOLD_A_SECRET_IS_THE_URL_ask_every_input_an_undici_message_quotes
+  - A_PREFIX_REGEX_IS_NOT_A_PARSE_https_SPACE_and_bare_https_COLON_SLASH_SLASH_passed_it_and_failed_every_call
+  - THE_BOOT_TEST_NAMES_THE_VALUE_ROW_ASSERTS_ECHO_so_a_secret_bearing_rejection_needs_its_own_spawned_test
+followups: []
+---
