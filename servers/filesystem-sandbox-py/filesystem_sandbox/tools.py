@@ -82,6 +82,10 @@ def list_directory(deps: ToolDeps, dir_path: str) -> list[DirEntry]:
     return out
 
 
+# Largest single read `read_file` asks for (#279); the TS port's READ_CHUNK_BYTES.
+READ_CHUNK_BYTES = 1_048_576
+
+
 def read_file(deps: ToolDeps, file_path: str) -> str:
     """Read the file as UTF-8 text. Caps at ``max_bytes``.
 
@@ -96,7 +100,20 @@ def read_file(deps: ToolDeps, file_path: str) -> str:
         size = os.fstat(fh.fileno()).st_size
         if size > deps.max_bytes:
             raise FileTooLargeError(size, deps.max_bytes)
-        raw = fh.read(deps.max_bytes + 1)
+        # Up to `max_bytes + 1`, in chunks (#279): `fh.read(max_bytes + 1)`
+        # sizes its buffer by the cap, so the top of the accepted range
+        # (MAX_SAFE_INTEGER, the #137 parity contract) raised MemoryError on a
+        # 5-byte file. The TS port reads the same way.
+        limit = deps.max_bytes + 1
+        parts: list[bytes] = []
+        total = 0
+        while total < limit:
+            part = fh.read(min(READ_CHUNK_BYTES, limit - total))
+            if not part:
+                break
+            parts.append(part)
+            total += len(part)
+        raw = b"".join(parts)
     if len(raw) > deps.max_bytes:
         raise FileTooLargeError(len(raw), deps.max_bytes)
     try:
