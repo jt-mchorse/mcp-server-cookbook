@@ -144,6 +144,24 @@ describe("guardQuery — rejected (multi-statement and bypass attempts)", () => 
     expect(guardQuery("EXPLAIN ANALYZE SELECT 1").ok).toBe(false);
   });
 
+  // Postgres reads ANALYSE as the same keyword (#273); measured on 17.6, each of
+  // these executed the statement while passing the guard.
+  it.each([
+    "EXPLAIN ANALYSE SELECT 1",
+    "explain analyse select 1",
+    "EXPLAIN (ANALYSE) SELECT 1",
+    "EXPLAIN (ANALYSE, BUFFERS) SELECT 1",
+    "EXPLAIN (ANALYSE true) SELECT 1",
+  ])("rejects the ANALYSE spelling: %s", (q) => {
+    const r = guardQuery(q);
+    expect(r.ok).toBe(false);
+    expect(r.reason).toBe("forbidden keyword present: ANALYSE");
+  });
+
+  it("still allows EXPLAIN without ANALYSE", () => {
+    expect(guardQuery("EXPLAIN (VERBOSE, COSTS false) SELECT 1").ok).toBe(true);
+  });
+
   it("rejects FOR UPDATE row-level locks", () => {
     expect(guardQuery("SELECT * FROM users FOR UPDATE").ok).toBe(false);
   });
