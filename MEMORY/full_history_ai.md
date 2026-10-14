@@ -2937,3 +2937,24 @@ context_for_next_session:
   - check-string-env-grammar_FLAGS_A_SECOND_process_env_READ_echo_the_parsed_value_not_the_raw_env
 followups: []
 ---
+
+---
+---
+session: 2026-10-14T07:18:48Z
+duration_min: 3   # computed: plan comment 2026-10-14T07:18:48Z -> commit ~07:20Z
+issue: 280
+branch: session/2026-10-14-0718-issue-280
+focus: POSTGRES_READONLY_MAX_ROWS_PAST_2147483646_BOOTED_THEN_EVERY_RUN_SELECT_FAILED_THE_256_CURSORS_FETCH_COUNT_IS_32_BIT
+phase: shipped
+delta:
+  files_changed: 6
+  tests_added: 14
+  suite: "postgres-readonly 652 -> 666 passed (rebased onto #272 + #274); lint, typecheck, build, check-test-count, check-readme ok"
+decisions_made: []
+measured: "PostgreSQL 17.6, readDbConfigFromEnv + runSelect: MAX_ROWS=2147483646 -> rows; 2147483647 and 9007199254740991 boot, then 'query execution error: syntax error at or near \"2147483648\"'. psql FETCH FORWARD 2147483648 -> syntax error. Revert 10 red / 4 controls green."
+context_for_next_session:
+  - 277_BOUNDED_ONE_OF_TWO_INTEGER_SETTINGS_THE_OTHER_GOT_A_32_BIT_CONSUMER_IN_256_ask_every_consumer_of_every_parseIntEnv_value
+  - A_SQL_GRAMMAR_INTEGER_IS_INT32_FETCH_COUNT_IS_SignedIconst_LIMIT_IS_NOT
+  - BOUND_KEPT_IN_A_HELPER_ON_THE_maxRows_LINE_so_it_does_not_touch_the_hunks_PR_278_adds
+followups: []
+---

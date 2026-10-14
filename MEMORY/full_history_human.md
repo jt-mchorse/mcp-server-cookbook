@@ -2426,3 +2426,13 @@ milliseconds with a "timeout" error. The client-side safety timers added in
 and tools-bridge servers had refused this since #143; this server got its
 timers later and missed the limit. A value past it is now refused at startup
 with one line naming the limit.
+
+## 2026-10-14 — A huge `MAX_ROWS` is refused at startup instead of breaking every query (#280)
+
+The Postgres server accepted any `MAX_ROWS` up to about nine quadrillion.
+Since `run_select` started reading through a cursor, it asks Postgres for
+`MAX_ROWS + 1` rows, and Postgres only accepts a 32-bit number there. So a
+setting of 2147483647 or more started fine, and then every `run_select`
+failed with a SQL syntax error the model never wrote. Values above 2147483646
+are now refused at startup with a one-line message, the same treatment the
+statement timeout got the day before.
