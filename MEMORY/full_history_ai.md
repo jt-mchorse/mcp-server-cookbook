@@ -3018,3 +3018,22 @@ context_for_next_session:
   - check-config-port-parity_SAYS_THE_BEHAVIOURAL_TABLES_PIN_THE_GRAMMAR_ROW_FOR_ROW_they_pin_only_the_rows_someone_thought_of
 followups: []
 ---
+
+---
+session: 2026-10-15T07:27:19Z
+duration_min: 10   # computed: plan comment 2026-10-15T07:27:19Z -> commit ~07:37Z
+issue: 285
+branch: session/2026-10-15-0727-issue-285
+focus: FS_SANDBOX_PY_LIST_DIRECTORY_LISTED_EVERY_ENTRY_AS_OTHER_IN_A_READABLE_BUT_UNSEARCHABLE_DIRECTORY_KIND_CAME_FROM_PER_ENTRY_STAT
+phase: shipped
+delta:
+  files_changed: 8
+  tests_added: 2
+  suite: "filesystem-sandbox 260 -> 261, fs-sandbox-py 343 -> 344 passed; ruff check + format, lint, typecheck, build, check-test-count, check-readme ok"
+decisions_made: []
+measured: "dir at 0644 holding a.txt, symlink, fifo, subdir: TS listDirectory -> file/symlink/other/directory (no sizes); Python _dispatch_tool -> other x4. At 0755 both agree. Revert 1 of 2 red (the TS row pins the shared table; TS was already right). #233 (TOCTOU) left alone: its body says JT's call on the fix shape."
+context_for_next_session:
+  - A_PREDICATE_THAT_STATS_NEEDS_THE_PARENTS_SEARCH_BIT_os_path_isfile_is_False_on_EACCES_d_type_from_the_directory_read_is_not
+  - PARITY_TABLES_BUILT_THE_TREE_AT_DEFAULT_PERMISSIONS_vary_the_mode_of_the_container_not_just_the_entries
+followups: []
+---

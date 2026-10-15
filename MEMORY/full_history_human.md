@@ -2473,3 +2473,13 @@ large when it is the largest one allowed. The TypeScript one accepted it. The
 Python server now only takes the digits 0-9 and ignores leading zeros when it
 checks the size. Both servers' tests now run these cases from the shared
 table.
+
+## 2026-10-15 — The Python file server keeps entry kinds in a folder it can read but not enter (#285)
+
+A folder whose permissions allow reading its names but not opening anything
+inside it (mode 0644, which `chmod -R 644` leaves on every folder) listed
+every entry as "other" in the Python port, subfolders and links included.
+The TypeScript port listed the same folder correctly. The Python code asked
+the filesystem about each entry separately, which that permission blocks.
+It now takes each entry's kind from the folder read itself, as the
+TypeScript port does. A shared test table checks the listing from both sides.
