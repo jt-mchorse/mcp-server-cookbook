@@ -8,7 +8,7 @@
  *   - float8 NaN / Infinity -> null, indistinguishable from SQL NULL.
  *
  * The suite is hermetic, so `withClient` is mocked with a client whose `query`
- * builds pg's REAL `Result` from the `types` the call site passes -- which is
+ * builds pg's REAL `Result` from the `types` (and `rowMode`) the call site passes -- which is
  * what tests that the tools pass `SELECT_TYPES` at all.
  */
 import { createRequire } from "node:module";
@@ -34,8 +34,8 @@ vi.mock("../src/db.js", async (orig) => ({
   ...(await orig<typeof import("../src/db.js")>()),
   withClient: async (_cfg: unknown, fn: (c: unknown) => unknown) =>
     fn({
-      query: async (config: { text: string; types?: unknown }) => {
-        const r = new Result(undefined, config.types);
+      query: async (config: { text: string; types?: unknown; rowMode?: string }) => {
+        const r = new Result(config.rowMode, config.types);
         r.addFields(nextResult.cols.map((c) => ({ name: c.name, dataTypeID: c.oid, format: "text" })));
         for (const row of nextResult.rows) r.addRow(r.parseRow(row));
         return r;

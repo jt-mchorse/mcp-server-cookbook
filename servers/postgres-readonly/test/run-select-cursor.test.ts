@@ -27,7 +27,7 @@ vi.mock("../src/db.js", async (orig) => ({
         const n = isData ? rowsToReturn : 0;
         return {
           fields: isData ? [{ name: "g", dataTypeID: 23 }] : [],
-          rows: Array.from({ length: n }, (_, i) => ({ g: i + 1 })),
+          rows: Array.from({ length: n }, (_, i) => [i + 1]),
         };
       },
     }),

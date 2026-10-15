@@ -242,6 +242,28 @@ export function duplicateColumnNames(fields: ReadonlyArray<{ name: string }> | u
   return [...dup];
 }
 
+/**
+ * The rows of an `rowMode: "array"` result as objects keyed by field name, every
+ * name an own property (#293).
+ *
+ * pg's object rows assign `row[name] = value`, and for a column named
+ * `__proto__` that assignment SETS THE ROW'S PROTOTYPE instead of adding a key.
+ * A scalar value was dropped while `fields` still listed it; a `json`/`jsonb`
+ * value made the row's prototype a `RawJson`, so `stringifyPayload` took the
+ * row itself for that column and replaced the whole row with the column's JSON
+ * text. `Object.fromEntries` defines properties rather than assigning them.
+ * Callers refuse duplicate names first, so no entry overwrites another.
+ */
+export function rowsByName(
+  fields: ReadonlyArray<{ name: string }> | undefined,
+  rows: ReadonlyArray<unknown> | undefined,
+): Array<Record<string, unknown>> {
+  const names = (fields ?? []).map((f) => f.name);
+  return (rows ?? []).map((row) =>
+    Object.fromEntries(names.map((name, i) => [name, (row as unknown[])[i]])),
+  );
+}
+
 export async function runSelect(args: RunSelectArgs, cfg: DbConfig): Promise<ToolResult> {
   const guard = guardQuery(args.sql);
   if (!guard.ok) {
@@ -263,13 +285,14 @@ export async function runSelect(args: RunSelectArgs, cfg: DbConfig): Promise<Too
       // known. EXPLAIN cannot be a cursor body; its output is a plan, not data.
       // The DB-side statement_timeout (set in withClient) bounds runtime.
       if (leadingKeyword(args.sql) === "EXPLAIN") {
-        result = await c.query({ text: args.sql, types: SELECT_TYPES });
+        result = await c.query({ text: args.sql, types: SELECT_TYPES, rowMode: "array" });
       } else {
         await c.query("BEGIN");
         await c.query(`DECLARE mcp_run_select NO SCROLL CURSOR FOR ${args.sql}`);
         result = await c.query({
           text: `FETCH FORWARD ${cfg.maxRows + 1} FROM mcp_run_select`,
           types: SELECT_TYPES,
+          rowMode: "array",
         });
         await c.query("COMMIT");
       }
@@ -286,7 +309,7 @@ export async function runSelect(args: RunSelectArgs, cfg: DbConfig): Promise<Too
           `(e.g. SELECT u.id AS user_id, o.id AS order_id ...)`,
       );
     }
-    const rows = Array.isArray(result.rows) ? result.rows : [];
+    const rows = rowsByName(result.fields, Array.isArray(result.rows) ? result.rows : []);
     const truncated = rows.length > cfg.maxRows;
     const visible = truncated ? rows.slice(0, cfg.maxRows) : rows;
 
@@ -342,12 +365,12 @@ async function runSampleQuery(c: pg.Client, schema: string, table: string, limit
   // strictness above.
   const sql = `SELECT * FROM "${schema}"."${table}" LIMIT ${limit}`;
   try {
-    const result = await c.query({ text: sql, types: SELECT_TYPES });
+    const result = await c.query({ text: sql, types: SELECT_TYPES, rowMode: "array" });
     return ok(
       stringifyPayload({
         row_count: result.rows.length,
         fields: result.fields?.map((f) => ({ name: f.name, dataTypeID: f.dataTypeID })) ?? [],
-        rows: result.rows,
+        rows: rowsByName(result.fields, result.rows),
       }),
     );
   } catch (e) {
