@@ -101,6 +101,9 @@ function firstLoneSurrogate(s: string): [number, number] | null {
   return null;
 }
 
+/** Largest single buffer `readFile` allocates, and largest single `read()` (#279). */
+export const READ_CHUNK_BYTES = 1_048_576;
+
 export async function readFile(deps: ToolDeps, file: string): Promise<string> {
   const sp = await deps.sandbox.resolveFile(file);
   // One handle for the size check AND the read, and the read itself bounded
@@ -115,17 +118,27 @@ export async function readFile(deps: ToolDeps, file: string): Promise<string> {
     if (stat.size > deps.maxBytes) {
       throw new FileTooLargeError(stat.size, deps.maxBytes);
     }
-    const bounded = Buffer.alloc(deps.maxBytes + 1);
+    // Read UP TO `maxBytes + 1`, in chunks, rather than into one buffer of
+    // that size (#279). The cap is an upper bound, not an allocation: one
+    // `maxBytes + 1` buffer made a 5-byte read of a file allocate the whole
+    // cap, and a single `read()` length must fit an int32, so a cap of
+    // 2**31 - 1 or more (which the config accepts, up to MAX_SAFE_INTEGER, the
+    // parity contract of #137) aborted the process on Node 22+ and failed
+    // every read on Node 20.
+    const limit = deps.maxBytes + 1;
+    const chunks: Buffer[] = [];
     let total = 0;
-    while (total < bounded.length) {
-      const { bytesRead } = await fh.read(bounded, total, bounded.length - total, total);
+    while (total < limit) {
+      const chunk = Buffer.alloc(Math.min(READ_CHUNK_BYTES, limit - total));
+      const { bytesRead } = await fh.read(chunk, 0, chunk.length, total);
       if (bytesRead === 0) break;
+      chunks.push(chunk.subarray(0, bytesRead));
       total += bytesRead;
     }
     if (total > deps.maxBytes) {
       throw new FileTooLargeError(total, deps.maxBytes);
     }
-    buf = bounded.subarray(0, total);
+    buf = Buffer.concat(chunks, total);
   } finally {
     await fh.close();
   }

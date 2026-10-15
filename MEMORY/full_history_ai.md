@@ -2978,3 +2978,23 @@ context_for_next_session:
   - INBOUND_LONE_SURROGATE_ECHOED_BACK_BY_A_TS_SERVER_NOT_MEASURED_separate_class_from_this_one
 followups: []
 ---
+
+---
+session: 2026-10-14T07:36:00Z
+duration_min: 10   # computed: plan comment 2026-10-14T07:36Z -> code commit ~07:46Z
+issue: 279
+branch: session/2026-10-14-0733-issue-279
+focus: FS_SANDBOX_READ_FILE_SIZED_ONE_BUFFER_AND_ONE_READ_BY_THE_CAP_SO_A_CAP_OF_2_31_MINUS_1_OR_MORE_ABORTED_THE_TS_SERVER
+phase: shipped
+delta:
+  files_changed: 8
+  tests_added: 12
+  suite: "filesystem-sandbox 260 -> 266, fs-sandbox-py 343 -> 349 passed; ruff check + format, lint, typecheck, build, check-test-count, check-readme, root tools tests ok"
+decisions_made: []
+measured: "Node 25.5, 5-byte file via readFile: cap 2147483646 ok; 2147483647 and 4294967296 exit 134 'Assertion failed: args[3]->IsInt32()'; MAX_SAFE_INTEGER RangeError 'size'. Python MAX_SAFE_INTEGER MemoryError (2**31-1 and 2**32 read fine). Revert: TS 3 of 6 red (two abort the vitest worker), Python 1 of 6 red; the 2**31-2 control and the two chunk-boundary arms stay green."
+context_for_next_session:
+  - A_CAP_THAT_SIZES_AN_ALLOCATION_IS_A_SECOND_RANGE_the_config_domain_and_the_allocation_domain_must_agree_or_the_read_must_not_depend_on_the_cap
+  - NOT_BOUNDED_AT_BOOT_LIKE_281_because_the_MAX_BYTES_range_is_the_137_parity_contract_and_only_the_read_had_the_limit
+  - A_FILE_ACTUALLY_OVER_512_MIB_UNDER_A_CAP_THAT_ADMITS_IT_hits_V8_string_length_on_decode_not_measured_here
+followups: []
+---

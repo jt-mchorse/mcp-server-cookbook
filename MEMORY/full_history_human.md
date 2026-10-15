@@ -2448,3 +2448,14 @@ whole reply away, so the call just hung. A request was enough to trigger it:
 the bridge echoes the requested path into its error, so a missing folder name
 full of emoji did it. Both servers now cut one unit earlier when the cut
 would split a character.
+
+## 2026-10-14 — A very large file-size limit no longer crashes the file server (#279)
+
+The file servers' size limit is accepted up to about 9 quadrillion bytes, and
+both ports promise that same range. But reading a file set aside a buffer as
+big as the limit, even for a 5-byte file. From about 2 GB up, Node can't do
+that in one read, so the TypeScript server crashed outright on the first
+read, and at the very top of the range the Python port ran out of memory.
+Both now read in 1 MB pieces until they reach the limit or the end of the
+file. The limit still works exactly as before, and the accepted range didn't
+change.
