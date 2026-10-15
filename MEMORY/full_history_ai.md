@@ -2958,3 +2958,23 @@ context_for_next_session:
   - BOUND_KEPT_IN_A_HELPER_ON_THE_maxRows_LINE_so_it_does_not_touch_the_hunks_PR_278_adds
 followups: []
 ---
+
+---
+session: 2026-10-14T07:27:00Z
+duration_min: 12   # computed: plan comment 2026-10-14T07:27Z -> code commit ~07:39Z
+issue: 282
+branch: session/2026-10-14-0727-issue-282
+focus: TS_SERVERS_CAPPED_ERROR_TEXT_BY_UTF16_CODE_UNIT_A_CUT_EMOJI_LEFT_A_LONE_SURROGATE_AND_THE_PYTHON_MCP_CLIENT_DROPPED_THE_RESPONSE
+phase: shipped
+delta:
+  files_changed: 10
+  tests_added: 16
+  suite: "internal-tools-bridge 74 -> 81, github-gists 264 -> 273 passed; lint, typecheck, build, check-test-count, check-readme, root tools tests ok"
+decisions_made: []
+measured: "mcp 1.30.0 Python client over stdio: repo_stats with a missing emoji path whose stderr has a high surrogate at unit 499 -> 'Invalid JSON: unexpected end of hex escape', call unanswered (8 s fail_after); the path one char shorter answered. Same for get_gist against a loopback 502 body 'x'+emoji*150. Call-site revert 4 of 16 red; helper-body revert 6 of 16 red; controls green."
+context_for_next_session:
+  - A_SERVER_CAN_MANUFACTURE_A_LONE_SURROGATE_FROM_WELL_FORMED_INPUT_every_slice_of_text_bound_for_a_tool_result_is_a_site
+  - JSON_STRINGIFY_ESCAPES_A_LONE_SURROGATE_AND_PYDANTIC_CORE_REFUSES_THE_ESCAPE_test_the_parse_in_the_OTHER_language_client
+  - INBOUND_LONE_SURROGATE_ECHOED_BACK_BY_A_TS_SERVER_NOT_MEASURED_separate_class_from_this_one
+followups: []
+---

@@ -2436,3 +2436,15 @@ setting of 2147483647 or more started fine, and then every `run_select`
 failed with a SQL syntax error the model never wrote. Values above 2147483646
 are now refused at startup with a one-line message, the same treatment the
 statement timeout got the day before.
+
+## 2026-10-14 — Cutting an error message short no longer breaks emoji in half (#282)
+
+The bridge server shortens a failed command's error output to 500
+characters, and the gists server shortens an upstream error to 200. Both
+counted in JavaScript's internal units, where an emoji takes two. When the
+cut landed in the middle of an emoji, the result ended in half a character.
+The official Python MCP client treats that as invalid JSON and throws the
+whole reply away, so the call just hung. A request was enough to trigger it:
+the bridge echoes the requested path into its error, so a missing folder name
+full of emoji did it. Both servers now cut one unit earlier when the cut
+would split a character.

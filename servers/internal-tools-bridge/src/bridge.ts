@@ -33,6 +33,25 @@ export const DEFAULT_TIMEOUT_MS = 10_000;
  */
 export const MAX_TIMEOUT_MS = 2 ** 31 - 1;
 
+/**
+ * The first `maxUnits` UTF-16 code units of `text`, minus one if the cut would
+ * keep the high half of a surrogate pair without its low half (#282).
+ *
+ * `String.prototype.slice` counts code units, so `slice(0, 500)` on a stderr
+ * that echoes an emoji path can end in a lone `\ud83d`. `JSON.stringify` writes
+ * it as that escape and nothing else, and the MCP Python client's strict JSON
+ * parser rejects the whole response line ("unexpected end of hex escape"). The
+ * call is then never answered. Backing off one unit keeps every cap an upper
+ * bound and every capped text well-formed.
+ */
+export function capCodeUnits(text: string, maxUnits: number): string {
+  if (text.length <= maxUnits) return text;
+  let end = maxUnits;
+  const last = text.charCodeAt(end - 1);
+  if (last >= 0xd800 && last <= 0xdbff) end -= 1;
+  return text.slice(0, end);
+}
+
 const ENV_PASSLIST = ["PATH", "LANG", "LC_ALL", "TZ", "NODE_OPTIONS"] as const;
 
 export class BridgeError extends Error {

@@ -8,7 +8,7 @@
 import { fileURLToPath } from "node:url";
 import { dirname, resolve as resolvePath } from "node:path";
 
-import { runBridged, type BridgeConfig, BridgeError } from "./bridge.js";
+import { capCodeUnits, runBridged, type BridgeConfig, BridgeError } from "./bridge.js";
 
 export class ToolInputError extends Error {
   override readonly name = "ToolInputError";
@@ -88,7 +88,7 @@ export async function repoStats(
     parsed = JSON.parse(result.stdout);
   } catch {
     throw new BridgeError(
-      `repo-stats output was not JSON; first 200 chars: ${result.stdout.slice(0, 200)}`,
+      `repo-stats output was not JSON; first 200 chars: ${capCodeUnits(result.stdout, 200)}`,
     );
   }
   if (parsed === null || typeof parsed !== "object") {
