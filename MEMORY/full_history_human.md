@@ -2496,3 +2496,15 @@ Nothing outside the allowed folders was ever reachable. The TypeScript
 server now asks the OS whether the path exists exactly as written, the same
 check the Python one makes. The shared tests also run with the macOS
 behaviour simulated, so CI on Linux catches it too.
+
+## 2026-10-15 — A dropped connection mid-reply now says which request failed (#291)
+
+The gists server's README promises that every error names the request it
+made. One didn't: when GitHub (or a proxy in front of it) started a
+successful reply and then the connection dropped before the reply finished,
+the tool said only `terminated`, which is Node's internal word for it. The
+earlier fix for unhelpful upstream errors covered a connection that never
+opened and a reply that wasn't JSON, but not a reply that stopped halfway.
+It now reads `github_api_error (200 GET /gists/abc): response body could not
+be read: ...` with the underlying network code, and a reply that is simply
+too slow is still reported as a timeout.
