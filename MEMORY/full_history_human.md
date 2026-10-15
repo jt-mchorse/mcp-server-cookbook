@@ -2459,3 +2459,17 @@ read, and at the very top of the range the Python port ran out of memory.
 Both now read in 1 MB pieces until they reach the limit or the end of the
 file. The limit still works exactly as before, and the accepted range didn't
 change.
+
+## 2026-10-15 — Both file servers now accept and reject the same size-limit values (#287)
+
+The two file servers are meant to read the size limit setting the same way.
+They didn't in two cases. The Python one accepted the limit written in other
+scripts' digits, like Arabic-Indic `٤٠٩٦` for 4096, because its pattern for
+"a digit" matched any Unicode digit. The TypeScript one refused to start on
+those. In the other direction, the Python one refused a zero-padded value
+such as `09007199254740991`. Its check for numbers that are too big counted
+the length of the text, leading zeros included, so it called that value too
+large when it is the largest one allowed. The TypeScript one accepted it. The
+Python server now only takes the digits 0-9 and ignores leading zeros when it
+checks the size. Both servers' tests now run these cases from the shared
+table.
