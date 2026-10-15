@@ -77,3 +77,31 @@ def test_list_directory_entry_shape(deps: ToolDeps, tmp_path: Path) -> None:
     text, is_error = _dispatch_tool("list_directory", {"path": root}, deps)
     assert not is_error
     assert json.loads(text) == table["expect"]
+
+
+@pytest.mark.skipif(
+    hasattr(os, "geteuid") and os.geteuid() == 0,
+    reason="root ignores the missing search bit, so the directory stays stat-able",
+)
+def test_list_directory_kinds_in_unsearchable_dir(deps: ToolDeps, tmp_path: Path) -> None:
+    """A directory that can be read but not searched keeps its entries' kinds
+    (#285). Each ``stat`` of an entry needs the search bit; the directory read
+    that the TS port's ``Dirent`` uses does not."""
+    table = TABLE["list_entries"]
+    d = os.path.join(os.path.realpath(tmp_path), "d")
+    os.mkdir(d)
+    for node in table["tree"]:
+        full = os.path.join(d, node["name"])
+        if node["kind"] == "file":
+            Path(full).write_text(node["content"], encoding="utf-8")
+        elif node["kind"] == "dir":
+            os.mkdir(full)
+        else:
+            os.symlink(node["target"], full)
+    os.chmod(d, 0o644)
+    try:
+        text, is_error = _dispatch_tool("list_directory", {"path": d}, deps)
+    finally:
+        os.chmod(d, 0o755)
+    assert not is_error
+    assert json.loads(text) == table["unsearchable_expect"]

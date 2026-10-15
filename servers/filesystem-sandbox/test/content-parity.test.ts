@@ -24,6 +24,7 @@ const TABLE = JSON.parse(
   list_entries: {
     tree: { name: string; kind: "file" | "dir" | "symlink"; content?: string; target?: string }[];
     expect: unknown[];
+    unsearchable_expect: unknown[];
   };
 };
 
@@ -83,6 +84,29 @@ describe("list_directory (#209)", () => {
     const text = JSON.stringify(await listDirectory(deps, root), null, 2);
     expect(JSON.parse(text)).toEqual(TABLE.list_entries.expect);
   });
+
+  // Root ignores the missing search bit, so the directory would stay stat-able.
+  it.skipIf(process.getuid?.() === 0)(
+    "a readable but unsearchable directory keeps its entries' kinds, as the Python port's does (#285)",
+    async () => {
+      const d = path.join(root, "d");
+      await fs.mkdir(d);
+      for (const node of TABLE.list_entries.tree) {
+        const full = path.join(d, node.name);
+        if (node.kind === "file") await fs.writeFile(full, node.content ?? "");
+        else if (node.kind === "dir") await fs.mkdir(full);
+        else await fs.symlink(node.target ?? "", full);
+      }
+      await fs.chmod(d, 0o644);
+      let text: string;
+      try {
+        text = JSON.stringify(await listDirectory(deps, d), null, 2);
+      } finally {
+        await fs.chmod(d, 0o755);
+      }
+      expect(JSON.parse(text)).toEqual(TABLE.list_entries.unsearchable_expect);
+    },
+  );
 
   it("compareCodePoints puts an astral character after U+E000 (where `<` would not)", () => {
     expect(compareCodePoints("\u{1F600}", "")).toBeGreaterThan(0);

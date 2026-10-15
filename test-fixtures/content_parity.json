@@ -88,6 +88,17 @@
       {"name": "a.txt", "kind": "file", "size": 3},
       {"name": "link", "kind": "symlink"},
       {"name": "sub", "kind": "directory"}
+    ],
+    "unsearchable_expect": [
+      {"name": "a.txt", "kind": "file"},
+      {"name": "link", "kind": "symlink"},
+      {"name": "sub", "kind": "directory"}
     ]
-  }
+  },
+  "_comment_unsearchable": [
+    "#285: the same `list_entries.tree`, listed with the directory at mode 0644 --",
+    "readable, not searchable. The kinds come from the directory read itself, so",
+    "they survive; no entry can be stat'd, so none carries a size. The Python port",
+    "stat'd each entry for its kind and reported all three as \"other\"."
+  ]
 }

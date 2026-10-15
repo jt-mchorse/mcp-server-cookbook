@@ -60,24 +60,32 @@ def list_directory(deps: ToolDeps, dir_path: str) -> list[DirEntry]:
     """Return the directory contents as a sorted-by-name list of entries."""
     sp = deps.sandbox.resolve_dir(dir_path)
     out: list[DirEntry] = []
-    for name in os.listdir(sp.resolved):
-        full = os.path.join(sp.resolved, name)
-        if os.path.islink(full):
-            kind: DirEntryKind = "symlink"
+    # Kinds from the directory read (`d_type`), as the TS port's `Dirent` does
+    # (#285). `os.path.islink`/`isfile`/`isdir` each stat the entry, which needs
+    # the directory's search bit: in a readable but unsearchable directory (mode
+    # 0644) all three failed and every entry, a subdirectory included, was
+    # listed as "other". `DirEntry` answers without a system call; where the
+    # filesystem gives no `d_type` it stats, and an `OSError` there is "other".
+    with os.scandir(sp.resolved) as it:
+        for e in it:
             size: int | None = None
-        elif os.path.isfile(full):
-            kind = "file"
             try:
-                size = os.path.getsize(full)
+                if e.is_symlink():
+                    kind: DirEntryKind = "symlink"
+                elif e.is_file():
+                    kind = "file"
+                elif e.is_dir():
+                    kind = "directory"
+                else:
+                    kind = "other"
             except OSError:
-                size = None
-        elif os.path.isdir(full):
-            kind = "directory"
-            size = None
-        else:
-            kind = "other"
-            size = None
-        out.append(DirEntry(name=name, kind=kind, size=size))
+                kind = "other"
+            if kind == "file":
+                try:
+                    size = e.stat().st_size
+                except OSError:
+                    size = None
+            out.append(DirEntry(name=e.name, kind=kind, size=size))
     out.sort(key=lambda e: e.name)
     return out
 
