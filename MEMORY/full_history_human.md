@@ -2483,3 +2483,16 @@ The TypeScript port listed the same folder correctly. The Python code asked
 the filesystem about each entry separately, which that permission blocks.
 It now takes each entry's kind from the folder read itself, as the
 TypeScript port does. A shared test table checks the listing from both sides.
+
+## 2026-10-15 — The TypeScript file server no longer opens `file.txt/..` on a Mac (#289)
+
+On macOS, the TypeScript file server accepted paths like `notes.txt/..` and
+`notes.txt/../notes.txt`, which the OS itself rejects with "Not a directory".
+It read, listed and even wrote through them. The cause is that macOS's
+path-resolving function quietly cleans up `.` and `..` after a file name
+instead of failing. The Python server already refused these paths. An
+earlier fix had handled the trailing-slash version of this but not these.
+Nothing outside the allowed folders was ever reachable. The TypeScript
+server now asks the OS whether the path exists exactly as written, the same
+check the Python one makes. The shared tests also run with the macOS
+behaviour simulated, so CI on Linux catches it too.
