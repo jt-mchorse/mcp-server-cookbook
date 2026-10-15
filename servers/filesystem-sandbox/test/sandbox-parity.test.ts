@@ -37,7 +37,9 @@ import { mkdtempSync, mkdirSync, writeFileSync, symlinkSync, realpathSync, readF
 import { tmpdir } from "node:os";
 import { dirname, join, sep } from "node:path";
 import { fileURLToPath } from "node:url";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { promises as fsp } from "node:fs";
+import { resolve as resolvePath } from "node:path";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Sandbox, SandboxEscape } from "../src/sandbox.js";
 
 interface ParityCase {
@@ -146,4 +148,40 @@ describe("sandbox resolve parity (#141)", () => {
     await expect(sandbox.resolve(outside, { mustExist: true })).rejects.toThrow(SandboxEscape);
     await expect(sandbox.resolve(outside, { mustExist: false })).rejects.toThrow(SandboxEscape);
   });
+});
+
+/**
+ * The same table under darwin's `realpath(3)`, on any host (#289).
+ *
+ * darwin folds `.` and `..` lexically after a non-directory, so
+ * `<root>/real.txt/..` came back as the root there while `stat` failed ENOTDIR.
+ * glibc's realpath refuses those strings, and CI runs ubuntu, so the rows above
+ * might not fail on a regression there even though they do on a Mac. Here the
+ * port's `fs.realpath` is wrapped to normalize lexically first, the darwin
+ * behaviour, and every row must give the same verdict.
+ */
+describe("sandbox resolve parity under a lenient (darwin) realpath (#289)", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  for (const c of table.cases) {
+    it(`${c.label}`, async () => {
+      const real = fsp.realpath.bind(fsp);
+      vi.spyOn(fsp, "realpath").mockImplementation(((p: string) =>
+        real(resolvePath(p))) as typeof fsp.realpath);
+      const target = inputFor(c);
+      if (c.expect === "ok") {
+        const sp = await sandbox.resolve(target, { mustExist: c.must_exist });
+        expect(sp.resolved, c.note ?? "").toBe(join(base, c.resolved as string));
+      } else {
+        const err = await sandbox.resolve(target, { mustExist: c.must_exist }).then(
+          () => null,
+          (e: unknown) => e,
+        );
+        expect(err, c.note ?? "").toBeInstanceOf(SandboxEscape);
+        expect((err as SandboxEscape).reason, c.note ?? "").toBe(c.reason);
+      }
+    });
+  }
 });
