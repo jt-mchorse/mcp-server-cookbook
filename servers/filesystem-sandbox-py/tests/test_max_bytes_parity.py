@@ -129,3 +129,14 @@ def test_overlong_digit_string_never_reaches_int() -> None:
     assert "set_int_max_str_digits" not in msg, (
         f"CPython's internal digit-limit message leaked to the operator: {msg}"
     )
+
+
+def test_long_zero_padding_never_reaches_int() -> None:
+    """The length bound counts significant digits (#287), and the zeros are
+    stripped before ``int()`` too, so 5000 of them followed by ``1`` is the cap
+    1 rather than CPython's 4300-digit ``ValueError``. The TS port's BigInt
+    bound accepts the same literal."""
+    cfg = read_sandbox_config_from_env(
+        {"MCP_FS_SANDBOX_ALLOWLIST": "/tmp/a", "MCP_FS_SANDBOX_MAX_BYTES": "0" * 5000 + "1"}
+    )
+    assert cfg.max_bytes == 1

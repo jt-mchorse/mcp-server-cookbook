@@ -40,6 +40,17 @@
     { "label": "infinity literal", "raw": "Infinity", "accept": false },
     { "label": "nan literal", "raw": "NaN", "accept": false },
 
+    { "label": "Arabic-Indic digits (the Python gate matched every Unicode digit, #287)", "raw": "\u0664\u0660\u0669\u0666", "accept": false },
+    { "label": "fullwidth digits", "raw": "\uff14\uff10\uff19\uff16", "accept": false },
+    { "label": "Devanagari digits", "raw": "\u096a\u0966\u096f\u096c", "accept": false },
+    { "label": "ASCII digits with one Arabic-Indic digit", "raw": "40\u06696", "accept": false },
+
+    { "label": "zero-padded to 20 chars (Python counted the zeros, #287)", "raw": "00000000000000004096", "accept": true, "max_bytes": 4096 },
+    { "label": "MAX_SAFE_INTEGER zero-padded", "raw": "09007199254740991", "accept": true, "max_bytes": 9007199254740991 },
+    { "label": "signed, zero-padded MAX_SAFE_INTEGER", "raw": "+0009007199254740991", "accept": true, "max_bytes": 9007199254740991 },
+    { "label": "2^53 zero-padded", "raw": "09007199254740992", "accept": false },
+    { "label": "zero-padded zero", "raw": "00000000000000000000", "accept": false },
+
     { "label": "310 digits (TS Infinity, Python unbounded)", "digits": 310, "accept": false },
     { "label": "5000 digits (past CPython int() str limit)", "digits": 5000, "accept": false }
   ]
