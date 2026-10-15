@@ -86,7 +86,9 @@ The agent emits `SELECT * FROM big_table CROSS JOIN big_table` or sleeps.
   report `truncated` (#256). Before, every row was loaded into the server
   first. A 400,000-row query asked for 10 rows took the process from 86 MB to
   629 MB; it now stays at 86 MB. `EXPLAIN` output is a plan, so it is read
-  directly.
+  directly. Postgres reads a FETCH count as a 32-bit integer, so `MAX_ROWS`
+  above 2147483646 is refused at boot rather than failing every `run_select`
+  with a syntax error (#280).
 
 ### 3. Backend disruption
 
