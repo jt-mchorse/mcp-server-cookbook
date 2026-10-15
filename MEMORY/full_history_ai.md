@@ -3077,3 +3077,23 @@ context_for_next_session:
   - A_NON_2XX_CUT_MID_BODY_WAS_ALREADY_status_N_via_reasonFromResponse_catching_text
 followups: []
 ---
+
+---
+session: 2026-10-15T07:55:00Z
+duration_min: 14   # computed: plan comment 2026-10-15T07:55Z -> code commit ~08:09Z
+issue: 293
+branch: session/2026-10-15-0755-issue-293
+focus: POSTGRES_READONLY_A_COLUMN_NAMED___proto___SET_THE_ROWS_PROTOTYPE_A_SCALAR_WAS_DROPPED_AND_A_JSONB_VALUE_REPLACED_THE_WHOLE_ROW
+phase: shipped
+delta:
+  files_changed: 8
+  tests_added: 5
+  suite: "postgres-readonly 681 -> 686 passed; lint, typecheck, build, check-test-count, check-readme, root tools tests ok"
+decisions_made: []
+measured: "PostgreSQL 17.6, built tools: SELECT 7 AS id, 'hello'::text AS \"__proto__\" -> rows [{id:7}]; with a jsonb '{\"id\":999,\"role\":\"admin\"}' __proto__ -> rows [{id:999,role:admin}]; sample_rows on a table with a \"__proto__\" int column -> rows [{a:2}]. After: every field an own key; EXPLAIN (FORMAT JSON), a truncated cursor and a date column unchanged. Revert 4 of 5 red; the ordinary-names control green on both trees."
+context_for_next_session:
+  - pg_OBJECT_ROWS_ASSIGN_row_name_EQUALS_value_SO_A_RESULT_COLUMN_NAME_IS_A_PROPERTY_KEY_THE_DATABASE_CHOOSES_rowMode_array_PLUS_Object_fromEntries_DEFINES_INSTEAD
+  - THE_JSONB_ROW_FORGERY_IS_A_SECOND_ORDER_EFFECT_OF_247s_RawJson_instanceof_CHECK_the_prototype_made_the_row_itself_an_instance
+  - FOUR_HERMETIC_MOCKS_NOW_PASS_rowMode_TO_pgs_REAL_Result_the_cursor_mock_returns_array_rows
+followups: []
+---
