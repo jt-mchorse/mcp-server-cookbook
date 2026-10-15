@@ -296,23 +296,28 @@ export class TokenRequiredError extends Error {
  * Parse a 2xx body as JSON. A proxy or captive portal answering 200 with an
  * HTML page used to surface as the raw `SyntaxError` text, a fragment of the
  * page with no endpoint (#231). It is a GithubApiError now, naming the status
- * and request and carrying none of the body. Any other rejection (a read cut
- * off by our own abort) rethrows unchanged so `request` reports the timeout.
+ * and request and carrying none of the body.
+ *
+ * Any other rejection is the body read itself failing (#291). The peer
+ * dropping the connection after the headers rejected with undici's bare
+ * `terminated` and reached the client as exactly that, naming no request. It
+ * is a GithubApiError too, carrying the cause's code and text. A read cut off
+ * by our own abort lands here as well, and is still reported as the timeout:
+ * `request` checks the signal before it looks at what was thrown.
  */
 async function readJson(
   res: { status: number; headers: HeadersLike; json(): Promise<unknown> },
   endpoint: string,
+  token: string | null,
 ): Promise<unknown> {
   try {
     return await res.json();
   } catch (err) {
-    if (!(err instanceof SyntaxError)) throw err;
-    throw new GithubApiError(
-      res.status,
-      endpoint,
-      "response was not JSON",
-      extractGithubDiagnostics(res.headers),
-    );
+    const reason =
+      err instanceof SyntaxError
+        ? "response was not JSON"
+        : `response body could not be read: ${describeFetchFailure(err, token)}`;
+    throw new GithubApiError(res.status, endpoint, reason, extractGithubDiagnostics(res.headers));
   }
 }
 
@@ -379,7 +384,7 @@ export class GistsClient {
           extractGithubDiagnostics(res.headers),
         );
       }
-      return (await readJson(res, `GET ${endpoint}`)) as Gist;
+      return (await readJson(res, `GET ${endpoint}`, this.cfg.token)) as Gist;
     });
   }
 
@@ -445,7 +450,7 @@ export class GistsClient {
           extractGithubDiagnostics(res.headers),
         );
       }
-      return (await readJson(res, `PATCH ${endpoint}`)) as Gist;
+      return (await readJson(res, `PATCH ${endpoint}`, this.cfg.token)) as Gist;
     });
   }
 

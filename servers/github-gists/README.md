@@ -96,6 +96,7 @@ token or the request body (D-007):
 | --------- | ---------------- |
 | GitHub answered with an error status | `github_api_error (404 GET /gists/abc): Not Found` |
 | GitHub answered 2xx with a body that is not JSON (a proxy or captive portal page) | `github_api_error (200 GET /gists/abc): response was not JSON` |
+| GitHub answered 2xx and the connection dropped before the body finished | `github_api_error (200 GET /gists/abc): response body could not be read: UND_ERR_SOCKET other side closed` |
 | no response before `MCP_GITHUB_GISTS_TIMEOUT_MS`, headers or body | `request_timed_out (GET /gists/abc, 10000ms)` |
 | no connection at all (refused, unresolvable host, TLS failure) | `upstream_unreachable (GET /gists/abc): connect ECONNREFUSED 127.0.0.1:443` |
 | `update_gist_file` with no `GITHUB_TOKEN` | `token_required for update_gist_file (set GITHUB_TOKEN)` |
@@ -191,7 +192,7 @@ For an interactive REPL across all your servers, use the
 ## Tests
 
 ```bash
-npm test          # vitest, 273 hermetic unit tests, no network beyond loopback
+npm test          # vitest, 276 hermetic unit tests, no network beyond loopback
 npm run typecheck # tsc --noEmit
 npm run lint      # eslint
 ```
