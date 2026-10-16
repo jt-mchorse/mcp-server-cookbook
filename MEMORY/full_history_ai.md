@@ -3057,3 +3057,23 @@ context_for_next_session:
   - REALPATH_OF_PARENT_IS_NOT_THE_PARENT_check_containment_on_the_resolved_path_and_kind_on_the_raw_one
 followups: []
 ---
+
+---
+session: 2026-10-15T07:51:00Z
+duration_min: 12   # computed: plan comment 2026-10-15T07:51Z -> code commit ~08:03Z
+issue: 291
+branch: session/2026-10-15-0751-issue-291
+focus: GITHUB_GISTS_A_2XX_BODY_THE_PEER_CUT_OFF_MID_READ_REACHED_THE_CLIENT_AS_BARE_terminated_THE_SURFACE_231_DID_NOT_LIST
+phase: shipped
+delta:
+  files_changed: 5
+  tests_added: 3
+  suite: "github-gists 273 -> 276 passed; lint, typecheck, build, check-test-count, check-readme, root tools tests ok"
+decisions_made: []
+measured: "built server over stdio, loopback 200 with content-length 1000, 21 bytes written, socket destroyed: tool result 'terminated' (TypeError, cause UND_ERR_SOCKET). After: 'github_api_error (200 GET /gists/abc): response body could not be read: UND_ERR_SOCKET other side closed'. Revert 2 of 3 red; the abort-mid-body control stays green on both trees."
+context_for_next_session:
+  - 231_WRAPPED_THE_REJECTION_BEFORE_A_RESPONSE_AND_THE_SYNTAXERROR_AFTER_IT_and_its_comment_called_every_other_body_rejection_our_own_abort_THE_PEER_CAN_ALSO_END_A_BODY
+  - THE_ABORT_STILL_WINS_because_request_checks_the_signal_before_the_error_type_so_readJson_can_wrap_every_rejection
+  - A_NON_2XX_CUT_MID_BODY_WAS_ALREADY_status_N_via_reasonFromResponse_catching_text
+followups: []
+---
