@@ -147,6 +147,49 @@
       "resolved": "root/real.txt"
     },
     {
+      "label": "dot after a regular file",
+      "note": "#289: darwin's realpath(3) folds . and .. lexically after a non-directory, so the TS port resolved these there while stat -- and the Python port's os.path.exists / os.path.isdir gates -- fail ENOTDIR. Both ports now ask the kernel about the path as written.",
+      "path": "root/real.txt/.",
+      "must_exist": true,
+      "expect": "escape",
+      "reason": "outside_allowlist"
+    },
+    {
+      "label": "dot-dot after a regular file",
+      "path": "root/real.txt/..",
+      "must_exist": true,
+      "expect": "escape",
+      "reason": "outside_allowlist"
+    },
+    {
+      "label": "dot-dot after a regular file, back to that file",
+      "path": "root/real.txt/../real.txt",
+      "must_exist": true,
+      "expect": "escape",
+      "reason": "outside_allowlist"
+    },
+    {
+      "label": "new file under dot-dot after a regular file",
+      "path": "root/real.txt/../new.txt",
+      "must_exist": false,
+      "expect": "escape",
+      "reason": "outside_allowlist"
+    },
+    {
+      "label": "dot-dot after a directory still resolves",
+      "path": "root/sub/../real.txt",
+      "must_exist": true,
+      "expect": "ok",
+      "resolved": "root/real.txt"
+    },
+    {
+      "label": "new file under dot-dot after a directory still resolves",
+      "path": "root/sub/../new.txt",
+      "must_exist": false,
+      "expect": "ok",
+      "resolved": "root/new.txt"
+    },
+    {
       "label": "the root itself",
       "path": "root",
       "must_exist": true,

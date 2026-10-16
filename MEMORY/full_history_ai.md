@@ -3037,3 +3037,23 @@ context_for_next_session:
   - PARITY_TABLES_BUILT_THE_TREE_AT_DEFAULT_PERMISSIONS_vary_the_mode_of_the_container_not_just_the_entries
 followups: []
 ---
+
+---
+session: 2026-10-15T07:46:00Z
+duration_min: 14   # computed: branch 2026-10-15T07:46Z -> code commit ~08:00Z
+issue: 289
+branch: session/2026-10-15-0746-issue-289
+focus: TS_SANDBOX_RESOLVE_TRUSTED_DARWIN_REALPATH_WHICH_FOLDS_DOT_AND_DOTDOT_AFTER_A_FILE_LEXICALLY_SO_F_TXT_DOTDOT_READ_LISTED_AND_WROTE_WHERE_STAT_AND_PYTHON_SAY_ENOTDIR
+phase: shipped
+delta:
+  files_changed: 7
+  tests_added: 37
+  suite: "filesystem-sandbox 266 -> 297, fs-sandbox-py 349 -> 355 passed (3.11 + 3.12); ruff check + format, lint, typecheck, build, check-test-count, check-readme, root tools tests ok"
+decisions_made: []
+measured: "Darwin 25.5 / Node 25.5, 33-input resolve/resolveDir/resolveFile table on both ports: 6 diverge, all '.'/'..' after a non-directory (R/f.txt/., R/f.txt/.., R/f.txt/../f.txt, R/flink/., R/fifo/.). TS read_file R/f.txt/../f.txt -> content; write_file R/f.txt/../made.txt created R/made.txt. fs.realpathSync and .native both lenient, statSync ENOTDIR. Linux NOT measured (no docker daemon). Full revert 8 of 37 new red; stat-gate-only revert 6; parent-stat-only revert 2; controls green."
+context_for_next_session:
+  - 141_FIXED_ONE_SPELLING_TRAILING_SLASH_OF_A_HOST_LENIENT_REALPATH_DOT_AND_DOTDOT_ARE_THE_OTHER_SPELLINGS_ask_the_kernel_about_the_string_as_written
+  - A_ROW_THAT_ONLY_FAILS_ON_THE_DEV_HOST_IS_NOT_A_CI_LOCK_wrap_the_platform_call_to_the_lenient_behaviour_and_rerun_the_table
+  - REALPATH_OF_PARENT_IS_NOT_THE_PARENT_check_containment_on_the_resolved_path_and_kind_on_the_raw_one
+followups: []
+---

@@ -159,6 +159,18 @@ export class Sandbox {
     const mustExist = opts.mustExist ?? true;
     let real: string;
     if (mustExist) {
+      // Ask the kernel whether `input` exists AS WRITTEN before realpath'ing it
+      // (#289), the Python port's `os.path.exists` gate. darwin's realpath(3)
+      // folds `.` and `..` lexically after a non-directory, so `<root>/f.txt/.`
+      // resolved to `<root>/f.txt` and `<root>/f.txt/..` to the root -- read,
+      // listed and written here -- while `stat` (and `cat`) fail ENOTDIR. The
+      // trailing-separator check above is the same reasoning (#141) for one
+      // spelling; this covers every spelling, on every host.
+      try {
+        await fs.stat(input);
+      } catch {
+        throw new SandboxEscape("outside_allowlist", input);
+      }
       try {
         real = await fs.realpath(input);
       } catch {
@@ -183,8 +195,12 @@ export class Sandbox {
       // syscall instead of the typed error this module promises (#141). You
       // cannot create a file underneath a regular file. The Python sibling
       // already checked this, via `os.path.isdir(parent)` before resolving.
+      //
+      // `parent` as written, not `parentReal` (#289): `realpath("<root>/f.txt/..")`
+      // is the root on darwin, so `<root>/f.txt/../new.txt` passed as a directory
+      // parent there. Python's gate is `os.path.isdir(parent)`, on the raw string.
       try {
-        if (!(await fs.stat(parentReal)).isDirectory()) {
+        if (!(await fs.stat(parent)).isDirectory()) {
           throw new SandboxEscape("outside_allowlist", input);
         }
       } catch (err) {
