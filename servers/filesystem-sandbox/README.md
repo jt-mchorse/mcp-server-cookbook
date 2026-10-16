@@ -100,7 +100,7 @@ npm run build
 ## Test
 
 ```bash
-npm test                # 275 hermetic vitest tests
+npm test                # 276 hermetic vitest tests
 npm run lint            # eslint
 npm run typecheck       # tsc --noEmit
 ```
