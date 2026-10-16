@@ -124,16 +124,28 @@ def read_sandbox_config_from_env(env: dict[str, str] | None = None) -> SandboxCo
     # `int()` also keeps CPython 3.11+'s 4300-digit string limit unreachable —
     # its ValueError names `sys.set_int_max_str_digits()` rather than this
     # variable, which is not a message an operator can act on.
+    #
+    # Two more places the ports read the same literal differently (#287):
+    #
+    #   - `[0-9]`, not `\d`. A `str` pattern's `\d` is every Unicode `Nd` digit
+    #     and `int()` parses them, so Arabic-Indic `٤٠٩٦` booted this port with
+    #     a 4096-byte cap while the TS port's `\d` (ASCII only) refused it.
+    #   - The length bound counts SIGNIFICANT digits. It counted the literal, so
+    #     `09007199254740991` -- MAX_SAFE_INTEGER, zero-padded -- was refused as
+    #     "no greater than 9007199254740991", while the TS port's BigInt bound
+    #     accepted it. Leading zeros are stripped before `int()` too, so a long
+    #     run of them still never reaches the 4300-digit limit.
     max_bytes_raw = _config_trim(e.get("MCP_FS_SANDBOX_MAX_BYTES", ""))
     max_bytes = DEFAULT_MAX_BYTES
     if max_bytes_raw:
-        too_long = len(max_bytes_raw.lstrip("+-")) > MAX_SAFE_INTEGER_DIGITS
-        if not re.fullmatch(r"[+-]?\d+", max_bytes_raw) or too_long:
+        m = re.fullmatch(r"([+-]?)([0-9]+)", max_bytes_raw)
+        significant = (m.group(2).lstrip("0") or "0") if m else ""
+        if not m or len(significant) > MAX_SAFE_INTEGER_DIGITS:
             raise ValueError(
                 f"MCP_FS_SANDBOX_MAX_BYTES must be a positive integer no greater "
                 f"than {MAX_SAFE_INTEGER}; got {max_bytes_raw!r}"
             )
-        parsed = int(max_bytes_raw)
+        parsed = int(m.group(1) + significant)
         if parsed <= 0 or parsed > MAX_SAFE_INTEGER:
             raise ValueError(
                 f"MCP_FS_SANDBOX_MAX_BYTES must be a positive integer no greater "

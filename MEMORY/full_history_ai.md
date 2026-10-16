@@ -2998,3 +2998,23 @@ context_for_next_session:
   - A_FILE_ACTUALLY_OVER_512_MIB_UNDER_A_CAP_THAT_ADMITS_IT_hits_V8_string_length_on_decode_not_measured_here
 followups: []
 ---
+
+---
+session: 2026-10-15T07:40:00Z
+duration_min: 12   # computed: plan comment 2026-10-15T07:40Z -> code commit ~07:52Z
+issue: 287
+branch: session/2026-10-15-0740-issue-287
+focus: FS_SANDBOX_PY_MAX_BYTES_GATE_USED_UNICODE_BACKSLASH_D_AND_A_LITERAL_LENGTH_BOUND_SO_ARABIC_INDIC_DIGITS_BOOTED_AND_ZERO_PADDING_REFUSED_THE_TS_PORT_DID_THE_OPPOSITE
+phase: shipped
+delta:
+  files_changed: 7
+  tests_added: 19
+  suite: "filesystem-sandbox 266 -> 275, fs-sandbox-py 349 -> 359 passed (3.11 + 3.12); ruff check + format, lint, typecheck, build, check-test-count, check-readme, root tools tests ok"
+decisions_made: []
+measured: "Shared 11-row table, both config readers: U+0664 U+0660 U+0669 U+0666, fullwidth, Devanagari and '40'+U+0669+'6' -> TS refuse, Python 4096; '00000000000000004096' and '09007199254740991' -> TS accept, Python refuse. Full revert 8 of 10 new Python ids red (+ the existing silently-altered property); the 2**53-padded and all-zero rows are green controls. Digit-class-only revert 4 red; length-only revert 5 red. TS rows all green (TS was the right side)."
+context_for_next_session:
+  - A_PYTHON_STR_PATTERN_BACKSLASH_D_IS_UNICODE_ND_JS_BACKSLASH_D_IS_ASCII_any_shared_regex_literal_across_the_ports_is_a_parity_site
+  - A_LENGTH_BOUND_STANDING_IN_FOR_A_VALUE_BOUND_COUNTS_LEADING_ZEROS_bound_the_significant_digits
+  - check-config-port-parity_SAYS_THE_BEHAVIOURAL_TABLES_PIN_THE_GRAMMAR_ROW_FOR_ROW_they_pin_only_the_rows_someone_thought_of
+followups: []
+---
