@@ -3097,3 +3097,22 @@ context_for_next_session:
   - FOUR_HERMETIC_MOCKS_NOW_PASS_rowMode_TO_pgs_REAL_Result_the_cursor_mock_returns_array_rows
 followups: []
 ---
+
+---
+session: 2026-10-16T11:20Z
+issue: 296
+branch: session/2026-10-16-0837-issue-296
+focus: GITHUB_GISTS_CAST_EVERY_2XX_BODY_AS_GIST_EMPTY_OBJECT_OR_ARRAY_PASSED_AS_AN_EMPTY_GIST_NULL_ESCAPED_AS_A_RAW_TYPEERROR
+phase: shipped
+delta:
+  files_changed: 6
+  tests_added: 23
+  suite: "github-gists 276 -> 299; lint, typecheck, build, check-test-count, check-readme, tools tests clean"
+decisions_made: []
+measured: "stub fetch 200: [] and {} OK empty gist, null and a null file TypeError on main; after: github_api_error (200 GET /gists/abc): response was not a gist: <why>. Revert 21 of 23 red."
+context_for_next_session:
+  - AN_EXISTING_CONTROL_ANSWERED_EVERY_REQUEST_WITH_BRACES_the_fixture_body_was_the_very_shape_now_refused_change_the_fixture_not_the_rule
+  - NOT_FIXED_filesystem_sandbox_TS_vs_py_disagree_on_darwin_case_insensitive_paths_parity_only_not_an_escape
+  - NOT_FIXED_test_side_new_URL_import_meta_url_pathname_in_tools_check_workflow_yaml_test_mjs
+followups: []
+---

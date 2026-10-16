@@ -2520,3 +2520,12 @@ it held JSON, the server mistook the whole row for that JSON value and
 printed the value in the row's place: a row with id 7 came back reading
 `{"id": 999, "role": "admin"}`. Rows are now built so that every column
 is an ordinary key, whatever it is called.
+
+## 2026-10-16 — The gists server refuses a response that is not a gist (#296)
+
+The GitHub gists server trusted that any successful response was a gist. A
+proxy or a misconfigured base URL that returned an empty list or empty object
+produced a "gist" with no id or link, reported as success. A `null` response
+crashed with an error that didn't say which request failed. Both read paths
+now check the response's shape and report a clear error naming the request,
+the same way they already did for a response that wasn't JSON.
