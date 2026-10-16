@@ -2508,3 +2508,15 @@ opened and a reply that wasn't JSON, but not a reply that stopped halfway.
 It now reads `github_api_error (200 GET /gists/abc): response body could not
 be read: ...` with the underlying network code, and a reply that is simply
 too slow is still reported as a timeout.
+
+## 2026-10-15 — A column called `__proto__` no longer disappears, or rewrites its row (#293)
+
+The database server hands back each row as a JavaScript object keyed by
+column name. JavaScript treats the name `__proto__` specially: assigning
+to it changes the object's hidden parent instead of adding a key. So a
+column with that name (any query alias, or a table column in quotes)
+vanished from every row while the column list still named it. Worse, if
+it held JSON, the server mistook the whole row for that JSON value and
+printed the value in the row's place: a row with id 7 came back reading
+`{"id": 999, "role": "admin"}`. Rows are now built so that every column
+is an ordinary key, whatever it is called.

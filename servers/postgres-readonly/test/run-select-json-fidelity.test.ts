@@ -34,8 +34,8 @@ vi.mock("../src/db.js", async (orig) => ({
   ...(await orig<typeof import("../src/db.js")>()),
   withClient: async (_cfg: unknown, fn: (c: unknown) => unknown) =>
     fn({
-      query: async (config: { text: string; types?: unknown }) => {
-        const r = new Result(undefined, config.types);
+      query: async (config: { text: string; types?: unknown; rowMode?: string }) => {
+        const r = new Result(config.rowMode, config.types);
         r.addFields(nextResult.cols.map((c) => ({ name: c.name, dataTypeID: c.oid, format: "text" })));
         for (const row of nextResult.rows) r.addRow(r.parseRow(row));
         return r;
