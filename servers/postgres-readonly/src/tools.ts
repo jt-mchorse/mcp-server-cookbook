@@ -174,6 +174,25 @@ function rawJsonElements(value: unknown): unknown {
   return typeof value === "string" ? new RawJson(value) : value;
 }
 
+// `interval` and its array (#301). PostgreSQL 17 added `infinity` and
+// `-infinity` intervals, and pg's interval parser yields an empty object for
+// any text it does not match: both came back as `{}`, the same JSON as a zero
+// interval. Name them, as `nonFiniteAsString` names a float's Infinity; every
+// finite interval keeps pg's object.
+const INTERVAL_OID = 1186;
+const INTERVAL_ARRAY_OID = 1187;
+const INFINITE_INTERVALS = new Set(["infinity", "-infinity"]);
+
+function intervalParser(format: string): (value: string) => unknown {
+  const parseFinite = pgParser(INTERVAL_OID, format);
+  return (value: string) => (INFINITE_INTERVALS.has(value) ? value : parseFinite(value));
+}
+
+function mapIntervalElements(value: unknown, parse: (v: string) => unknown): unknown {
+  if (Array.isArray(value)) return value.map((v) => mapIntervalElements(v, parse));
+  return typeof value === "string" ? parse(value) : value;
+}
+
 export const SELECT_TYPES = {
   getTypeParser(oid: number, format?: string): (value: string) => unknown {
     if (DATE_OIDS.has(oid)) return (value: string) => value;
@@ -182,6 +201,12 @@ export const SELECT_TYPES = {
     if (JSON_ARRAY_OIDS.has(oid)) {
       const parseTextArray = pgParser(TEXT_ARRAY_OID, format ?? "text");
       return (value: string) => rawJsonElements(parseTextArray(value));
+    }
+    if (oid === INTERVAL_OID) return intervalParser(format ?? "text");
+    if (oid === INTERVAL_ARRAY_OID) {
+      const parseTextArray = pgParser(TEXT_ARRAY_OID, format ?? "text");
+      const parseElement = intervalParser(format ?? "text");
+      return (value: string) => mapIntervalElements(parseTextArray(value), parseElement);
     }
     return pgParser(oid, format ?? "text");
   },

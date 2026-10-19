@@ -52,6 +52,8 @@ const TIMESTAMP = 1114;
 const TIMESTAMPTZ = 1184;
 const FLOAT8 = 701;
 const DATE_ARRAY = 1182;
+const INTERVAL = 1186;
+const INTERVAL_ARRAY = 1187;
 
 function parse(r: { content: Array<{ text: string }>; isError?: boolean }) {
   return JSON.parse(r.content[0]!.text) as { rows: Array<Record<string, unknown>>; fields: unknown[] };
@@ -120,5 +122,41 @@ describe("run_select payload fidelity (#207)", () => {
 
   it("SELECT_TYPES defers to pg for every other type (control)", () => {
     expect(SELECT_TYPES.getTypeParser(INT4)("42")).toBe(42);
+  });
+});
+
+/**
+ * PostgreSQL 17's infinite intervals are named, not `{}` (#301).
+ *
+ * Measured on Postgres 17 through `runSelect` on `main`:
+ * `SELECT interval '0', interval 'infinity', interval '-infinity'` ->
+ * `{"zero":{},"inf":{},"neginf":{}}` -- three different values, one JSON.
+ */
+describe("run_select / sample_rows infinite intervals (#301)", () => {
+  it.each(["infinity", "-infinity"])("run_select writes interval '%s' by name", async (inf) => {
+    nextResult = { cols: [{ name: "zero", oid: INTERVAL }, { name: "x", oid: INTERVAL }], rows: [["00:00:00", inf]] };
+    const row = parse(await runSelect({ sql: "SELECT zero, x FROM t" }, CFG)).rows[0]!;
+    expect(row).toEqual({ zero: {}, x: inf });
+  });
+
+  it("interval[] names each infinite element; finite elements and NULL keep their shape", async () => {
+    nextResult = {
+      cols: [{ name: "xs", oid: INTERVAL_ARRAY }],
+      rows: [['{infinity,-infinity,"1 day",00:00:00,NULL}']],
+    };
+    const row = parse(await runSelect({ sql: "SELECT xs FROM t" }, CFG)).rows[0]!;
+    expect(row.xs).toEqual(["infinity", "-infinity", { days: 1 }, {}, null]);
+  });
+
+  it("sample_rows gets the same infinite-interval handling", async () => {
+    nextResult = { cols: [{ name: "dur", oid: INTERVAL }], rows: [["infinity"], ["-infinity"], [null]] };
+    const rows = parse(await sampleRows({ table: "t" }, CFG)).rows;
+    expect(rows.map((r) => r.dur)).toEqual(["infinity", "-infinity", null]);
+  });
+
+  it("a finite interval keeps pg's object shape (control)", async () => {
+    nextResult = { cols: [{ name: "dur", oid: INTERVAL }], rows: [["1 day 02:03:04.5"], ["00:00:00"]] };
+    const rows = parse(await runSelect({ sql: "SELECT dur FROM t" }, CFG)).rows;
+    expect(rows.map((r) => r.dur)).toEqual([{ days: 1, hours: 2, minutes: 3, seconds: 4, milliseconds: 500 }, {}]);
   });
 });
