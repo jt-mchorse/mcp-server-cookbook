@@ -2559,3 +2559,14 @@ three digits, `1.10` turned into `1.1`, and a very large but finite value
 came back as `"Infinity"`. Each element now comes back as the database's own
 text, the same as a single value. This was checked against a real
 PostgreSQL 17 server.
+
+## 2026-10-19 — An upstream that echoes headers can no longer leak the token (#305)
+
+When GitHub (or whatever sits at the configured base URL) answers with an
+error, the gists server passes along a short reason taken from the response.
+If that upstream quoted the request's `Authorization` header back, which some
+proxies and debug endpoints do, the GitHub token went straight into the error
+shown to the MCP client and the model. The reason now has the token replaced
+with `[REDACTED]` before it is shortened, so even a token cut off at the
+length limit can't leave its first characters behind. This is the same
+protection #264 added for network failures.
