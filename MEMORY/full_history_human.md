@@ -2540,3 +2540,12 @@ as a missing value. A user set to the ISO duration style got every duration
 back as an empty object, which looks the same as zero. The server now fixes
 both formats at the start of every connection, as it already did for how
 backslashes in strings are read.
+
+## 2026-10-19 — Infinite durations are no longer reported as zero (#301)
+
+PostgreSQL 17 added "infinity" and "-infinity" as possible durations. The
+read-only server's duration reader doesn't recognise them and produced an
+empty object, which is exactly what a zero-length duration looks like, and
+the two infinities looked identical too. They now come back as the words
+`"infinity"` and `"-infinity"`, the same way an infinite floating-point
+number already does. Ordinary durations are unchanged.

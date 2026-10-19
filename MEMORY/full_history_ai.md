@@ -3136,3 +3136,23 @@ context_for_next_session:
   - "INFINITE_INTERVALS_STILL_SERIALISE_AS_EMPTY_OBJECT_separate_issue"
 followups: []
 ---
+
+---
+session: 2026-10-19T07:25:00Z
+duration_min: 10   # computed: plan comment 2026-10-19T07:25Z -> code commit ~07:35Z
+issue: 301
+branch: session/2026-10-19-0725-issue-301
+focus: POSTGRES_READONLY_PG17_INFINITE_INTERVALS_SERIALISED_AS_EMPTY_OBJECT_THE_SAME_JSON_AS_A_ZERO_INTERVAL
+phase: shipped
+delta:
+  files_changed: 4
+  tests_added: 5
+  suite: "postgres-readonly 686 -> 691 passed; lint, typecheck, build, check-test-count, check-readme, root tools tests ok"
+decisions_made: []
+measured: "PostgreSQL 17, built tools: SELECT interval '0', 'infinity', '-infinity' -> {zero:{},inf:{},neginf:{}}; sample_rows interval[] '{0,infinity}' -> [{},{}]. After: inf 'infinity', neginf '-infinity', ARRAY['infinity','-infinity','2 hours',NULL] -> ['infinity','-infinity',{hours:2},null]; finite intervals unchanged. Revert 4 of 5 red; the finite-interval control green on both trees."
+context_for_next_session:
+  - "THE_249_NOTE_CALLED_INTERVAL_A_LOSSLESS_OBJECT_TRUE_FOR_FINITE_VALUES_postgres_interval_RETURNS_AN_EMPTY_OBJECT_FOR_ANY_TEXT_IT_DOES_NOT_MATCH"
+  - "FINITE_INTERVALS_KEEP_pgs_OBJECT_SHAPE_ON_PURPOSE_switching_to_database_text_would_change_every_callers_output"
+  - "THE_PARSER_READS_THE_postgres_INTERVALSTYLE_ONLY_299_PINS_IT"
+followups: []
+---
