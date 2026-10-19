@@ -3176,3 +3176,23 @@ context_for_next_session:
   - "float4_ARRAY_AND_float8_ARRAY_LEFT_AS_DOUBLES_ON_PURPOSE_a_double_is_exact_for_them"
 followups: []
 ---
+
+---
+session: 2026-10-19T08:11:00Z
+duration_min: 10   # computed: plan comment 2026-10-19T08:11Z -> code commit ~08:21Z
+issue: 305
+branch: session/2026-10-19-0811-issue-305
+focus: GITHUB_GISTS_NON_2XX_REASON_FROM_THE_UPSTREAM_BODY_CARRIED_AN_ECHOED_BEARER_TOKEN_INTO_THE_TOOL_ERROR
+phase: shipped
+delta:
+  files_changed: 5
+  tests_added: 6
+  suite: "github-gists 299 -> 305 passed; lint, typecheck, build, check-test-count, check-readme, root tools tests ok"
+decisions_made: []
+measured: "loopback server quoting the Authorization header, token ghp_secret_should_never_appear: main -> 'github_api_error (401 GET /gists/json): rejected Authorization: Bearer ghp_secret_should_never_appear' (JSON message) and the same for a 400 text body; after: 'Bearer [REDACTED]'. Revert 5 of 6 new arms red; the no-token/no-echo control green on both trees. A cap-then-redact wrong fix fails the straddle arm (1 red)."
+context_for_next_session:
+  - "264_REDACTED_describeFetchFailure_AND_readJson_THE_NON_2XX_BODY_REASON_WAS_THE_THIRD_SURFACE_CARRYING_UPSTREAM_TEXT"
+  - "REDACT_BEFORE_capErrorText_a_cut_token_leaves_its_prefix"
+  - "NOT_FIXED_X_GitHub_Request_Id_is_still_passed_through_verbatim_into_formatGithubApiError"
+followups: []
+---
