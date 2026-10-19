@@ -2529,3 +2529,14 @@ produced a "gist" with no id or link, reported as success. A `null` response
 crashed with an error that didn't say which request failed. Both read paths
 now check the response's shape and report a clear error naming the request,
 the same way they already did for a response that wasn't JSON.
+
+## 2026-10-19 — A database's date style setting no longer blanks every timestamp (#299)
+
+Postgres lets an administrator choose how dates and durations are printed,
+per server, database or user. The read-only server's result reader only
+understands the default formats. So a user set to a European date style
+(`SQL, DMY`, `German`) got every timestamp back as empty, which looks the same
+as a missing value. A user set to the ISO duration style got every duration
+back as an empty object, which looks the same as zero. The server now fixes
+both formats at the start of every connection, as it already did for how
+backslashes in strings are read.
