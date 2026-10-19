@@ -193,10 +193,18 @@ function mapIntervalElements(value: unknown, parse: (v: string) => unknown): unk
   return typeof value === "string" ? parse(value) : value;
 }
 
+// `numeric[]` (#303). Scalar `numeric` has no pg parser, so it already reaches
+// the payload as the database's text (the #247 note above relies on that), but
+// pg parses its array with `parseFloat`: `12345678901234567891` came back as
+// `12345678901234567000`, `1.10` as `1.1` and `1e400` as `"Infinity"`. Its
+// elements are kept as the database's strings, like the scalar.
+const NUMERIC_ARRAY_OID = 1231;
+
 export const SELECT_TYPES = {
   getTypeParser(oid: number, format?: string): (value: string) => unknown {
     if (DATE_OIDS.has(oid)) return (value: string) => value;
     if (DATE_ARRAY_OIDS.has(oid)) return pgParser(TEXT_ARRAY_OID, format ?? "text");
+    if (oid === NUMERIC_ARRAY_OID) return pgParser(TEXT_ARRAY_OID, format ?? "text");
     if (JSON_OIDS.has(oid)) return (value: string) => new RawJson(value);
     if (JSON_ARRAY_OIDS.has(oid)) {
       const parseTextArray = pgParser(TEXT_ARRAY_OID, format ?? "text");

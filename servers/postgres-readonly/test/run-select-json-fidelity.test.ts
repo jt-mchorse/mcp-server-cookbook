@@ -117,3 +117,72 @@ describe("run_select returns json/jsonb as the database wrote it (#247)", () => 
     expect(text(await sampleRows({ table: "t" }, CFG))).toContain(`"doc": ${BIG}`);
   });
 });
+
+/**
+ * `numeric[]` keeps each element's database text, as scalar `numeric` does
+ * (#303). Measured on `main` against Postgres 17: pg parsed oid 1231 with
+ * `parseFloat`, so `ARRAY[12345678901234567891, 1.10, 1e400]` came back as
+ * `[12345678901234567000, 1.1, "Infinity"]` while the same scalar was exact.
+ */
+describe("run_select returns numeric[] elements as the database wrote them (#303)", () => {
+  const NUMERIC = 1700;
+  const NUMERIC_ARRAY = 1231;
+  const E400 = "1" + "0".repeat(400);
+
+  function arr(out: string, col: string): unknown {
+    return JSON.parse(out).rows[0][col];
+  }
+
+  it("a 20-digit integer element keeps every digit", async () => {
+    nextResult = { cols: [{ name: "m", oid: NUMERIC_ARRAY }], rows: [["{12345678901234567891}"]] };
+    const out = text(await runSelect({ sql: "SELECT m FROM t" }, CFG));
+    expect(arr(out, "m")).toEqual(["12345678901234567891"]);
+    expect(out).not.toContain("12345678901234567000");
+  });
+
+  it("a long decimal and a trailing-zero scale survive", async () => {
+    nextResult = {
+      cols: [{ name: "m", oid: NUMERIC_ARRAY }],
+      rows: [["{0.1000000000000000055511151231257827,1.10}"]],
+    };
+    const out = text(await runSelect({ sql: "SELECT m FROM t" }, CFG));
+    expect(arr(out, "m")).toEqual(["0.1000000000000000055511151231257827", "1.10"]);
+  });
+
+  it("a finite 1e400 element is not reported as Infinity", async () => {
+    nextResult = { cols: [{ name: "m", oid: NUMERIC_ARRAY }], rows: [[`{${E400}}`]] };
+    const out = text(await runSelect({ sql: "SELECT m FROM t" }, CFG));
+    expect(arr(out, "m")).toEqual([E400]);
+    expect(out).not.toContain("Infinity");
+  });
+
+  it("NULL elements stay null, NaN/Infinity stay named, and a 2-D array stays nested", async () => {
+    nextResult = {
+      cols: [{ name: "m", oid: NUMERIC_ARRAY }],
+      rows: [["{{12345678901234567891,NULL},{NaN,-Infinity}}"]],
+    };
+    const out = text(await runSelect({ sql: "SELECT m FROM t" }, CFG));
+    expect(arr(out, "m")).toEqual([
+      ["12345678901234567891", null],
+      ["NaN", "-Infinity"],
+    ]);
+  });
+
+  it("sample_rows gets the same handling", async () => {
+    nextResult = { cols: [{ name: "m", oid: NUMERIC_ARRAY }], rows: [["{12345678901234567891,1.10}"]] };
+    const out = text(await sampleRows({ table: "t" }, CFG));
+    expect(arr(out, "m")).toEqual(["12345678901234567891", "1.10"]);
+  });
+
+  it("scalar numeric and a SQL NULL array are unchanged (control)", async () => {
+    nextResult = {
+      cols: [
+        { name: "one", oid: NUMERIC },
+        { name: "m", oid: NUMERIC_ARRAY },
+      ],
+      rows: [["12345678901234567891", null]],
+    };
+    const out = text(await runSelect({ sql: "SELECT one, m FROM t" }, CFG));
+    expect(JSON.parse(out).rows[0]).toEqual({ one: "12345678901234567891", m: null });
+  });
+});

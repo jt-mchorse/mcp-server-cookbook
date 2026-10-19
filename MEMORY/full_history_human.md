@@ -2549,3 +2549,13 @@ empty object, which is exactly what a zero-length duration looks like, and
 the two infinities looked identical too. They now come back as the words
 `"infinity"` and `"-infinity"`, the same way an infinite floating-point
 number already does. Ordinary durations are unchanged.
+
+## 2026-10-19 — Lists of exact decimals keep their digits (#303)
+
+A single `numeric` value already came back exactly as the database stored
+it. A list of them (`numeric[]`) went through a reader that turned each
+element into an ordinary floating-point number. A 20-digit id lost its last
+three digits, `1.10` turned into `1.1`, and a very large but finite value
+came back as `"Infinity"`. Each element now comes back as the database's own
+text, the same as a single value. This was checked against a real
+PostgreSQL 17 server.

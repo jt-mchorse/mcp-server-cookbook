@@ -3156,3 +3156,23 @@ context_for_next_session:
   - "THE_PARSER_READS_THE_postgres_INTERVALSTYLE_ONLY_299_PINS_IT"
 followups: []
 ---
+
+---
+session: 2026-10-19T08:08:00Z
+duration_min: 10   # computed: plan comment 2026-10-19T08:08Z -> code commit ~08:18Z
+issue: 303
+branch: session/2026-10-19-0808-issue-303
+focus: POSTGRES_READONLY_NUMERIC_ARRAY_ELEMENTS_PARSED_AS_DOUBLES_WHILE_SCALAR_NUMERIC_KEEPS_THE_DATABASE_TEXT
+phase: shipped
+delta:
+  files_changed: 4
+  tests_added: 6
+  suite: "postgres-readonly 695 -> 701 passed; lint, typecheck, build, check-test-count, check-readme, root tools tests ok"
+decisions_made: []
+measured: "PostgreSQL 17.6, real server, run_select and sample_rows on amounts(one numeric, many numeric[]) with ARRAY[12345678901234567891, 0.1000000000000000055511151231257827, 1.10, 1e400]: main -> one '12345678901234567891' but many [12345678901234567000, 0.1, 1.1, 'Infinity']. After: many is every element's database text, digit for digit, scale kept, 1e400 as its 401-digit text. Revert 5 of 6 new arms red; the scalar-numeric/NULL-array control green on both trees."
+context_for_next_session:
+  - "pg_TYPES_PARSES_1231_WITH_parseFloatArray_AND_HAS_NO_PARSER_FOR_SCALAR_1700_SO_THE_TWO_DISAGREED"
+  - "247_AND_301_EACH_ADDED_ONE_ARRAY_TYPE_ENUMERATE_pg_types_ARRAY_PARSERS_NOT_THE_LAST_BUG"
+  - "float4_ARRAY_AND_float8_ARRAY_LEFT_AS_DOUBLES_ON_PURPOSE_a_double_is_exact_for_them"
+followups: []
+---
