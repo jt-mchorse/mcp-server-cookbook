@@ -53,13 +53,15 @@ describe("withClient session pins (#252)", () => {
     expect(pin).toBeLessThan(issued.indexOf("SELECT '\\''"));
   });
 
-  it("keeps the other two pins, all three before the caller's query", async () => {
+  it("keeps the other pins, all of them before the caller's query", async () => {
     await withClient(CFG, async (c) => c.query("SELECT 1"));
     expect(issued).toEqual([
       "<connect>",
       "SET statement_timeout = 1000",
       "SET default_transaction_read_only = on",
       "SET standard_conforming_strings = on",
+      "SET DateStyle = ISO",
+      "SET IntervalStyle = postgres",
       "SELECT 1",
       "<end>",
     ]);
@@ -72,4 +74,37 @@ describe("withClient session pins (#252)", () => {
     expect(fn).not.toHaveBeenCalled();
     expect(issued.at(-1)).toBe("<end>");
   });
+});
+
+/**
+ * `withClient` pins the output formats the result parsers read (#299).
+ *
+ * pg's timestamptz and interval parsers understand only the ISO DateStyle and
+ * the `postgres` IntervalStyle, and both settings are inherited from the
+ * server, database or role. Measured on Postgres 17 through `sampleRows` on
+ * `main`: a role with DateStyle 'SQL, DMY', 'German' or 'Postgres, MDY' got
+ * every timestamptz as null; a role with IntervalStyle 'iso_8601' got
+ * `1 day 02:03:04.5` as `{}`, the same value as a zero interval.
+ */
+describe("withClient output-format pins (#299)", () => {
+  it.each(["SET DateStyle = ISO", "SET IntervalStyle = postgres"])(
+    "issues %s after connecting and before the caller's query",
+    async (pin) => {
+      await withClient(CFG, async (c) => c.query("SELECT now(), interval '1 day'"));
+      const at = issued.indexOf(pin);
+      expect(at).toBeGreaterThan(issued.indexOf("<connect>"));
+      expect(at).toBeLessThan(issued.indexOf("SELECT now(), interval '1 day'"));
+    },
+  );
+
+  it.each(["DateStyle", "IntervalStyle"])(
+    "never runs the caller's query when the %s pin is refused",
+    async (setting) => {
+      failOn = setting;
+      const fn = vi.fn(async () => "ran");
+      await expect(withClient(CFG, fn)).rejects.toThrow(/refused/);
+      expect(fn).not.toHaveBeenCalled();
+      expect(issued.at(-1)).toBe("<end>");
+    },
+  );
 });
