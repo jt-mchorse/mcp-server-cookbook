@@ -267,6 +267,15 @@ export function capErrorText(text: string, maxUnits: number): string {
 }
 
 /**
+ * `text` with every occurrence of the configured token replaced by
+ * `[REDACTED]` (#264, #305). Applied before any cap, so a cut cannot leave a
+ * prefix of the token behind.
+ */
+function redactToken(text: string, token: string | null): string {
+  return token ? text.split(token).join("[REDACTED]") : text;
+}
+
+/**
  * One line naming why `fetch` rejected, from its `cause` when it has one.
  *
  * The configured token is redacted from it (#264). undici's invalid-header
@@ -280,7 +289,7 @@ export function describeFetchFailure(err: unknown, token: string | null = null):
   const code = (source as { code?: unknown } | null)?.code;
   const message = source instanceof Error ? source.message : String(source);
   let text = typeof code === "string" && !message.includes(code) ? `${code} ${message}` : message;
-  if (token) text = text.split(token).join("[REDACTED]");
+  text = redactToken(text, token);
   if (text.length === 0) text = "fetch failed";
   return capErrorText(text, 200);
 }
@@ -598,6 +607,10 @@ export class GistsClient {
     if (reason.length === 0) {
       return `status ${res.status}`;
     }
+    // An upstream that quotes the request's `Authorization` header back (a
+    // header-echoing proxy, a mis-set base URL) put the token in the tool
+    // error (#305). Redact it first, so the cap below cannot cut it in half.
+    reason = redactToken(reason, this.cfg.token);
     // Cap the length so a misconfigured endpoint can't dump megabytes through
     // our errors — applied to the JSON `message` and the raw-text fallback alike.
     return capErrorText(reason, 200);
