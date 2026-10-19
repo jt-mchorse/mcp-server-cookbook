@@ -3116,3 +3116,23 @@ context_for_next_session:
   - NOT_FIXED_test_side_new_URL_import_meta_url_pathname_in_tools_check_workflow_yaml_test_mjs
 followups: []
 ---
+
+---
+session: 2026-10-19T07:23:00Z
+duration_min: 10   # computed: plan comment 2026-10-19T07:23Z -> code commit ~07:33Z
+issue: 299
+branch: session/2026-10-19-0723-issue-299
+focus: POSTGRES_READONLY_A_ROLE_DATESTYLE_NULLED_EVERY_TIMESTAMPTZ_AND_INTERVALSTYLE_iso_8601_EMPTIED_EVERY_INTERVAL_THE_PIN_252_DID_NOT_LIST
+phase: shipped
+delta:
+  files_changed: 4
+  tests_added: 4
+  suite: "postgres-readonly 686 -> 690 passed; lint, typecheck, build, check-test-count, check-readme, root tools tests ok"
+decisions_made: []
+measured: "PostgreSQL 17, built tools, sample_rows on ev(at timestamptz, dur interval): roles with DateStyle 'SQL, DMY', 'German', 'Postgres, MDY' -> every at null; role with IntervalStyle 'iso_8601' -> '1 day 02:03:04.5' as {}. After: all four roles byte-identical to the default role; date under 'SQL, DMY' is '2024-03-04' not '04/03/2024'. Revert 4 of 4 new arms red (plus the updated exact-SET-list test); the two 252 controls green on both trees."
+context_for_next_session:
+  - "252_PINNED_standard_conforming_strings_BECAUSE_THE_ROLE_CAN_CHANGE_IT_THE_SAME_ROLE_LEVER_REACHES_EVERY_SETTING_A_RESULT_PARSER_READS"
+  - "pg_TIMESTAMPTZ_AND_INTERVAL_PARSERS_AND_exactTimestamptzParser_READ_ISO_DATESTYLE_AND_postgres_INTERVALSTYLE_ONLY"
+  - "INFINITE_INTERVALS_STILL_SERIALISE_AS_EMPTY_OBJECT_separate_issue"
+followups: []
+---

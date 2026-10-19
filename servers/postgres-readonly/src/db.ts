@@ -251,6 +251,15 @@ export async function withClient<T>(
     // cannot undo this: SET and set_config are forbidden, and every call gets
     // a fresh connection.
     await client.query("SET standard_conforming_strings = on");
+    // The result parsers read the ISO DateStyle and the `postgres` IntervalStyle
+    // only, and the same server, database or role can change both (#299).
+    // Measured on Postgres 17 with the role set: under DateStyle 'SQL, DMY',
+    // 'German' or 'Postgres, MDY' every timestamptz came back as null (which a
+    // client reads as SQL NULL, the #207/#249 harm) and a date as the ambiguous
+    // `04/03/2024`; under IntervalStyle 'iso_8601' every interval came back as
+    // `{}`, the same value as a zero interval. Pin the formats the parsers read.
+    await client.query("SET DateStyle = ISO");
+    await client.query("SET IntervalStyle = postgres");
     return await fn(client);
   } finally {
     await client.end();
