@@ -322,6 +322,53 @@ async function readJson(
 }
 
 /**
+ * `readJson`, then refuse a body that is not a gist (#296).
+ *
+ * The parsed body was cast `as Gist` and projected unchecked. A 2xx whose JSON
+ * is not a gist -- `[]` or `{}` from a proxy or a mis-set base URL -- came back
+ * as a successful, empty "gist" with no `id` or `html_url`, the harm #241 named
+ * for the dot-segment route; `null` or a `null` file entry escaped as a raw
+ * TypeError naming no request. The README promises "every failure a tool
+ * returns names the request it made", so this is a GithubApiError like a
+ * non-JSON body. Only what the projection reads is required: a non-empty
+ * string `id` and a `files` object whose entries are objects.
+ */
+async function readGist(
+  res: { status: number; headers: HeadersLike; json(): Promise<unknown> },
+  endpoint: string,
+  token: string | null,
+): Promise<Gist> {
+  const body = await readJson(res, endpoint, token);
+  const problem = gistShapeProblem(body);
+  if (problem !== null) {
+    throw new GithubApiError(
+      res.status,
+      endpoint,
+      `response was not a gist: ${problem}`,
+      extractGithubDiagnostics(res.headers),
+    );
+  }
+  return body as Gist;
+}
+
+function gistShapeProblem(body: unknown): string | null {
+  if (body === null || typeof body !== "object" || Array.isArray(body)) {
+    return `expected an object, got ${body === null ? "null" : Array.isArray(body) ? "an array" : typeof body}`;
+  }
+  const { id, files } = body as { id?: unknown; files?: unknown };
+  if (typeof id !== "string" || id.length === 0) return "no string id";
+  if (files === null || typeof files !== "object" || Array.isArray(files)) {
+    return "no files object";
+  }
+  for (const [name, file] of Object.entries(files)) {
+    if (file === null || typeof file !== "object" || Array.isArray(file)) {
+      return `file ${JSON.stringify(name)} is not an object`;
+    }
+  }
+  return null;
+}
+
+/**
  * `/gists/<id>` for a caller-supplied id, refusing a dot segment (#241).
  *
  * `encodeURIComponent` escapes every character that could change the path
@@ -384,7 +431,7 @@ export class GistsClient {
           extractGithubDiagnostics(res.headers),
         );
       }
-      return (await readJson(res, `GET ${endpoint}`, this.cfg.token)) as Gist;
+      return await readGist(res, `GET ${endpoint}`, this.cfg.token);
     });
   }
 
@@ -450,7 +497,7 @@ export class GistsClient {
           extractGithubDiagnostics(res.headers),
         );
       }
-      return (await readJson(res, `PATCH ${endpoint}`, this.cfg.token)) as Gist;
+      return await readGist(res, `PATCH ${endpoint}`, this.cfg.token);
     });
   }
 

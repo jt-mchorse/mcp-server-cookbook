@@ -25,12 +25,14 @@ afterEach(async () => {
   seen = [];
 });
 
-/** A server that answers every request 200 `{}` and records `METHOD path`. */
+/** A server that answers every request 200 with a minimal gist and records `METHOD path`. */
 async function recordingClient(): Promise<GistsClient> {
   server = createServer((req, res) => {
     seen.push(`${req.method} ${req.url}`);
     res.writeHead(200, { "content-type": "application/json" });
-    res.end("{}");
+    // A minimal gist: since #296 a body without an id and files is refused, and
+    // these controls are about the request path, not the body.
+    res.end(JSON.stringify({ id: "abc123", files: {} }));
   });
   await new Promise<void>((done) => server!.listen(0, "127.0.0.1", () => done()));
   const baseUrl = `http://127.0.0.1:${(server!.address() as AddressInfo).port}`;
