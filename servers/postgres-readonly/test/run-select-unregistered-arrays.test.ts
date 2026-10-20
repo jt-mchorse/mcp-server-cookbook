@@ -11,8 +11,14 @@
  * Same harness as `run-select-json-fidelity.test.ts`: `withClient` is mocked
  * with a client whose `query` builds pg's REAL `Result` from the `types` the
  * call site passes. The array-ness lookup is answered from `ARRAY_TYPES`, which
- * stands in for `pg_type.typarray` -- the text values below are what Postgres
- * 17 sends.
+ * stands in for `pg_type.typarray` and the element type's `typdelim` -- the
+ * text values below are what Postgres 17 sends.
+ *
+ * #311: #310 split every such array on a comma, but `box` (typdelim `;`) prints
+ * `{(1,1),(0,0);(3,3),(2,2)}`, and on main 62644b3 against Postgres 17.6
+ * `SELECT array[box '((1,1),(0,0))', box '((3,3),(2,2))']` came back as
+ * ["(1","1)","(0","0);(3","3)","(2","2)"] through both run_select and
+ * sample_rows. Before #310 it was the database's text, and it is again.
  */
 import { createRequire } from "node:module";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -40,12 +46,24 @@ const NAME_ARRAY = 1003;
 const CHAR_ARRAY = 1002;
 const BIT_ARRAY = 1561;
 const INT4RANGE_ARRAY = 3905;
+const POINT_ARRAY = 1017;
+// `_box`: its element type `box` is the one built-in type whose typdelim is `;`.
+const BOX_ARRAY = 1020;
+// A user-defined base type may set its own DELIMITER; any non-comma counts.
+const PIPE_DELIM_ARRAY = 16400;
 // `create type mood as enum(...)` in a fresh database: the enum is 16384 and
 // its array 16389 on Postgres 17; any oid past FirstNormalObjectId will do.
 const MOOD_ARRAY = 16389;
 
-// Every type above that is some type's `typarray`. int2vector/oidvector are not.
-const ARRAY_TYPES = new Set([TEXT_ARRAY, INT4_ARRAY, NAME_ARRAY, CHAR_ARRAY, BIT_ARRAY, INT4RANGE_ARRAY, MOOD_ARRAY]);
+// Every type above that is some type's `typarray`, with its element type's
+// `typdelim`. int2vector/oidvector are nobody's `typarray`.
+const ARRAY_TYPES = new Map<number, string>([
+  ...[TEXT_ARRAY, INT4_ARRAY, NAME_ARRAY, CHAR_ARRAY, BIT_ARRAY, INT4RANGE_ARRAY, MOOD_ARRAY, POINT_ARRAY].map(
+    (oid): [number, string] => [oid, ","],
+  ),
+  [BOX_ARRAY, ";"],
+  [PIPE_DELIM_ARRAY, "|"],
+]);
 
 type Col = { name: string; oid: number };
 let nextResult: { cols: Col[]; rows: Array<Array<string | null>> };
@@ -61,7 +79,9 @@ vi.mock("../src/db.js", async (orig) => ({
           if (catalogFails) throw new Error("canceling statement due to statement timeout");
           const asked = config.values![0] as number[];
           catalogLookups.push(asked);
-          return { rows: asked.filter((o) => ARRAY_TYPES.has(o)).map((oid) => ({ oid })) };
+          return {
+            rows: asked.filter((o) => ARRAY_TYPES.has(o)).map((oid) => ({ oid, typdelim: ARRAY_TYPES.get(oid) })),
+          };
         }
         const c = typeof config === "string" ? { text: config } : config;
         const r = new Result(c.rowMode, c.types);
@@ -171,7 +191,47 @@ describe("arrays of an element type pg-types does not parse come back as arrays 
   });
 });
 
+describe("an array whose element type's delimiter is not a comma keeps the database's text (#311)", () => {
+  const BOXES = "{(1,1),(0,0);(3,3),(2,2)}";
+
+  it("box[] through run_select", async () => {
+    nextResult = { cols: [{ name: "b", oid: BOX_ARRAY }], rows: [[BOXES]] };
+    expect(
+      rows(await runSelect({ sql: "SELECT array[box '((1,1),(0,0))', box '((3,3),(2,2))'] AS b" }, CFG)),
+    ).toEqual([{ b: BOXES }]);
+  });
+
+  it("box[] through sample_rows, beside a comma-delimited array that is still parsed", async () => {
+    nextResult = {
+      cols: [
+        { name: "b", oid: BOX_ARRAY },
+        { name: "moods", oid: MOOD_ARRAY },
+      ],
+      rows: [[BOXES, "{happy,sad}"]],
+    };
+    expect(rows(await sampleRows({ table: "t" }, CFG))).toEqual([{ b: BOXES, moods: ["happy", "sad"] }]);
+  });
+
+  it("any other non-comma typdelim (a user-defined base type's DELIMITER)", async () => {
+    nextResult = { cols: [{ name: "u", oid: PIPE_DELIM_ARRAY }], rows: [["{a,b|c,d}"]] };
+    expect(rows(await runSelect({ sql: "SELECT u FROM t" }, CFG))).toEqual([{ u: "{a,b|c,d}" }]);
+  });
+});
+
 describe("controls: what #308 must leave alone", () => {
+  it("point[] keeps pg's own parser, with no catalog lookup (#311 control)", async () => {
+    nextResult = { cols: [{ name: "p", oid: POINT_ARRAY }], rows: [['{"(1,2)","(3,4)"}']] };
+    expect(rows(await runSelect({ sql: "SELECT array[point '(1,2)', point '(3,4)'] AS p" }, CFG))).toEqual([
+      {
+        p: [
+          { x: 1, y: 2 },
+          { x: 3, y: 4 },
+        ],
+      },
+    ]);
+    expect(catalogLookups).toEqual([]);
+  });
+
   it("text[] and int[] keep pg's own parsers, with no catalog lookup", async () => {
     nextResult = {
       cols: [
