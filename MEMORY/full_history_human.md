@@ -2570,3 +2570,15 @@ shown to the MCP client and the model. The reason now has the token replaced
 with `[REDACTED]` before it is shortened, so even a token cut off at the
 length limit can't leave its first characters behind. This is the same
 protection #264 added for network failures.
+
+## 2026-10-20 — The token is redacted from every GitHub error, not one surface at a time (#307)
+
+The #305 fix covered the error reason taken from a non-2xx response. Two
+other parts of a gists error also came from the upstream and were passed on
+unchanged. One was the "response was not a gist" reason, which quotes a file
+name from the response body. The other was GitHub's request-id header. A
+proxy that echoes the `Authorization` header could put the token into either
+one, and a huge file name produced a 100,000-character error. The error type
+itself now removes the token from its reason and request id and limits their
+length, so a new error surface gets this protection without needing its own
+code.

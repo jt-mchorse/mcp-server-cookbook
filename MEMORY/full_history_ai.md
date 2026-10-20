@@ -3196,3 +3196,23 @@ context_for_next_session:
   - "NOT_FIXED_X_GitHub_Request_Id_is_still_passed_through_verbatim_into_formatGithubApiError"
 followups: []
 ---
+
+---
+session: 2026-10-20T07:45:00Z
+duration_min: 3   # computed: plan comment 2026-10-20T07:45:48Z -> code commit 07:47:51Z (repro started 07:44Z)
+issue: 307
+branch: session/2026-10-20-0750-issue-307
+focus: GITHUB_GISTS_GIST_SHAPE_REASON_AND_REQUEST_ID_CARRIED_AN_ECHOED_TOKEN_UNCAPPED_SURFACES_305_DID_NOT_LIST
+phase: shipped
+delta:
+  files_changed: 5
+  tests_added: 10
+  suite: "github-gists 305 -> 315 passed; lint, typecheck, build, check-test-count, check-readme, root tools tests ok"
+decisions_made: []
+measured: "loopback server echoing Authorization, token ghp_secret_should_never_appear: main -> get_gist/update_gist_file 'file \"Bearer ghp_...\" is not an object' (leaked), a 100k file name -> 100088-char message, 401 + X-GitHub-Request-Id: Bearer <token> -> '| request-id=Bearer ghp_...'. After: 'Bearer [REDACTED]' on all three, 100k name -> 340 chars. Revert 6 of 10 new arms red; 4 controls green. A constructor cap of 200 instead of 300 passed the whole old suite (314/314); the prefixed body-read control now fails it."
+context_for_next_session:
+  - "REDACTION_AND_CAP_NOW_IN_THE_GithubApiError_CONSTRUCTOR_token_is_an_optional_5th_arg_every_client_call_site_passes_it"
+  - "BACKSTOP_IS_300_NOT_200_body_read_reason_is_a_prefix_plus_a_200_capped_description_a_200_cap_recuts_it"
+  - "A_NEW_GithubApiError_SITE_THAT_OMITS_THE_TOKEN_GETS_THE_CAP_BUT_NOT_THE_REDACTION_the_arg_is_optional_because_diag_is"
+followups: []
+---
