@@ -2607,3 +2607,15 @@ now also asks the database which separator each list type uses. It only
 splits lists that use a comma, and returns any other list exactly as the
 database wrote it, as it did before #308. This was checked against a real
 PostgreSQL 17 server.
+
+## 2026-10-20 — A token with a stray space can no longer slip past redaction (#312)
+
+Code that builds the gists server's config itself, instead of reading it
+from `GITHUB_TOKEN`, could pass a token with a space at the end. The network
+layer drops that space before sending, so a proxy that echoes the
+`Authorization` header sent back the token without it. Redaction was
+searching for the version with the space, never matched, and the token
+appeared in the error. A token with spaces at either end is now refused when
+the client is built, and the error doesn't show the token. That makes the
+token the server is configured with the same one it sends. Tokens read from
+the environment were already trimmed and are unchanged.
