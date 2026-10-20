@@ -220,6 +220,51 @@ export const SELECT_TYPES = {
   },
 };
 
+// Arrays of every other element type (#308). pg-types registers array parsers
+// for a fixed list of element types -- 28 of PostgreSQL 17's 296 array types --
+// so `name[]` (`current_schemas(true)`), range arrays, `"char"[]`, `bit[]` and
+// every enum array came back as ONE string in array-literal form: an enum array
+// `{happy,sad}` was indistinguishable from the text value '{happy,sad}'. A
+// RowDescription carries only the oid, and an enum array's oid is per-database,
+// so array-ness is read from the catalog: an array type is some type's
+// `typarray`. (`int2vector`/`oidvector` are typcategory 'A' too, but print
+// space-separated and are nobody's `typarray`.) Elements are kept as the
+// database's strings, as `text[]` does. Only a column with no pg parser and a
+// value that can be an array literal -- array output starts with `{`, or `[`
+// for a non-default lower bound -- is looked up, so a result of plain text and
+// numbers costs no extra round trip.
+const getPgTypeParser = pg.types.getTypeParser as (oid: number, format?: string) => (value: string) => unknown;
+// pg-types' identity fallback; oid 0 is InvalidOid, never a type.
+const NO_PARSER = getPgTypeParser(0, "text");
+const ARRAY_LITERAL_START = /^[{[]/;
+const ARRAY_OIDS_SQL =
+  "SELECT t.oid FROM pg_catalog.pg_type t WHERE t.oid = ANY($1::oid[]) " +
+  "AND EXISTS (SELECT 1 FROM pg_catalog.pg_type e WHERE e.typarray = t.oid)";
+
+/** Parse, in place, each column of an unregistered array type as a text array (#308). */
+export async function parseUnregisteredArrays(
+  c: Pick<pg.Client, "query">,
+  fields: ReadonlyArray<{ dataTypeID: number }> | undefined,
+  rows: unknown[][],
+): Promise<void> {
+  const candidates = new Set<number>();
+  (fields ?? []).forEach((f, i) => {
+    if (SELECT_TYPES.getTypeParser(f.dataTypeID) !== NO_PARSER) return;
+    if (rows.some((r) => typeof r[i] === "string" && ARRAY_LITERAL_START.test(r[i]))) {
+      candidates.add(f.dataTypeID);
+    }
+  });
+  if (candidates.size === 0) return;
+  const found = await c.query<{ oid: number }>({ text: ARRAY_OIDS_SQL, values: [[...candidates]] });
+  const arrayOids = new Set(found.rows.map((r) => Number(r.oid)));
+  if (arrayOids.size === 0) return;
+  const parseTextArray = pgParser(TEXT_ARRAY_OID, "text");
+  (fields ?? []).forEach((f, i) => {
+    if (!arrayOids.has(f.dataTypeID)) return;
+    for (const r of rows) if (typeof r[i] === "string") r[i] = parseTextArray(r[i]);
+  });
+}
+
 /**
  * `JSON.stringify` replacer: a non-finite number is written as its name.
  * `NaN`/`Infinity` from a float column otherwise became `null`, which a client
@@ -329,6 +374,7 @@ export async function runSelect(args: RunSelectArgs, cfg: DbConfig): Promise<Too
         });
         await c.query("COMMIT");
       }
+      await parseUnregisteredArrays(c, result.fields, Array.isArray(result.rows) ? result.rows : []);
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       return err(`query execution error: ${msg}`);
@@ -399,6 +445,7 @@ async function runSampleQuery(c: pg.Client, schema: string, table: string, limit
   const sql = `SELECT * FROM "${schema}"."${table}" LIMIT ${limit}`;
   try {
     const result = await c.query({ text: sql, types: SELECT_TYPES, rowMode: "array" });
+    await parseUnregisteredArrays(c, result.fields, result.rows);
     return ok(
       stringifyPayload({
         row_count: result.rows.length,
