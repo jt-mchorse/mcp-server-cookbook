@@ -2582,3 +2582,16 @@ one, and a huge file name produced a 100,000-character error. The error type
 itself now removes the token from its reason and request id and limits their
 length, so a new error surface gets this protection without needing its own
 code.
+
+## 2026-10-20 — Lists of enums, names, ranges and bits come back as lists (#308)
+
+The read-only server relies on the `pg` library to turn Postgres lists
+(arrays) into JSON lists, but that library only knows 28 of PostgreSQL 17's
+296 list types. Every other one, including a list of any custom enum type,
+came back as a single string in Postgres's own `{a,b}` notation. That string
+can't be told apart from an ordinary text value that happens to look the same.
+The server now asks the database whether such a column is a list type and,
+if so, returns it as a JSON list of the database's text, the same as a list
+of text already did. The question is only asked when a value could actually
+be a list, so ordinary results cost no extra round trip. This was checked
+against a real PostgreSQL 17 server.
