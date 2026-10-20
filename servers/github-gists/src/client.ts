@@ -76,7 +76,16 @@ const _EMPTY_DIAG: GithubApiErrorDiagnostics = {
   retryAfterSeconds: null,
 };
 
+/**
+ * The ceiling `GithubApiError` puts on its reason and request id (#307). It
+ * sits above every per-surface 200-unit cap plus the fixed prefix a surface
+ * adds ("response body could not be read: "), so it never re-cuts a reason
+ * that was already capped; it bounds a surface that did not cap at all.
+ */
+const ERROR_TEXT_BACKSTOP_UNITS = 300;
+
 export class GithubApiError extends Error {
+  readonly reason: string;
   readonly requestId: string | null;
   readonly rateLimitRemaining: number | null;
   readonly rateLimitResetEpoch: number | null;
@@ -85,15 +94,28 @@ export class GithubApiError extends Error {
   constructor(
     public readonly status: number,
     public readonly endpoint: string,
-    public readonly reason: string,
+    reason: string,
     diag: GithubApiErrorDiagnostics = _EMPTY_DIAG,
+    token: string | null = null,
   ) {
+    // The reason and the request id are upstream text, and both reach the tool
+    // result. #305 redacted three surfaces one at a time and missed two more:
+    // `gistShapeProblem` quoting a file name from the body, and the
+    // `X-GitHub-Request-Id` header, each echoing the token from a
+    // header-echoing proxy, and the file name uncapped (#307). So the redaction
+    // and a cap happen here, where every surface ends up, redacting first so
+    // the cap cannot leave a prefix of the token behind.
+    const safeReason = capErrorText(redactToken(reason, token), ERROR_TEXT_BACKSTOP_UNITS);
     // Format: `github_api_error (404 GET /gists/abc123): Not Found`. Token
     // never appears here; nor do diagnostic header values — those live on
     // the structured fields below, so log lines stay one-liner and grep-able.
-    super(`github_api_error (${status} ${endpoint}): ${reason}`);
+    super(`github_api_error (${status} ${endpoint}): ${safeReason}`);
     this.name = "GithubApiError";
-    this.requestId = diag.requestId;
+    this.reason = safeReason;
+    this.requestId =
+      diag.requestId === null
+        ? null
+        : capErrorText(redactToken(diag.requestId, token), ERROR_TEXT_BACKSTOP_UNITS);
     this.rateLimitRemaining = diag.rateLimitRemaining;
     this.rateLimitResetEpoch = diag.rateLimitResetEpoch;
     this.retryAfterSeconds = diag.retryAfterSeconds;
@@ -268,7 +290,7 @@ export function capErrorText(text: string, maxUnits: number): string {
 
 /**
  * `text` with every occurrence of the configured token replaced by
- * `[REDACTED]` (#264, #305). Applied before any cap, so a cut cannot leave a
+ * `[REDACTED]` (#264, #305, #307). Applied before any cap, so a cut cannot leave a
  * prefix of the token behind.
  */
 function redactToken(text: string, token: string | null): string {
@@ -326,7 +348,7 @@ async function readJson(
       err instanceof SyntaxError
         ? "response was not JSON"
         : `response body could not be read: ${describeFetchFailure(err, token)}`;
-    throw new GithubApiError(res.status, endpoint, reason, extractGithubDiagnostics(res.headers));
+    throw new GithubApiError(res.status, endpoint, reason, extractGithubDiagnostics(res.headers), token);
   }
 }
 
@@ -355,6 +377,7 @@ async function readGist(
       endpoint,
       `response was not a gist: ${problem}`,
       extractGithubDiagnostics(res.headers),
+      token,
     );
   }
   return body as Gist;
@@ -438,6 +461,7 @@ export class GistsClient {
           `GET ${endpoint}`,
           await this.reasonFromResponse(res),
           extractGithubDiagnostics(res.headers),
+          this.cfg.token,
         );
       }
       return await readGist(res, `GET ${endpoint}`, this.cfg.token);
@@ -504,6 +528,7 @@ export class GistsClient {
           `PATCH ${endpoint}`,
           await this.reasonFromResponse(res),
           extractGithubDiagnostics(res.headers),
+          this.cfg.token,
         );
       }
       return await readGist(res, `PATCH ${endpoint}`, this.cfg.token);
