@@ -3216,3 +3216,24 @@ context_for_next_session:
   - "A_NEW_GithubApiError_SITE_THAT_OMITS_THE_TOKEN_GETS_THE_CAP_BUT_NOT_THE_REDACTION_the_arg_is_optional_because_diag_is"
 followups: []
 ---
+
+---
+session: 2026-10-20T07:44:00Z
+duration_min: 4   # computed: issue read 2026-10-20T07:44Z (date -u) -> plan comment 07:46Z -> code commit 07:48Z
+issue: 308
+branch: session/2026-10-20-0751-issue-308
+focus: POSTGRES_READONLY_ARRAYS_OF_UNREGISTERED_ELEMENT_TYPES_RETURNED_AS_ONE_ARRAY_LITERAL_STRING
+phase: shipped
+delta:
+  files_changed: 4
+  tests_added: 12
+  suite: "postgres-readonly 701 -> 713 passed; lint, typecheck, build, check-test-count, check-readme, root tools tests ok"
+decisions_made: []
+measured: "PostgreSQL 17.6, real server, issue's table t(moods mood[], tags text[], names name[]): main -> moods '{happy,sad}', names '{happy,sad}'; current_schemas(true) '{pg_catalog,public}', int4range[] '{\"[1,3)\"}', \"char\"[] '{a}', bit[] '{101}'. After: every one a JS array of the database's strings; 2-D name[] with NULL nested; int2vector '1 2' and text '{x}' unchanged. Catalog: 296 array types, 268 without a pg-types parser. Revert 8 of 12 new arms red; 4 controls (text[]/int[] no lookup, {-leading text, int2vector/oidvector, no-literal-no-lookup) green on both trees."
+context_for_next_session:
+  - "ARRAY_NESS_IS_READ_FROM_pg_type_typarray_NOT_typcategory_A_int2vector_AND_oidvector_ARE_CATEGORY_A_BUT_SPACE_SEPARATED"
+  - "THE_LOOKUP_RUNS_ONLY_FOR_A_NO_PARSER_COLUMN_WITH_A_VALUE_STARTING_{_OR_[_so_plain_results_cost_no_round_trip"
+  - "DOMAINS_OVER_ARRAYS_REPORT_THE_BASE_TYPE_OID_IN_ROWDESCRIPTION_checked_live_no_domain_handling_needed"
+  - "NO_PYTHON_PORT_OF_postgres_readonly_EXISTS_the_issue's_port_check_is_vacuous"
+followups: []
+---
