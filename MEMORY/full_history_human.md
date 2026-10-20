@@ -2595,3 +2595,15 @@ if so, returns it as a JSON list of the database's text, the same as a list
 of text already did. The question is only asked when a value could actually
 be a list, so ordinary results cost no extra round trip. This was checked
 against a real PostgreSQL 17 server.
+
+## 2026-10-20 — A list of boxes is no longer split into fragments (#311)
+
+The #308 change turned Postgres lists into JSON lists by splitting their
+text on commas. Postgres lets each type choose its own separator, though,
+and the `box` type uses a semicolon because a box's own text contains
+commas. So a list of boxes came back as a tidy-looking list of meaningless
+pieces such as `"(1"` and `"0);(3"`, which was worse than before. The server
+now also asks the database which separator each list type uses. It only
+splits lists that use a comma, and returns any other list exactly as the
+database wrote it, as it did before #308. This was checked against a real
+PostgreSQL 17 server.

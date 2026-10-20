@@ -3237,3 +3237,23 @@ context_for_next_session:
   - "NO_PYTHON_PORT_OF_postgres_readonly_EXISTS_the_issue's_port_check_is_vacuous"
 followups: []
 ---
+
+---
+session: 2026-10-20T08:14:00Z
+duration_min: 3   # computed: issue read 2026-10-20T08:14:30Z (date -u) -> plan comment 08:15:12Z -> code commit 08:16:24Z
+issue: 311
+branch: session/2026-10-20-0825-issue-311
+focus: POSTGRES_READONLY_BOX_ARRAY_SPLIT_ON_THE_COMMAS_INSIDE_EACH_BOX_310_IGNORED_typdelim
+phase: shipped
+delta:
+  files_changed: 4
+  tests_added: 4
+  suite: "postgres-readonly 713 -> 717 passed; lint, typecheck, build, check-test-count, check-readme, root tools tests ok"
+decisions_made: []
+measured: "PostgreSQL 17, real server: SELECT array[box '((1,1),(0,0))', box '((3,3),(2,2))'] -> main 62644b3 [\"(1\",\"1)\",\"(0\",\"0);(3\",\"3)\",\"(2\",\"2)\"] via run_select and sample_rows; after '{(1,1),(0,0);(3,3),(2,2)}' on both. mood[], name[], int4range[] still parsed, point[] still pg's parser. box is the only built-in array element type with typdelim <> ','. Revert 3 of 4 new arms red; point[] control + 12 #308 tests green on both trees."
+context_for_next_session:
+  - "postgres-array_2.0.0_HARDCODES_THE_COMMA_NO_DELIMITER_OPTION_so_non-comma_arrays_stay_the_database_text_not_parsed"
+  - "THE_LOOKUP_NOW_JOINS_THE_ELEMENT_TYPE_AND_RETURNS_typdelim_filtering_happens_in_JS_so_the_mocked_catalog_tests_see_it"
+  - "NO_LIVE_POSTGRES_IN_CI_the_box[]_live_check_is_hand_measured_mock_answers_typdelim_as_PG17_does"
+followups: []
+---
