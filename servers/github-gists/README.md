@@ -73,6 +73,10 @@ timeoutMs-only check shipped in #34) and rejects:
 - `token = ""` — the truthy `token !== null` path looks like
   "auth configured" to `hasToken()` but actually sends an empty bearer
   header. Operators opting out of auth must pass `null` explicitly.
+- `token` with leading or trailing whitespace (#312) — `fetch` strips a
+  trailing space from the header, so the token sent (and echoed by a
+  header-echoing proxy) would not be the one redacted from errors. Trim
+  it first, as the `GITHUB_TOKEN` path does.
 
 Mirrors the `BridgeConfig` validation pattern in
 [`servers/internal-tools-bridge/src/bridge.ts`](../internal-tools-bridge/src/bridge.ts)
@@ -192,7 +196,7 @@ For an interactive REPL across all your servers, use the
 ## Tests
 
 ```bash
-npm test          # vitest, 315 hermetic unit tests, no network beyond loopback
+npm test          # vitest, 323 hermetic unit tests, no network beyond loopback
 npm run typecheck # tsc --noEmit
 npm run lint      # eslint
 ```
