@@ -26,7 +26,13 @@ function parseArgs(argv) {
     if (flag === "--root") {
       args.root = argv[++i];
     } else if (flag === "--max-depth") {
-      const n = Number.parseInt(argv[++i], 10);
+      // Gate on plain digits BEFORE coercing (#318). `Number.parseInt` stops
+      // at the first character it cannot consume, so `2abc` ran as 2, `1e1`
+      // as 1 (not 10) and `3.9` as 3 -- the parseInt shape #152/#154 removed
+      // from the servers' env and header parsing. This script is stdlib-only
+      // and standalone, so the grammar is inlined rather than imported.
+      const raw = argv[++i];
+      const n = typeof raw === "string" && /^[0-9]+$/.test(raw) ? Number(raw) : Number.NaN;
       if (!Number.isInteger(n) || n < 1 || n > ABSOLUTE_MAX_DEPTH) {
         throw new Error(`--max-depth must be an integer in [1, ${ABSOLUTE_MAX_DEPTH}]`);
       }

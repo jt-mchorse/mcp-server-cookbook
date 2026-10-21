@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { spawnSync } from "node:child_process";
 import { mkdtemp, writeFile, mkdir } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -99,6 +100,42 @@ describe("repoStats — end to end against the real CLI", () => {
         path: "/this/path/does/not/exist/" + Math.random(),
       }),
     ).rejects.toThrow();
+  });
+});
+
+describe("repo-stats CLI: --max-depth is a plain integer, not a parseInt prefix (#318)", () => {
+  // Direct CLI use only -- the bridge always passes `String(int)`. The tree is
+  // two levels deep so a value that ran as 1 is visible in `total_files`.
+  async function fixture(): Promise<string> {
+    const root = await mkdtemp(join(tmpdir(), "repo-stats-depth-"));
+    await writeFile(join(root, "top.ts"), "a", "utf-8");
+    await mkdir(join(root, "deep"));
+    await writeFile(join(root, "deep", "buried.ts"), "b", "utf-8");
+    return root;
+  }
+
+  function run(root: string, depth: string) {
+    return spawnSync(process.execPath, [REPO_STATS_BIN, "--root", root, "--max-depth", depth], {
+      encoding: "utf-8",
+    });
+  }
+
+  // `parseInt` read a prefix of each of these and ran with it, exit 0.
+  it.each(["2abc", "1e1", "3.9", "0x5"])("refuses %s with exit 2", async (depth) => {
+    const res = run(await fixture(), depth);
+    expect(res.status).toBe(2);
+    expect(res.stdout).toBe("");
+    expect(res.stderr).toContain("--max-depth must be an integer in [1, 10]");
+  });
+
+  // Controls: both ends of the range still run.
+  it.each([
+    ["10", 2],
+    ["1", 1],
+  ])("accepts %s", async (depth, files) => {
+    const res = run(await fixture(), depth);
+    expect(res.status).toBe(0);
+    expect(JSON.parse(res.stdout).total_files).toBe(files);
   });
 });
 
