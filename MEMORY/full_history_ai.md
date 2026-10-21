@@ -3298,3 +3298,23 @@ context_for_next_session:
   - "DEFERRED_interior_TAB_LF_in_the_base_URL_is_dropped_by_new_URL_so_/a\\tb_requests_/ab_both_paths"
 followups: []
 ---
+
+---
+session: 2026-10-21T07:37:52Z
+duration_min: 3   # computed: issue read 2026-10-21T07:37:52Z (date -u) -> plan comment 07:38:45Z -> code commit 07:40:35Z -> PR #320 07:40:51Z
+issue: 315
+branch: session/2026-10-21-0737-issue-315
+focus: POSTGRES_READONLY_BYTEA_RETURNED_AS_A_NODE_BUFFER_DUMP_IDENTICAL_TO_A_JSON_VALUE_OF_THAT_SHAPE
+phase: shipped
+delta:
+  files_changed: 7
+  tests_added: 9
+  suite: "postgres-readonly 717 -> 726 passed; lint, typecheck, build, check-test-count, check-readme, root tools checks ok"
+decisions_made: []
+measured: "PostgreSQL 17.6, real server: b bytea '\\x0102' + j json '{\"type\":\"Buffer\",\"data\":[1,2]}' -> main e97210b both {\"type\":\"Buffer\",\"data\":[1,2]} via sample_rows and run_select, bytea[] [{\"type\":\"Buffer\",\"data\":[1]},null]; 100,000-byte value 1,500,237 payload chars vs 200,180 for ::text. After: \"\\\\x0102\", [\"\\\\x01\",null], 200,180 chars. Role bytea_output='escape' without the new pin: \\001\\002 and empty bytea \"\"; with pin hex. Revert 8 red (5 bytea, 2 pin, exact pin list) / 8 green (2 new controls, 6 existing pin tests)."
+context_for_next_session:
+  - "BYTEA_17_IS_IDENTITY_AND_BYTEA[]_1001_IS_pg's_text[]_PARSER_so_elements_are_the_database's_hex_strings"
+  - "withClient_NOW_PINS_bytea_output=hex_ALONGSIDE_DateStyle_IntervalStyle_the_exact_pin_list_test_includes_it"
+  - "BYTEA_NOW_HAS_A_NON-NO_PARSER_PARSER_so_parseUnregisteredArrays_never_looks_it_up"
+followups: []
+---
