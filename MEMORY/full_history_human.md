@@ -2657,3 +2657,16 @@ header, which promises a whole number from 1 to 10 and exit code 2 for bad
 input. The value must now be plain digits before the range check, so all
 three are refused with the existing message. The MCP tool was never
 affected, because the bridge always passes a clean whole number.
+
+## 2026-10-21 — The workflow test no longer passes without checking anything in a folder with a space (#317)
+
+The test that checks the repo's real CI workflow files built its path in a
+way that left a space in the folder name as `%20`. In a checkout under a
+folder whose name has a space, it therefore couldn't find the workflows
+folder. It quietly stopped and reported a pass, even when a workflow file
+was broken. It now builds the path the same way the checkers have since
+#245. A missing workflows folder now fails the test instead of being
+skipped. New tests run the check in a temporary copy whose path has a
+space: a broken workflow must fail it, and a clean one must pass. A repo-wide
+check also keeps this path-building shape from coming back. It appeared in
+only this one place.
