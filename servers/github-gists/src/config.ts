@@ -78,6 +78,10 @@ export function readGistsConfigFromEnv(env: NodeJS.ProcessEnv = process.env): Gi
   assertBaseUrlIsFetchable(baseUrl, "MCP_GITHUB_GISTS_BASE_URL");
   // Strip a trailing slash so the request builder can always join with `/gists/<id>`.
   const normalizedBase = baseUrl.endsWith("/") ? baseUrl.slice(0, -1) : baseUrl;
+  // After the strip, so a query, a fragment or a second trailing slash is named
+  // under this variable rather than reaching `validateGistsConfig` as
+  // `GistsConfig.baseUrl`, a field the operator never set (#316).
+  assertBaseUrlJoinsCleanly(normalizedBase, "MCP_GITHUB_GISTS_BASE_URL");
 
   const userAgent = (env.MCP_GITHUB_GISTS_USER_AGENT ?? "").trim() || DEFAULT_UA;
   assertUserAgentIsHeaderSafe(userAgent, "MCP_GITHUB_GISTS_USER_AGENT");
@@ -181,6 +185,48 @@ export function assertBaseUrlIsFetchable(baseUrl: string, label: string): void {
 }
 
 /**
+ * Refuse a base URL the request builder cannot append `/gists/<id>` to (#316).
+ *
+ * The client builds every request as `baseUrl + endpoint`, a string join. The
+ * env path trims the value and strips one trailing slash, so it always joins;
+ * a built config was taken as is. Each shape below booted and then failed every
+ * call: a trailing `/` sent `//gists/<id>` (a 404 from GitHub); surrounding
+ * whitespace parsed (`new URL` drops it) but `fetch` refused the joined string
+ * with `ERR_INVALID_URL`; and a `?` or `#` turned the endpoint into a query or
+ * a fragment, so the request went to the API root while the error named
+ * `/gists/<id>`, a path never requested, and an `update_gist_file` PATCH went
+ * to the root too. #312 refused, rather than repaired, a token padded at the
+ * ends; this is the same rule for the base URL. The `?` and `#` test is on the
+ * raw string, not on `url.search`/`url.hash`, which are `""` for a bare `?` or
+ * `#`. Run after `assertBaseUrlIsFetchable`, so the value has no credentials,
+ * but a query can still hold a key, so the message names only the host.
+ */
+export function assertBaseUrlJoinsCleanly(baseUrl: string, label: string): void {
+  let problem: string | null = null;
+  if (baseUrl !== baseUrl.trim()) {
+    problem = "has leading or trailing whitespace, which would sit between it and the appended " +
+      "/gists/<id> in every request";
+  } else if (/[?#]/.test(baseUrl)) {
+    problem =
+      "has a query or fragment (`?` or `#`), so the appended /gists/<id> would not be the " +
+      "path requested";
+  } else if (baseUrl.endsWith("/")) {
+    problem = "ends with `/`, so requests would go to //gists/<id>";
+  }
+  if (problem === null) return;
+  let host = "";
+  try {
+    host = new URL(baseUrl).host;
+  } catch {
+    // Unreachable after `assertBaseUrlIsFetchable`; the message still names the field.
+  }
+  throw new Error(
+    `${label} ${problem}; the value is not shown, as a query may carry a key` +
+      (host === "" ? "" : `; host ${JSON.stringify(host)}`),
+  );
+}
+
+/**
  * Refuse a User-Agent `fetch` would refuse on every call (#271).
  *
  * The token's boot gate (#264) left the config's other header value trimmed at
@@ -246,6 +292,10 @@ export function validateGistsConfig(cfg: GistsConfig): void {
     );
   }
   assertBaseUrlIsFetchable(cfg.baseUrl, "GistsConfig.baseUrl");
+  // A built config must already hold what the env path would have produced
+  // (#312's rule, applied to the base URL by #316): trimmed, no trailing slash,
+  // and no query or fragment for the endpoint to land in. Refused, not repaired.
+  assertBaseUrlJoinsCleanly(cfg.baseUrl, "GistsConfig.baseUrl");
   if (typeof cfg.userAgent !== "string" || cfg.userAgent.length === 0) {
     throw new Error(
       `GistsConfig.userAgent must be a non-empty string; got ${JSON.stringify(cfg.userAgent)}`,
