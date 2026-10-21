@@ -3277,3 +3277,24 @@ context_for_next_session:
   - "assertTokenIsHeaderSafe_RUNS_FIRST_so_a_trailing_LF_or_TAB_keeps_its_#264_cannot_carry_message"
 followups: []
 ---
+
+---
+session: 2026-10-21T07:37:54Z
+duration_min: 3   # computed: issue read 2026-10-21T07:37:54Z (date -u) -> plan comment 07:38:45Z -> code commit 07:40:09Z -> PR #319 07:40:26Z
+issue: 316
+branch: session/2026-10-21-0737-issue-316
+focus: GITHUB_GISTS_BUILT_CONFIG_BASEURL_TRAILING_SLASH_PADDING_QUERY_FRAGMENT_BOOTED_THEN_FAILED_EVERY_CALL
+phase: shipped
+delta:
+  files_changed: 5
+  tests_added: 25
+  suite: "github-gists 323 -> 348 passed; lint, typecheck, build, check-test-count, check-readme, root tools tests ok"
+decisions_made: []
+measured: "loopback server recording req.url, getGist('abc123'), main e97210b: 'P/' -> //gists/abc123; 'P ' -> upstream_unreachable ERR_INVALID_URL; 'P/#x' -> '/'; 'P?x=' -> '/?x=/gists/abc123'; all booted. After: all refused at GistsClient construction; 'P' and 'P/api/v3' request exactly <prefix>/gists/abc123. Revert 18 of 25 new arms red; 7 controls (3 accepted built URLs, 2 env normalisations, 2 loopback path checks) green on both trees."
+context_for_next_session:
+  - "BUILT_CONFIG_BASEURL_MUST_EQUAL_WHAT_THE_ENV_PATH_PRODUCES_trimmed_no_trailing_slash_no_?_or_#_REFUSED_NOT_NORMALISED"
+  - "?_#_CHECK_IS_ON_THE_RAW_STRING_url.search_and_url.hash_are_empty_for_a_bare_?_or_#"
+  - "ENV_PATH_CALLS_THE_SAME_GATE_AFTER_ITS_ONE_SLASH_STRIP_so_the_error_names_MCP_GITHUB_GISTS_BASE_URL_not_GistsConfig.baseUrl"
+  - "DEFERRED_interior_TAB_LF_in_the_base_URL_is_dropped_by_new_URL_so_/a\\tb_requests_/ab_both_paths"
+followups: []
+---

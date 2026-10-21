@@ -67,6 +67,11 @@ The `GistsClient` constructor calls `validateGistsConfig(cfg)` before
 any request. The gate now covers all four fields (broadens the
 timeoutMs-only check shipped in #34) and rejects:
 - `baseUrl` empty or missing `http(s)://` scheme.
+- `baseUrl` with surrounding whitespace, a trailing `/`, or a `?` or
+  `#` (#316) — the client appends `/gists/<id>` as a string, so these
+  sent `//gists/<id>`, failed in `fetch`, or sent the request to the API
+  root while the error named `/gists/<id>`. Hold what the env path would
+  have produced: trimmed, no trailing slash.
 - `userAgent` empty (GitHub rejects no-UA requests outright).
 - `timeoutMs` non-positive integer (an `AbortSignal.timeout(0)` aborts
   every request on the next tick — silent client degeneracy).
@@ -87,7 +92,7 @@ Mirrors the `BridgeConfig` validation pattern in
 | Env var | Required? | Default | What it does |
 | ------- | --------- | ------- | ------------ |
 | `GITHUB_TOKEN` | for `update_gist_file` | — | Personal access token (classic or fine-grained with `gist` scope). Optional for reading public gists but always sent when set so rate limits are higher and private gists are reachable. **Never echoed.** |
-| `MCP_GITHUB_GISTS_BASE_URL` | no | `https://api.github.com` | Override for GitHub Enterprise Server (`https://github.example.com/api/v3`) or for fixture servers in tests. Must start with `http://` or `https://`, parse as a URL, and carry no `user:password@` (`fetch` refuses credentials in a URL, so it is refused at boot, without echoing the value). Trailing slash is stripped. |
+| `MCP_GITHUB_GISTS_BASE_URL` | no | `https://api.github.com` | Override for GitHub Enterprise Server (`https://github.example.com/api/v3`) or for fixture servers in tests. Must start with `http://` or `https://`, parse as a URL, and carry no `user:password@` (`fetch` refuses credentials in a URL, so it is refused at boot, without echoing the value). One trailing slash is stripped; a `?` or `#` is refused at boot (#316), since every request path is appended to this value. |
 | `MCP_GITHUB_GISTS_USER_AGENT` | no | `mcp-cookbook-github-gists/0.1.0` | UA string sent on every request. GitHub rejects requests with no UA header. A value `fetch` cannot send (a control character other than tab, or a character above U+00FF) is refused at boot. |
 | `MCP_GITHUB_GISTS_TIMEOUT_MS` | no | `10000` | Per-call request timeout in milliseconds. Must be a positive integer. Tools surface a clear `request_timed_out` error rather than hanging. |
 
@@ -196,7 +201,7 @@ For an interactive REPL across all your servers, use the
 ## Tests
 
 ```bash
-npm test          # vitest, 323 hermetic unit tests, no network beyond loopback
+npm test          # vitest, 348 hermetic unit tests, no network beyond loopback
 npm run typecheck # tsc --noEmit
 npm run lint      # eslint
 ```
