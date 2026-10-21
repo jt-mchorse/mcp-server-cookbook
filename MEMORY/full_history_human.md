@@ -2619,3 +2619,17 @@ appeared in the error. A token with spaces at either end is now refused when
 the client is built, and the error doesn't show the token. That makes the
 token the server is configured with the same one it sends. Tokens read from
 the environment were already trimmed and are unchanged.
+
+## 2026-10-21 — A base URL with a stray slash, space, `?` or `#` is refused up front (#316)
+
+Code that builds the gists server's config itself could pass a base URL
+that ended in a slash or a space, or that contained a `?` or `#`. The
+server builds each request by tacking `/gists/<id>` onto the end of that
+URL, so these values started up fine and then broke every call. A trailing
+slash produced a double-slash path that GitHub answers with "not found". A
+trailing space made the network layer reject the URL. A `?` or `#` sent the
+request to the API's front page, while the error claimed it had asked for
+the gist. All four are now refused when the client is built, the same way
+#312 handled a padded token. The environment variable already trimmed
+spaces and dropped a trailing slash, and it still does. It now also refuses
+a `?` or `#`, and the error names the variable the operator actually set.
