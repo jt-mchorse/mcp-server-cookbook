@@ -23,6 +23,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 function makeTempWorkflowsDir() {
   const root = mkdtempSync(path.join(tmpdir(), "check-workflow-yaml-"));
@@ -197,17 +198,25 @@ test("run exits 2 when the workflows directory has zero *.yml files", () => {
 });
 
 test("run is clean against the real .github/workflows/ directory", () => {
-  const __dirname = path.dirname(new URL(import.meta.url).pathname);
+  // `fileURLToPath`, not `new URL(...).pathname` (#317): `.pathname` keeps a
+  // space as `%20`, so in a checkout under a spaced directory the resolved
+  // path did not exist and the early return below reported a pass having
+  // checked nothing. The checker itself was fixed for spaced paths in #245;
+  // this was its own test's copy of the same shape.
+  const __dirname = path.dirname(fileURLToPath(import.meta.url));
   const realWorkflowsDir = path.resolve(
     __dirname,
     "..",
     ".github",
     "workflows",
   );
-  if (!existsSync(realWorkflowsDir)) {
-    // No workflows dir → nothing to lock. Skip.
-    return;
-  }
+  // A failure, not a skip (#317). This repo always ships `ci.yml`, so a
+  // missing directory means the path is wrong, not that there is nothing to
+  // lock -- and a skip that returns early is indistinguishable from a pass.
+  assert.ok(
+    existsSync(realWorkflowsDir),
+    `real workflows directory not found at ${realWorkflowsDir}`,
+  );
   const code = run({ workflowsDir: realWorkflowsDir, log: () => {}, err: () => {} });
   assert.equal(code, 0, "real .github/workflows/ should be clean");
 });

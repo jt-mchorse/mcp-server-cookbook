@@ -3338,3 +3338,24 @@ context_for_next_session:
   - "check-numeric-env-grammar_SCANS_TS_ENV_PARSERS_ONLY_so_bin/*.mjs_argv_parsing_is_outside_its_population"
 followups: []
 ---
+
+---
+session: 2026-10-21T07:47:43Z
+duration_min: 4   # computed: issue read 2026-10-21T07:47:43Z (date -u) -> plan comment 07:48:30Z -> code commit 07:51:03Z -> PR #322 07:51:19Z
+issue: 317
+branch: session/2026-10-21-0737-issue-317
+focus: CHECK_WORKFLOW_YAML_TEST_REAL_WORKFLOWS_CASE_PASSED_VACUOUSLY_UNDER_A_SPACED_CHECKOUT_PATHNAME_KEPT_%20
+phase: shipped
+delta:
+  files_changed: 2
+  tests_added: 4
+  suite: "tools/lib/is-main.test.mjs 5 -> 9 passed; all 32 ci.yml `run: node` steps green on Node 25.5.0 and 20.9.0; server suites untouched"
+decisions_made: []
+measured: "Copy at '/tmp/w/sp ace317' + broken zz-broken.yml, main 7d6efed: checker exit 1, real-.github case pass 1 fail 0; no-space copy fail 1. After: spaced copy fail 1 on 'should be clean'. Sweep: .pathname only at tools/check-workflow-yaml.test.mjs:200 across tools/ + servers/*. Revert of that one file: 3 red (spaced+broken, missing dir, .pathname lock) / 6 green (spaced+clean control, 5 existing #245 arms), identical on Node 25 and 20."
+context_for_next_session:
+  - "ARMS_LIVE_IN_tools/lib/is-main.test.mjs_NOT_THE_FILE_UNDER_REPAIR_so_a_revert_of_the_source_keeps_the_tests"
+  - "NODE_20_COUNTS_PATTERN_FILTERED_CASES_IN_#_tests_AS_SKIPS_match_the_case's_own_TAP_ok/not_ok_line_instead"
+  - "CHILD_node_--test_NEEDS_NODE_TEST_CONTEXT_REMOVED_or_it_streams_into_the_parent_runner_and_stdout_is_empty"
+  - "MISSING_.github/workflows_IS_NOW_A_FAILURE_NOT_A_SKIP"
+followups: []
+---
