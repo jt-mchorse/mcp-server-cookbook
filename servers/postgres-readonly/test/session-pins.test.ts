@@ -62,6 +62,7 @@ describe("withClient session pins (#252)", () => {
       "SET standard_conforming_strings = on",
       "SET DateStyle = ISO",
       "SET IntervalStyle = postgres",
+      "SET bytea_output = hex",
       "SELECT 1",
       "<end>",
     ]);
@@ -107,4 +108,30 @@ describe("withClient output-format pins (#299)", () => {
       expect(issued.at(-1)).toBe("<end>");
     },
   );
+});
+
+/**
+ * `withClient` pins `bytea_output = hex` (#315).
+ *
+ * `bytea` is returned as the database's text, and `bytea_output` is inherited
+ * from the server, database or role like the two formats above. Measured on
+ * Postgres 17.6 with `ALTER ROLE postgres SET bytea_output = 'escape'`, through
+ * `runSelect` without the pin: `'\x0102'::bytea` came back as `\001\002`, and an
+ * empty bytea as `""`.
+ */
+describe("withClient bytea_output pin (#315)", () => {
+  it("issues SET bytea_output = hex after connecting and before the caller's query", async () => {
+    await withClient(CFG, async (c) => c.query("SELECT '\\x0102'::bytea"));
+    const at = issued.indexOf("SET bytea_output = hex");
+    expect(at).toBeGreaterThan(issued.indexOf("<connect>"));
+    expect(at).toBeLessThan(issued.indexOf("SELECT '\\x0102'::bytea"));
+  });
+
+  it("never runs the caller's query when the bytea_output pin is refused", async () => {
+    failOn = "bytea_output";
+    const fn = vi.fn(async () => "ran");
+    await expect(withClient(CFG, fn)).rejects.toThrow(/refused/);
+    expect(fn).not.toHaveBeenCalled();
+    expect(issued.at(-1)).toBe("<end>");
+  });
 });

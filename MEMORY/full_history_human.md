@@ -2633,3 +2633,16 @@ the gist. All four are now refused when the client is built, the same way
 #312 handled a padded token. The environment variable already trimmed
 spaces and dropped a trailing slash, and it still does. It now also refuses
 a `?` or `#`, and the error names the variable the operator actually set.
+
+## 2026-10-21 — Binary values come back as the database's hex text (#315)
+
+The Postgres server returned every binary (`bytea`) value as a dump of a
+Node.js memory buffer, `{"type":"Buffer","data":[1,2]}`. That is exactly
+what a JSON column holding the same text looks like, so a client couldn't
+tell the two apart. It was also very large: a 100,000-byte value became a
+1.5-million-character reply, against about 200,000 for its hex form. Binary
+values, and lists of them, now come back as the database's own hex text,
+such as `\x0102`. The server also tells each session to use hex output.
+Without that, a database or role configured for the older "escape" format
+would have changed what the text looks like. This was checked against a
+real PostgreSQL 17 server.

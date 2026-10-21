@@ -22,7 +22,8 @@ rejected by [`src/sqlGuard.ts`](src/sqlGuard.ts).
 `rows` holds what the database returned. `date` and `timestamp` values are
 the database's text (#207). `json` and `jsonb` values are written into the
 payload as the database's JSON text, not re-parsed, so a big integer or `1e400`
-inside a document keeps every digit (#247).
+inside a document keeps every digit (#247). `bytea` values are the database's
+hex text, `\x0102`, not a Node `Buffer` dump (#315).
 
 ## Threat model
 

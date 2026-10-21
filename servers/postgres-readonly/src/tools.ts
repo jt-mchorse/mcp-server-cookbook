@@ -200,11 +200,23 @@ function mapIntervalElements(value: unknown, parse: (v: string) => unknown): unk
 // elements are kept as the database's strings, like the scalar.
 const NUMERIC_ARRAY_OID = 1231;
 
+// `bytea` and `bytea[]` (#315). pg parses bytea into a Node `Buffer`, which
+// JSON writes as `{"type":"Buffer","data":[1,2]}`: the same JSON as a `json`
+// value of that shape, so a client could not tell the two apart, and about
+// 15 characters per byte against 2 for the database's hex text (a 100,000-byte
+// value was a 1,500,237-character payload, its `::text` 200,180). Keep the
+// database's text, `\x0102`, which `withClient` pins to hex; the array's
+// elements are kept as the database's strings, as `numeric[]` does.
+const BYTEA_OID = 17;
+const BYTEA_ARRAY_OID = 1001;
+
 export const SELECT_TYPES = {
   getTypeParser(oid: number, format?: string): (value: string) => unknown {
     if (DATE_OIDS.has(oid)) return (value: string) => value;
     if (DATE_ARRAY_OIDS.has(oid)) return pgParser(TEXT_ARRAY_OID, format ?? "text");
     if (oid === NUMERIC_ARRAY_OID) return pgParser(TEXT_ARRAY_OID, format ?? "text");
+    if (oid === BYTEA_OID) return (value: string) => value;
+    if (oid === BYTEA_ARRAY_OID) return pgParser(TEXT_ARRAY_OID, format ?? "text");
     if (JSON_OIDS.has(oid)) return (value: string) => new RawJson(value);
     if (JSON_ARRAY_OIDS.has(oid)) {
       const parseTextArray = pgParser(TEXT_ARRAY_OID, format ?? "text");
