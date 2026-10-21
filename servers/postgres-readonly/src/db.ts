@@ -260,6 +260,10 @@ export async function withClient<T>(
     // `{}`, the same value as a zero interval. Pin the formats the parsers read.
     await client.query("SET DateStyle = ISO");
     await client.query("SET IntervalStyle = postgres");
+    // `bytea` is returned as the database's text (#315), and `bytea_output` is
+    // inherited the same way: under 'escape' `\x0102` printed as `\001\002`.
+    // Pin the hex form the payload documents.
+    await client.query("SET bytea_output = hex");
     return await fn(client);
   } finally {
     await client.end();
