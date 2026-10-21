@@ -282,5 +282,20 @@ export function validateGistsConfig(cfg: GistsConfig): void {
       );
     }
     assertTokenIsHeaderSafe(cfg.token);
+    // A token padded at the ends is refused, not trimmed (#312). `fetch` strips
+    // a trailing space from the `Authorization` value, so the token sent, and
+    // echoed back by a header-echoing proxy, was the trimmed one, while the
+    // client redacted the configured, padded one: `split` never matched and the
+    // token reached the tool error verbatim. The env path trims; a built config
+    // must already hold what it would have produced, so the token configured is
+    // the token sent. Refusing matches the gate above, which refuses a trailing
+    // LF or TAB rather than repairing it. The message does not quote the value.
+    if (cfg.token !== cfg.token.trim()) {
+      throw new Error(
+        `GistsConfig.token has leading or trailing whitespace, which fetch strips from the ` +
+          `header, so the token sent would not be the one redacted from errors; the token is ` +
+          `not shown; trim it before building the config`,
+      );
+    }
   }
 }

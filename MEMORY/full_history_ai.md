@@ -3257,3 +3257,23 @@ context_for_next_session:
   - "NO_LIVE_POSTGRES_IN_CI_the_box[]_live_check_is_hand_measured_mock_answers_typdelim_as_PG17_does"
 followups: []
 ---
+
+---
+session: 2026-10-20T08:14:31Z
+duration_min: 3   # computed: issue read 2026-10-20T08:14:31Z (date -u) -> plan comment 08:15:09Z -> code commit 08:16:29Z -> PR #314 08:16:47Z
+issue: 312
+branch: session/2026-10-20-0826-issue-312
+focus: GITHUB_GISTS_BUILT_CONFIG_TOKEN_PADDED_AT_THE_ENDS_SENT_TRIMMED_BUT_REDACTED_UNTRIMMED
+phase: shipped
+delta:
+  files_changed: 5
+  tests_added: 8
+  suite: "github-gists 315 -> 323 passed; lint, typecheck, build, check-test-count, check-readme, root tools tests ok"
+decisions_made: []
+measured: "real fetch, loopback server echoing Authorization in body + X-GitHub-Request-Id: main -> clean token 'Bearer [REDACTED]' on both, '<token> ' -> 'Bearer ghp_secret_should_never_appear' on both (leaked); trailing TAB already refused by #264. After: padded token refused at validateGistsConfig without quoting it; clean token unchanged. Revert 5 of 8 new arms red; 3 controls (clean token end-to-end, inner space accepted, env path still trims) green on both trees."
+context_for_next_session:
+  - "BUILT_CONFIG_TOKEN_MUST_EQUAL_ITS_OWN_trim()_REFUSED_NOT_NORMALISED_validateGistsConfig_is_void_and_does_not_own_the_object"
+  - "THE_RULE_IS_String.trim_NOT_HTTP_WHITESPACE_so_a_trailing_NBSP_is_refused_too_matching_what_the_env_path_would_produce"
+  - "assertTokenIsHeaderSafe_RUNS_FIRST_so_a_trailing_LF_or_TAB_keeps_its_#264_cannot_carry_message"
+followups: []
+---
