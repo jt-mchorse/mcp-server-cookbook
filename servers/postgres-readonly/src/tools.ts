@@ -233,13 +233,17 @@ export const SELECT_TYPES = {
 // value that can be an array literal -- array output starts with `{`, or `[`
 // for a non-default lower bound -- is looked up, so a result of plain text and
 // numbers costs no extra round trip.
+// The parser splits on a comma, but each type names its own delimiter in
+// `typdelim`: `box` uses `;`, so `{(1,1),(0,0);(3,3),(2,2)}` was split on the
+// commas inside each box into fragments (#311). An array whose element type
+// has any other delimiter keeps the database's text, as before #308.
 const getPgTypeParser = pg.types.getTypeParser as (oid: number, format?: string) => (value: string) => unknown;
 // pg-types' identity fallback; oid 0 is InvalidOid, never a type.
 const NO_PARSER = getPgTypeParser(0, "text");
 const ARRAY_LITERAL_START = /^[{[]/;
 const ARRAY_OIDS_SQL =
-  "SELECT t.oid FROM pg_catalog.pg_type t WHERE t.oid = ANY($1::oid[]) " +
-  "AND EXISTS (SELECT 1 FROM pg_catalog.pg_type e WHERE e.typarray = t.oid)";
+  "SELECT t.oid, e.typdelim FROM pg_catalog.pg_type t " +
+  "JOIN pg_catalog.pg_type e ON e.typarray = t.oid WHERE t.oid = ANY($1::oid[])";
 
 /** Parse, in place, each column of an unregistered array type as a text array (#308). */
 export async function parseUnregisteredArrays(
@@ -255,8 +259,8 @@ export async function parseUnregisteredArrays(
     }
   });
   if (candidates.size === 0) return;
-  const found = await c.query<{ oid: number }>({ text: ARRAY_OIDS_SQL, values: [[...candidates]] });
-  const arrayOids = new Set(found.rows.map((r) => Number(r.oid)));
+  const found = await c.query<{ oid: number; typdelim: string }>({ text: ARRAY_OIDS_SQL, values: [[...candidates]] });
+  const arrayOids = new Set(found.rows.filter((r) => r.typdelim === ",").map((r) => Number(r.oid)));
   if (arrayOids.size === 0) return;
   const parseTextArray = pgParser(TEXT_ARRAY_OID, "text");
   (fields ?? []).forEach((f, i) => {
