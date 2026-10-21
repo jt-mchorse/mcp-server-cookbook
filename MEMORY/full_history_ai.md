@@ -3318,3 +3318,23 @@ context_for_next_session:
   - "BYTEA_NOW_HAS_A_NON-NO_PARSER_PARSER_so_parseUnregisteredArrays_never_looks_it_up"
 followups: []
 ---
+
+---
+session: 2026-10-21T07:47:44Z
+duration_min: 2   # computed: issue read 2026-10-21T07:47:44Z (date -u) -> plan comment 07:48:14Z -> code commit 07:49:11Z -> PR #321 07:49:26Z
+issue: 318
+branch: session/2026-10-21-0737-issue-318
+focus: INTERNAL_TOOLS_BRIDGE_REPO_STATS_CLI_MAX_DEPTH_PARSEINT_PREFIX_ACCEPTED_2ABC_1E1_3.9
+phase: shipped
+delta:
+  files_changed: 5
+  tests_added: 6
+  suite: "internal-tools-bridge 81 -> 87 passed; lint, typecheck, build, check-test-count, every tools/check-*.mjs, root tools tests 284/284 ok"
+decisions_made: []
+measured: "main 7d6efed, two-level tree: --max-depth 2abc ran as 2, 1e1 as 1 (1 file, not 10), 3.9 as 3, all exit 0; 0x5 exit 2. After: 2abc/1e1/3.9/0x5 exit 2 with the existing message; 10 -> 2 files, 1 -> 1 file. Revert 3 red (2abc, 1e1, 3.9) / 3 green controls (0x5, 10, 1)."
+context_for_next_session:
+  - "REPO_STATS_CLI_GATES_MAX_DEPTH_ON_/^[0-9]+$/_THEN_RANGE_[1,10]_no_trim_no_sign_argv_has_no_.env_padding"
+  - "GRAMMAR_INLINED_bin_is_stdlib-only_standalone_and_servers_share_no_modules_(#152)"
+  - "check-numeric-env-grammar_SCANS_TS_ENV_PARSERS_ONLY_so_bin/*.mjs_argv_parsing_is_outside_its_population"
+followups: []
+---

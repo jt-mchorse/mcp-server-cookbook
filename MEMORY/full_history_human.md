@@ -2646,3 +2646,14 @@ such as `\x0102`. The server also tells each session to use hex output.
 Without that, a database or role configured for the older "escape" format
 would have changed what the text looks like. This was checked against a
 real PostgreSQL 17 server.
+
+## 2026-10-21 — `repo-stats --max-depth` accepts only a whole number (#318)
+
+The small command-line tool behind the internal-tools bridge read
+`--max-depth` by taking whatever number the value started with and dropping
+the rest. So `2abc` ran as 2, `1e1` ran as 1 instead of 10, and `3.9` ran as
+3, and none of them reported an error. That contradicted the tool's own
+header, which promises a whole number from 1 to 10 and exit code 2 for bad
+input. The value must now be plain digits before the range check, so all
+three are refused with the existing message. The MCP tool was never
+affected, because the bridge always passes a clean whole number.
