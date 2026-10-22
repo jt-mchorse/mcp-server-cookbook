@@ -2670,3 +2670,20 @@ skipped. New tests run the check in a temporary copy whose path has a
 space: a broken workflow must fail it, and a clean one must pass. A repo-wide
 check also keeps this path-building shape from coming back. It appeared in
 only this one place.
+
+## 2026-10-22 — The Python sandbox gives a file its real name on a Mac, as the TS one does (#298)
+
+On a Mac's default disk, which ignores letter case, the two sandbox ports
+disagreed about paths typed in a different case from the name on disk. The
+TS port asks the operating system for the real path and gets back the name
+as it is stored, so `root/f.txt` under a `Root` folder resolved to
+`Root/f.txt`. The Python port kept the letters as typed and compared text.
+It refused `root/f.txt`, reported `Root/F.TXT` as if that were the file's
+name, and, when the allowed folder itself was configured as `root`, refused
+even the correctly spelled `Root/f.txt`. On a Mac the Python port now asks
+the same system function the TS port uses, at the same four places, so both
+give identical answers on every case tried. Linux is unchanged, and it never
+had the problem. Paths outside the allowed folder are still refused however
+they are spelled. New tests on both sides pin the Mac behaviour. They skip on
+the Linux CI machines, which is why the published test counts only grew by
+the two Python tests that run everywhere.

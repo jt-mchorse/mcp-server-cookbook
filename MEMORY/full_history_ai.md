@@ -3359,3 +3359,24 @@ context_for_next_session:
   - "MISSING_.github/workflows_IS_NOW_A_FAILURE_NOT_A_SKIP"
 followups: []
 ---
+
+---
+session: 2026-10-22T07:16:39Z
+duration_min: 6   # computed: issue read 2026-10-22T07:16:39Z (date -u) -> plan comment 07:18:09Z -> code commit 07:20:58Z -> PR #323 07:22:05Z
+issue: 298
+branch: session/2026-10-22-0716-issue-298
+focus: FILESYSTEM_SANDBOX_PY_DARWIN_CASE_INSENSITIVE_APFS_os.path.realpath_KEPT_TYPED_CASE_TS_libc_realpath_RETURNS_ON-DISK_NAME
+phase: shipped
+delta:
+  files_changed: 6
+  tests_added: 29
+  suite: "filesystem-sandbox-py 366 -> 368 on ubuntu (381 passed 1 skipped on darwin); filesystem-sandbox 307 unchanged on ubuntu (320 on darwin); ruff check/format, lint, typecheck, build, every tools/check-*.mjs, root tools tests 259/259 ok"
+decisions_made: []
+measured: "main 6a66c52, /tmp/mcp298/Root: Python refused root/f.txt and ROOT/<NFC e-acute>.txt, returned Root/F.TXT and Root/G.TXT as typed, published a root spelled `root` as root/ and then refused Root/f.txt; TS gave the on-disk name for all. After: 17 inputs x read/write x 2 root spellings byte-identical across ports. Py revert 9 red (8 behavioural + 1 fallback-structural) / 6 green controls / 1 skip; each of 3 call sites reverted alone reds its own test. TS twin vs JS realpathSync: 7 red / 6 green."
+context_for_next_session:
+  - "PY_SANDBOX_USES_ctypes_libc_realpath(3)_ON_DARWIN_ONLY_at_the_4_sites_TS_calls_fs.realpath;_fallback_os.path.realpath_on_NULL"
+  - "WRITE_LEAF_(must_exist=False,_non-symlink)_STAYS_AS_TYPED_IN_BOTH_PORTS_deferred_not_a_parity_defect"
+  - "DARWIN_CASE_FOLD_TESTS_SKIP_ON_UBUNTU_so_check-test-count_ON_A_MAC_reads_381/320_vs_committed_368/307_by_design"
+  - "NO_macOS_CI_LEG_darwin-only_behaviour_(#289,_#298)_is_only_exercised_locally"
+followups: []
+---
