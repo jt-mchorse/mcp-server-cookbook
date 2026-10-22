@@ -21,7 +21,9 @@ Implementation notes:
    *resolved* target is what's checked.
 2. Per-call resolution uses ``os.path.realpath`` (follows symlinks)
    so a symlink under the allow-list pointing outside *must not*
-   succeed (D-006 in the cookbook's MEMORY).
+   succeed (D-006 in the cookbook's MEMORY). On darwin it is libc
+   ``realpath(3)`` instead, the function the TS port's ``fs.realpath``
+   calls, so a case-insensitive volume yields the on-disk name (#298).
 3. Containment check is a ``<root>/`` prefix match on the resolved
    path. The trailing separator matters: ``/tmp/foo`` must not match
    ``/tmp/foobar`` as a substring; ``/tmp/foo/`` does.
@@ -35,8 +37,11 @@ adapt either shape to the SDK's async dispatcher.
 
 from __future__ import annotations
 
+import ctypes
+import ctypes.util
 import os
 import os.path
+import sys
 from dataclasses import dataclass
 from typing import Literal
 
@@ -195,12 +200,12 @@ class Sandbox:
             # instead of disagreeing with it.
             if not os.path.exists(input_value):
                 raise SandboxEscape("outside_allowlist", input_value)
-            real = os.path.realpath(input_value)
+            real = _realpath(input_value)
         else:
             parent = os.path.dirname(input_value)
             if not os.path.isdir(parent):
                 raise SandboxEscape("outside_allowlist", input_value)
-            parent_real = os.path.realpath(parent)
+            parent_real = _realpath(parent)
             # Normalize the joined leaf. `os.path.join` does NOT collapse `..`/`.`
             # (unlike Node's `path.join` in the TS sibling), so a basename of `..`
             # left a literal `<parent_real>/..` that the lexical `_under_root`
@@ -228,7 +233,7 @@ class Sandbox:
             if os.path.islink(candidate):
                 if not os.path.exists(candidate):
                     raise SandboxEscape("outside_allowlist", input_value)
-                real = os.path.realpath(candidate)
+                real = _realpath(candidate)
             else:
                 real = candidate
 
@@ -288,10 +293,63 @@ def _realpath_or_throw(p: str) -> str:
         # the TS port's `fs.realpath` refuses to start.
         if not os.path.exists(p):
             raise FileNotFoundError(p)
-        return os.path.realpath(p)
+        return _realpath(p)
     except OSError as exc:
         raise SandboxEscape(
             "root_does_not_exist",
             p,
             f"allow-list root does not exist: {p} ({exc})",
         ) from exc
+
+
+def _load_darwin_realpath():  # pragma: no cover - platform-dependent
+    if sys.platform != "darwin":
+        return None
+    try:
+        libc = ctypes.CDLL(ctypes.util.find_library("c"), use_errno=True)
+        fn = libc.realpath
+    except (OSError, AttributeError):
+        return None
+    fn.argtypes = [ctypes.c_char_p, ctypes.c_char_p]
+    fn.restype = ctypes.c_char_p
+    return fn
+
+
+# darwin's libc `realpath(3)`, or None elsewhere (#298). On macOS's default
+# case-insensitive APFS, `os.path.realpath` keeps each component AS TYPED --
+# it is pure Python over `lstat`/`readlink` -- while the TS port's
+# `fs.realpath` calls libc `realpath(3)` (via libuv), which returns the
+# ON-DISK name. So with root `Root/`, TS resolved `root/f.txt` to
+# `Root/f.txt` and Python refused it as `outside_allowlist`; `Root/F.TXT` came
+# back as `F.TXT` here, a "resolved" path that is not the file's real name;
+# and a root spelled `root` was published as `root/`, which then refused the
+# correctly-cased `Root/f.txt`. The kernel opens every one of those spellings,
+# and they are inside the root, so this port moves to the OS's answer -- the
+# same rule #141 and #289 applied: a sandbox whose accept set depends on the
+# host OS is worse than one that doesn't.
+#
+# Calling the SAME libc function rather than re-deriving the on-disk case
+# (a per-component `listdir`) keeps parity by construction: APFS's case AND
+# Unicode-normalization folding, and which hardlink name comes back, are
+# whatever the TS port gets. Linux keeps `os.path.realpath`, which already
+# agrees with glibc's case-preserving `realpath` that Node calls there.
+_DARWIN_REALPATH = _load_darwin_realpath()
+# darwin's PATH_MAX; `realpath(3)` writes at most this many bytes.
+_DARWIN_PATH_MAX = 1024
+
+
+def _realpath(p: str) -> str:
+    """``os.path.realpath``, but on darwin the on-disk case of each component.
+
+    Callers have already established that ``p`` exists. If libc refuses it
+    anyway (a race, or a name longer than ``PATH_MAX``), fall back to
+    ``os.path.realpath`` -- the pre-#298 answer -- rather than invent a new
+    rejection here; containment still runs on whatever comes back.
+    """
+    if _DARWIN_REALPATH is None:
+        return os.path.realpath(p)
+    buf = ctypes.create_string_buffer(_DARWIN_PATH_MAX)
+    out = _DARWIN_REALPATH(os.fsencode(p), buf)
+    if out is None:
+        return os.path.realpath(p)
+    return os.fsdecode(out)
