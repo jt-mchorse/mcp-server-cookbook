@@ -3380,3 +3380,23 @@ context_for_next_session:
   - "NO_macOS_CI_LEG_darwin-only_behaviour_(#289,_#298)_is_only_exercised_locally"
 followups: []
 ---
+
+---
+session: 2026-10-22T08:03:07Z
+duration_min: 2   # computed: issue read 2026-10-22T08:03:07Z (date -u) -> plan comment 08:03:59Z -> code commit 08:04:28Z -> PR #327 08:05:21Z
+issue: 324
+branch: session/2026-10-22-0802-issue-324
+focus: POSTGRES_READONLY_WITHCLIENT_DID_NOT_PIN_EXTRA_FLOAT_DIGITS_ROLE_AT_-15_ROUNDED_1234.5678_TO_1000
+phase: shipped
+delta:
+  files_changed: 4
+  tests_added: 2
+  suite: "postgres-readonly 726 -> 728 passed; lint, typecheck, build, check-test-count, every tools/check-*.mjs, root tools tests 288/288 ok"
+decisions_made: []
+measured: "main 644d772, scratch PG 17.6: role extra_float_digits=-15 got price 1234.5678 as 1000, real 0.333333 as 0.3, point(1.23456,9.87654) as {x:1,y:10} via run_select and sample_rows; role at 0 got 0.1+0.2 as 0.3 and 1.2345678::float4 as 1.23457. After: both roles byte-identical to the postgres role. Revert of src/db.ts: 3 red (2 new #324 + ordered pin list) / 8 green (existing #252/#299/#315 pin controls)."
+context_for_next_session:
+  - "WITHCLIENT_PINS_NOW_7:_statement_timeout,_read_only,_standard_conforming_strings,_DateStyle,_IntervalStyle,_bytea_output,_extra_float_digits=3"
+  - "3_NOT_1:_PG12+_any_positive_value_is_shortest-exact_(identical_to_default);_pre-12_3_round-trips_a_double"
+  - "NO_PYTHON_PORT_OF_postgres-readonly_and_NO_pg-integration_CI_job;_live_arms_are_manual_scratch-cluster_probes"
+followups: []
+---
