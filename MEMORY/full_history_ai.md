@@ -3400,3 +3400,22 @@ context_for_next_session:
   - "NO_PYTHON_PORT_OF_postgres-readonly_and_NO_pg-integration_CI_job;_live_arms_are_manual_scratch-cluster_probes"
 followups: []
 ---
+
+---
+session: 2026-10-22T08:05:56Z
+duration_min: 3   # computed: started after #324 close 2026-10-22T08:05:56Z (date -u) -> plan comment 08:06:39Z -> code commit 08:08:04Z -> PR #328 08:08:30Z
+issue: 325
+branch: session/2026-10-22-0806-issue-325
+focus: WORKFLOW_CHECKERS_YAML_TIMEOUT_CONCURRENCY_LISTED_*.yml_ONLY_A_.yaml_WORKFLOW_WAS_INVISIBLE_TO_ALL_THREE
+phase: shipped
+delta:
+  files_changed: 10
+  tests_added: 13
+  suite: "root tools tests 288 -> 301 passed; every tools/check-*.mjs exit 0; server suites untouched"
+decisions_made: []
+measured: "main 644d772, dir with clean ci.yml + rogue.yaml (no timeout-minutes, sleep 21600) + broken.yaml (`name: [broken`): yaml/timeout/concurrency all exit 0 '1 workflow file(s) clean.'. After: all three exit 1 naming broken.yaml. Revert of the 3 checker sources (lib kept): 7 red (2 per checker + identity lock) / 6 green (3 look-alike controls + 3 lib unit). Unanchored /\\.ya?ml/ neighbour: 5 red."
+context_for_next_session:
+  - "tools/lib/workflow-files.mjs_OWNS_listWorkflowFiles;_checkers_re-export_it_and_an_identity_lock_pins_all_three"
+  - "NEW_tools/lib_TEST_MUST_BE_REGISTERED_IN_package.json_AND_ci.yml_(#170_registration_lock)"
+followups: []
+---

@@ -239,7 +239,7 @@ jobs:
 
   workflow-yaml-check:
     # Inverse safety net for the 21-day silent CI outage closed in
-    # portfolio-ops#27. Parses every .github/workflows/*.yml and asserts
+    # portfolio-ops#27. Parses every .github/workflows/*.{yml,yaml} (#325) and asserts
     # a non-empty `jobs:` mapping. See tools/check-workflow-yaml.mjs.
     #
     # Extended in #48 to also enforce timeout-minutes on every job
@@ -270,6 +270,12 @@ jobs:
         run: node tools/check-workflow-concurrency.mjs
       - name: Run the workflow-concurrency check script's own unit tests
         run: node --test tools/check-workflow-concurrency.test.mjs
+      # The workflow-file listing the three checks above share (#325). Each had
+      # its own `.yml`-only copy, so a `.yaml` workflow was invisible to all
+      # three. A library has no CI step of its own; its test is the
+      # registration, and it pins that every checker uses this one copy.
+      - name: Run the shared workflow-file listing's own unit tests
+        run: node --test tools/lib/workflow-files.test.mjs
 
   numeric-env-grammar-check:
     # Every numeric environment variable across the cookbook parses one
