@@ -206,6 +206,14 @@ export function assertBaseUrlJoinsCleanly(baseUrl: string, label: string): void 
   if (baseUrl !== baseUrl.trim()) {
     problem = "has leading or trailing whitespace, which would sit between it and the appended " +
       "/gists/<id> in every request";
+  } else if (/[\t\n\r]/.test(baseUrl)) {
+    // Inside the value, past the trim above (#326). The URL parser deletes an
+    // ASCII TAB, LF or CR wherever it appears, so `/api<TAB>v3` booted, from
+    // the env and built alike, and a loopback server was sent
+    // `/apiv3/gists/<id>`: a path the operator never wrote. Refused, not
+    // repaired, by the rule #316 set for the ends.
+    problem = "contains a tab, line feed or carriage return, which fetch would silently delete " +
+      "from the requested path";
   } else if (/[?#]/.test(baseUrl)) {
     problem =
       "has a query or fragment (`?` or `#`), so the appended /gists/<id> would not be the " +

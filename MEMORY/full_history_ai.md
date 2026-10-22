@@ -3419,3 +3419,23 @@ context_for_next_session:
   - "NEW_tools/lib_TEST_MUST_BE_REGISTERED_IN_package.json_AND_ci.yml_(#170_registration_lock)"
 followups: []
 ---
+
+---
+session: 2026-10-22T08:08:56Z
+duration_min: 3   # computed: started after #325 close 2026-10-22T08:08:56Z (date -u) -> plan comment 08:09:55Z -> code commit 08:10:58Z -> PR #329 08:11:43Z
+issue: 326
+branch: session/2026-10-22-0809-issue-326
+focus: CAPTURE_DEMO_PAUSE_SECONDS_BARE_NUMBER_AND_GISTS_BASE_URL_INTERIOR_TAB_LF_CR_DELETED_BY_URL_PARSER_REPAIRED_NOT_REFUSED
+phase: shipped
+delta:
+  files_changed: 7
+  tests_added: 23
+  suite: "github-gists 348 -> 356 passed; root tools tests 288 -> 303 passed; lint, typecheck, build, check-test-count, every tools/check-*.mjs ok"
+decisions_made: []
+measured: "main 644d772. A: --pause-seconds 2s/abc/''/-1 exit 0 ~0.09s, 0x2 2.10s, 1e0 1.14s, ' 1 ' 1.12s; after all exit 2, 2 -> 2.11s, 0.5 -> 0.61s. B: loopback, /api<TAB|LF|CR>v3 booted built and env, server saw /apiv3/gists/abc123; after all six refused naming the label and host. Revert of capture-demo.mjs + config.ts: 21 red (14 + 7) / 2 green controls (plain decimals, %09 loopback)."
+context_for_next_session:
+  - "CR_BEHAVES_LIKE_TAB_LF_(WHATWG_strips_all_three)_issue_named_only_TAB_LF"
+  - "PAUSE_SECONDS_HAS_NO_UPPER_BOUND_deliberately_not_added"
+  - "#318_GRAMMAR_IS_INLINED_IN_A_SERVER_BIN_not_importable_from_tools/"
+followups: []
+---
