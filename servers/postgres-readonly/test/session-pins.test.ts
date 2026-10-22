@@ -63,6 +63,7 @@ describe("withClient session pins (#252)", () => {
       "SET DateStyle = ISO",
       "SET IntervalStyle = postgres",
       "SET bytea_output = hex",
+      "SET extra_float_digits = 3",
       "SELECT 1",
       "<end>",
     ]);
@@ -129,6 +130,34 @@ describe("withClient bytea_output pin (#315)", () => {
 
   it("never runs the caller's query when the bytea_output pin is refused", async () => {
     failOn = "bytea_output";
+    const fn = vi.fn(async () => "ran");
+    await expect(withClient(CFG, fn)).rejects.toThrow(/refused/);
+    expect(fn).not.toHaveBeenCalled();
+    expect(issued.at(-1)).toBe("<end>");
+  });
+});
+
+/**
+ * `withClient` pins `extra_float_digits = 3` (#324).
+ *
+ * float4/float8, their arrays (#303) and the geometric types are parsed from
+ * the text the server prints, and `extra_float_digits` is inherited from the
+ * server, database or role. Measured on Postgres 17.6 through `runSelect` and
+ * `sampleRows` without the pin: a role at -15 got 1234.5678 as `1000` and
+ * point(1.23456,9.87654) as `{"x":1,"y":10}`; a role at 0 got 0.1+0.2 as `0.3`
+ * and 1.2345678::float4 as `1.23457`. Each is a plain JSON number with nothing
+ * marking it as rounded.
+ */
+describe("withClient extra_float_digits pin (#324)", () => {
+  it("issues SET extra_float_digits = 3 after connecting and before the caller's query", async () => {
+    await withClient(CFG, async (c) => c.query("SELECT 1234.5678::float8"));
+    const at = issued.indexOf("SET extra_float_digits = 3");
+    expect(at).toBeGreaterThan(issued.indexOf("<connect>"));
+    expect(at).toBeLessThan(issued.indexOf("SELECT 1234.5678::float8"));
+  });
+
+  it("never runs the caller's query when the extra_float_digits pin is refused", async () => {
+    failOn = "extra_float_digits";
     const fn = vi.fn(async () => "ran");
     await expect(withClient(CFG, fn)).rejects.toThrow(/refused/);
     expect(fn).not.toHaveBeenCalled();

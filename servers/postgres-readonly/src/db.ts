@@ -264,6 +264,15 @@ export async function withClient<T>(
     // inherited the same way: under 'escape' `\x0102` printed as `\001\002`.
     // Pin the hex form the payload documents.
     await client.query("SET bytea_output = hex");
+    // float4/float8 (and float4[]/float8[], #303, and the geometric types) are
+    // parsed from the text the server prints, and `extra_float_digits` is
+    // inherited the same way (#324). Measured on Postgres 17.6 with the role
+    // at -15: 1234.5678 came back as the plain number `1000` and
+    // point(1.23456,9.87654) as {x:1,y:10}; at 0, the pre-PG12 default,
+    // 0.1+0.2 came back as 0.3. 3, not 1: on PG12+ any positive value prints
+    // the shortest exact form, identical to the default; before 12, 3 is the
+    // value that round-trips a double.
+    await client.query("SET extra_float_digits = 3");
     return await fn(client);
   } finally {
     await client.end();

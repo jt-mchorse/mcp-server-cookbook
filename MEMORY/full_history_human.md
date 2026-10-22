@@ -2687,3 +2687,21 @@ had the problem. Paths outside the allowed folder are still refused however
 they are spelled. New tests on both sides pin the Mac behaviour. They skip on
 the Linux CI machines, which is why the published test counts only grew by
 the two Python tests that run everywhere.
+
+## 2026-10-22 — Postgres floats can no longer be rounded by a role setting (#324)
+
+The Postgres server already fixed several session settings on every
+connection so that a role or database setting couldn't change how results
+came back: the date and interval formats and the bytea format among them.
+One setting of the same kind was missing. `extra_float_digits` controls how
+many digits the server prints for floating-point values, and the server
+reads them from that text. A role with it set to -15 got 1234.5678 back as
+1000 and a point (1.23456, 9.87654) as (1, 10). A role at 0, the old
+pre-PostgreSQL-12 default, got 0.1 + 0.2 as 0.3. Each looked like an exact
+number. The server now sets it to 3 on every connection. On PostgreSQL 12
+and later that prints the same shortest exact digits as the default, and on
+older servers it is the value that keeps a double exact. Run against a
+scratch PostgreSQL 17 cluster, both problem roles now get the same values as
+the default role. Two new tests pin the setting. They check that it is
+issued before the user's query and that the query never runs if the setting
+is refused.
