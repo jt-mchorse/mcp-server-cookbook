@@ -2705,3 +2705,18 @@ scratch PostgreSQL 17 cluster, both problem roles now get the same values as
 the default role. Two new tests pin the setting. They check that it is
 issued before the user's query and that the query never runs if the setting
 is refused.
+
+## 2026-10-22 — The workflow checks now read .yaml files as well as .yml (#325)
+
+The repo has three checks that read its GitHub Actions workflow files: one
+that they parse, one that every job has a time limit, and one that a newer
+push cancels an older run. Each had its own copy of the code that finds the
+files, and each copy only looked for names ending in `.yml`. GitHub also runs
+files ending in `.yaml`, so a broken or unlimited workflow with that ending
+would have passed all three checks. That can't happen today because the repo
+has only one workflow, `ci.yml`, but the next one could have been named
+either way. The file-finding code now lives in one shared place and accepts
+both endings. Each check uses it, and a test makes sure none of them goes
+back to a private copy. New tests give each check a bad `.yaml` file, a
+folder holding only `.yaml` files, and look-alike names such as
+`old.yml.bak` that must still be ignored.
