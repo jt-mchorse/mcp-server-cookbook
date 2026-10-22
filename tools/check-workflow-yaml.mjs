@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 //
-// Verify every .github/workflows/*.yml in this repo parses cleanly and
+// Verify every .github/workflows/*.{yml,yaml} in this repo parses cleanly and
 // has a non-empty `jobs:` mapping.
 //
 // This is the inverse safety net for the 21-day silent CI outage closed
@@ -29,30 +29,21 @@
 //      llm-cost-optimizer, prompt-regression-suite, embedding-model-shootout,
 //      vector-search-at-scale, python-async-llm-pipelines)
 
-import { readFileSync, readdirSync, existsSync } from "node:fs";
+import { readFileSync, existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { parse as yamlParse } from "yaml";
 import { isMain } from "./lib/is-main.mjs";
+import { listWorkflowFiles } from "./lib/workflow-files.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..");
 const WORKFLOWS_DIR = path.join(REPO_ROOT, ".github", "workflows");
 
-/**
- * List every workflow YAML file under `workflowsDir`. Returns absolute
- * paths sorted lexicographically so output is deterministic.
- */
-export function listWorkflowFiles(workflowsDir) {
-  if (!existsSync(workflowsDir)) {
-    return [];
-  }
-  return readdirSync(workflowsDir)
-    .filter((name) => name.endsWith(".yml"))
-    .sort()
-    .map((name) => path.join(workflowsDir, name));
-}
+// The shared listing, so `.yaml` workflows are read as well as `.yml` (#325).
+// Re-exported because this module's tests and callers import it from here.
+export { listWorkflowFiles };
 
 /**
  * Check a single workflow file. Returns `{ ok: true }` on success or
@@ -118,7 +109,7 @@ export function run({ workflowsDir = WORKFLOWS_DIR, log = console.log, err = con
   }
   const files = listWorkflowFiles(workflowsDir);
   if (files.length === 0) {
-    err(`check-workflow-yaml: no *.yml files found under ${workflowsDir}`);
+    err(`check-workflow-yaml: no *.yml or *.yaml files found under ${workflowsDir}`);
     return 2;
   }
   let findingCount = 0;

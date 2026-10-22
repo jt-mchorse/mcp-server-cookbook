@@ -309,3 +309,52 @@ test("run returns exit code 2 when the workflows directory is empty", () => {
     rmSync(root, { recursive: true, force: true });
   }
 });
+
+// `.yaml` is a workflow file too (#325). GitHub Actions runs both extensions,
+// and this checker used to list `*.yml` only, so a bad `.yaml` beside a clean
+// `ci.yml` exited 0 with "1 workflow file(s) clean.".
+function runCaptured(workflowsDir) {
+  const out = [];
+  const code = run({ workflowsDir, log: (s) => out.push(s), err: (s) => out.push(s) });
+  return { code, text: out.join("\n") };
+}
+
+test("run fails on a bad `.yaml` workflow beside a clean `.yml` one (#325)", () => {
+  const { root, workflowsDir } = makeTempWorkflowsDir();
+  try {
+    writeWorkflow(workflowsDir, "ci.yml", CLEAN_WORKFLOW);
+    writeWorkflow(workflowsDir, "rogue.yaml", ONE_UNGUARDED);
+    const { code, text } = runCaptured(workflowsDir);
+    assert.equal(code, 1);
+    assert.match(text, /rogue\.yaml/);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("run reads a directory holding only `.yaml` workflows instead of calling it empty (#325)", () => {
+  const { root, workflowsDir } = makeTempWorkflowsDir();
+  try {
+    writeWorkflow(workflowsDir, "ci.yaml", CLEAN_WORKFLOW);
+    const { code, text } = runCaptured(workflowsDir);
+    assert.equal(code, 0);
+    assert.match(text, /1 workflow file\(s\) clean/);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("run still ignores names that only resemble a workflow file (#325 control)", () => {
+  const { root, workflowsDir } = makeTempWorkflowsDir();
+  try {
+    writeWorkflow(workflowsDir, "ci.yml", CLEAN_WORKFLOW);
+    for (const name of ["notes.txt", "old.yml.bak", "x.yamlx", "x.ymlx", "yml", "README.md"]) {
+      writeWorkflow(workflowsDir, name, ONE_UNGUARDED);
+    }
+    const { code, text } = runCaptured(workflowsDir);
+    assert.equal(code, 0);
+    assert.match(text, /1 workflow file\(s\) clean/);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 //
-// Verify every job in every .github/workflows/*.yml in this repo has a
+// Verify every job in every .github/workflows/*.{yml,yaml} in this repo has a
 // `timeout-minutes` set to an integer in the policy band [1, 30].
 //
 // Companion to tools/check-workflow-yaml.mjs (#46) — same silent-rot
@@ -26,12 +26,13 @@
 //   - portfolio-ops/scripts/audit_phase_a.py --check missing-timeout (#36,
 //     post-deploy fingerprint that surfaces unprotected repos weekly)
 
-import { readFileSync, readdirSync, existsSync } from "node:fs";
+import { readFileSync, existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { parse as yamlParse } from "yaml";
 import { isMain } from "./lib/is-main.mjs";
+import { listWorkflowFiles } from "./lib/workflow-files.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(__dirname, "..");
@@ -45,16 +46,9 @@ const WORKFLOWS_DIR = path.join(REPO_ROOT, ".github", "workflows");
 export const MIN_TIMEOUT_MINUTES = 1;
 export const MAX_TIMEOUT_MINUTES = 30;
 
-/** List every workflow YAML file under `workflowsDir` (lex-sorted absolutes). */
-export function listWorkflowFiles(workflowsDir) {
-  if (!existsSync(workflowsDir)) {
-    return [];
-  }
-  return readdirSync(workflowsDir)
-    .filter((name) => name.endsWith(".yml"))
-    .sort()
-    .map((name) => path.join(workflowsDir, name));
-}
+// The shared listing, so `.yaml` workflows are read as well as `.yml` (#325).
+// Re-exported because this module's tests and callers import it from here.
+export { listWorkflowFiles };
 
 /**
  * Check a single workflow file. Returns an array of findings (empty if
@@ -161,7 +155,7 @@ export function run({
   }
   const files = listWorkflowFiles(workflowsDir);
   if (files.length === 0) {
-    err(`check-workflow-timeout: no *.yml files found under ${workflowsDir}`);
+    err(`check-workflow-timeout: no *.yml or *.yaml files found under ${workflowsDir}`);
     return 2;
   }
   let findingCount = 0;
