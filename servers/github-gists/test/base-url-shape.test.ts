@@ -108,7 +108,13 @@ describe("an accepted base URL requests the path it names (#316)", () => {
   });
   afterAll(() => new Promise<void>((done) => server.close(() => done())));
 
-  it.each([["the origin", ""], ["a GHES-style path prefix", "/api/v3"]])(
+  // `%09` is the way to put a tab in a path: it is sent as written, so the #326
+  // gate on a raw TAB/LF/CR must not refuse it.
+  it.each([
+    ["the origin", ""],
+    ["a GHES-style path prefix", "/api/v3"],
+    ["a percent-encoded tab (#326 control)", "/api%09v3"],
+  ])(
     "%s",
     async (_label, prefix) => {
       seen.length = 0;
@@ -117,4 +123,39 @@ describe("an accepted base URL requests the path it names (#316)", () => {
       expect(seen).toEqual([`${prefix}/gists/abc123`]);
     },
   );
+});
+
+/**
+ * A TAB, LF or CR inside the base URL is refused, not deleted (#326).
+ *
+ * #316 refused whitespace at the ends; the inside was still repaired. The URL
+ * parser deletes every ASCII TAB, LF and CR, so on 644d772 a base URL of
+ * `<origin>/api<TAB>v3` (and LF, and CR) booted from the env and as a built
+ * config, and a loopback server was sent `/apiv3/gists/abc123`.
+ */
+const INTERIOR: Array<[string, string]> = [
+  ["a tab", "\t"],
+  ["a line feed", "\n"],
+  ["a carriage return", "\r"],
+];
+
+describe("a TAB, LF or CR inside the base URL is refused (#326)", () => {
+  it.each(INTERIOR)("by validateGistsConfig: %s", (_label, ch) => {
+    const message = messageOf(() => validateGistsConfig(cfgWith(`https://ghe.example.test/api${ch}v3`)));
+    expect(message).toMatch(/^GistsConfig\.baseUrl contains a tab, line feed or carriage return/);
+    expect(message).toContain('"ghe.example.test"');
+  });
+
+  it.each(INTERIOR)("from MCP_GITHUB_GISTS_BASE_URL: %s", (_label, ch) => {
+    const message = messageOf(() =>
+      readGistsConfigFromEnv({ MCP_GITHUB_GISTS_BASE_URL: `https://ghe.example.test/api${ch}v3` }),
+    );
+    expect(message).toMatch(/^MCP_GITHUB_GISTS_BASE_URL contains a tab, line feed or carriage return/);
+  });
+
+  it("in the host as well as the path", () => {
+    expect(messageOf(() => validateGistsConfig(cfgWith("https://api.git\thub.com")))).toMatch(
+      /contains a tab, line feed or carriage return/,
+    );
+  });
 });

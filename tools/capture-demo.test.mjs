@@ -471,3 +471,27 @@ test("main stops STAGE 1 when the seed is not the pinned one", () => {
     rmSync(root, { recursive: true, force: true });
   }
 });
+
+// `--pause-seconds` takes a plain non-negative decimal and nothing else (#326).
+// Bare `Number()` read `0x2` as 2 and `1e0` as 1, and turned `2s`/`abc` into
+// NaN, which `sleep NaN` failed on silently: measured on 644d772, every row
+// below exited 0, most with no pause at all. Each is now refused at exit 2,
+// before any stage runs, with the flag named.
+const ALL_STAGES_SKIPPED = ["--skip-stage-1", "--skip-stage-2", "--skip-stage-3"];
+
+for (const raw of ["2s", "abc", "0x2", "1e0", "", " 1 ", "-1", "+2", ".5", "2.", "Infinity", "NaN", "1_000", "٢"]) {
+  test(`#326: --pause-seconds ${JSON.stringify(raw)} is refused at exit 2, naming the flag`, () => {
+    let written = "";
+    const out = { write: (chunk) => { written += chunk; return true; } };
+    const rc = main(["--pause-seconds", raw, ...ALL_STAGES_SKIPPED], out);
+    assert.equal(rc, 2);
+    assert.match(written, /^error: --pause-seconds must be a non-negative decimal/);
+  });
+}
+
+test("#326 control: plain decimals, including 0 and a fraction, are still read as given", () => {
+  for (const [raw, want] of [["2", 2], ["2.0", 2], ["0.5", 0.5], ["0", 0], ["10", 10], ["007", 7]]) {
+    assert.equal(parseArgs(["--pause-seconds", raw]).pauseSeconds, want, raw);
+  }
+  assert.equal(parseArgs([]).pauseSeconds, 2.0);
+});

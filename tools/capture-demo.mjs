@@ -339,7 +339,18 @@ export function parseArgs(argv) {
   for (let i = 0; i < argv.length; i += 1) {
     const a = argv[i];
     if (a === "--pause-seconds") {
-      args.pauseSeconds = Number(flagValue(argv, i, a));
+      // A plain non-negative decimal only, gated BEFORE coercing (#326). Bare
+      // `Number()` read `0x2` as 2, `1e0` as 1, `" 1 "` as 1 and `""` as 0, and
+      // gave NaN for `2s`/`abc`, which `sleep NaN` then failed on silently: every
+      // one exited 0. The same shape #318 removed from repo-stats --max-depth;
+      // that grammar is inlined in a server's bin, so it is inlined here too.
+      const raw = flagValue(argv, i, a);
+      if (!/^[0-9]+(\.[0-9]+)?$/.test(raw)) {
+        throw new Error(
+          `--pause-seconds must be a non-negative decimal number of seconds (e.g. 2 or 0.5); got ${JSON.stringify(raw)}`,
+        );
+      }
+      args.pauseSeconds = Number(raw);
       i += 1;
     } else if (a === "--sandbox-root") {
       args.sandboxRoot = flagValue(argv, i, a);
