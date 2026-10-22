@@ -2720,3 +2720,18 @@ both endings. Each check uses it, and a test makes sure none of them goes
 back to a private copy. New tests give each check a bad `.yaml` file, a
 folder holding only `.yaml` files, and look-alike names such as
 `old.yml.bak` that must still be ignored.
+
+## 2026-10-22 — Two settings that were quietly patched up are now refused (#326)
+
+The demo-recording script's `--pause-seconds` option accepted almost
+anything. `0x2` was read as 2 seconds, `1e0` as 1, and `2s`, `abc`, an empty
+value or `-1` gave no pause at all, all without an error. It now accepts only
+a plain number of seconds such as `2` or `0.5`. Anything else stops the
+script with exit code 2 and a message naming the option. Separately, the
+gists server's base URL could hold a tab, line feed or carriage return in
+the middle. The URL parser silently deletes those, so `/api<tab>v3` was sent
+as `/apiv3` without a word. The earlier fix (#316) only caught such
+characters at the ends of the value. The server now refuses them anywhere,
+with the same kind of error, whether the URL comes from the environment or
+from code. A percent-encoded tab, the legitimate way to write one, still
+works.
