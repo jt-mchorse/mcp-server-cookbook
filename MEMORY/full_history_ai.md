@@ -3460,3 +3460,23 @@ context_for_next_session:
   - "gist-id-dot-segment_loopback_stub_needed_html_url"
 followups: []
 ---
+
+---
+session: 2026-10-23T07:56:16Z
+duration_min: 4   # computed: issue read + worktree 2026-10-23T07:56:16Z (date -u) -> plan comment 07:58:19Z -> code commit 07:59:26Z -> PR #336 08:00:01Z
+issue: 330
+branch: session/2026-10-23-0805-issue-330
+focus: POSTGRES_READONLY_XML2_XPATH_TABLE_RUNS_ITS_STRING_ARGS_VIA_SPI_PG_TERMINATE_BACKEND_AND_DBLINK_EXEC_HID_INSIDE_THE_LITERAL
+phase: shipped
+delta:
+  files_changed: 4
+  tests_added: 18
+  suite: "postgres-readonly 728 -> 746 passed; lint, typecheck, build, check-test-count, every tools/check-*.mjs and root tools tests ok"
+decisions_made: []
+measured: "main f28344b, scratch PG 17.6 with all 56 shipped extensions: xpath_table relation string with pg_terminate_backend(<pid>) passed runSelect and killed the victim session; dblink_exec(..., 'DELETE FROM victim') in the same slot took victim 3 -> 0. After: both refused XPATH_TABLE*, victim 3 -> 3; 8 allowed controls run live. Revert of src/sqlGuard.ts: 8 red (refused cases incl. U& spelling) / 10 green (allowed controls)."
+context_for_next_session:
+  - "CONTRIB_SPI_SWEEP_VIA_nm_-u:_only_dblink,pgxml,tablefunc,refint,plperl,plpgsql,pltcl_import_SPI_execute;_xpath_table_was_the_only_new_member"
+  - "NO_EXTENSION_SQL/PLPGSQL_FUNCTION_HAS_DYNAMIC_EXECUTE_on_PG17.6"
+  - "NO_PYTHON_PORT_OF_postgres-readonly;_#331_(contrib_side-effect_functions)_was_concurrently_editing_sqlGuard.ts"
+followups: []
+---

@@ -268,6 +268,24 @@ const FORBIDDEN_KEYWORDS_ANYWHERE = [
 //                      cursor_to_xml* takes a refcursor, which nothing the
 //                      guard allows can open, and table_/schema_/database_to_xml
 //                      take a name, not SQL, so those stay allowed.
+//   XPATH_TABLE      — the xml2 contrib's xpath_table(key, xmlfield, relation,
+//                      xpaths, condition) pastes its key, field, relation and
+//                      condition strings into a SELECT and runs it through SPI
+//                      (#330, a #254 sibling the #254 pass missed). Measured on
+//                      Postgres 17.6: a relation string of `(SELECT 1 AS k,
+//                      '<a>1</a>'::text AS d, pg_terminate_backend(<pid>)) s`
+//                      passed the guard and killed another session, and
+//                      `dblink_exec(...)` in the same slot deleted rows through a
+//                      separate connection. Enumerated from the catalog, not from
+//                      memory: with all 56 shipped extensions created, the
+//                      libraries importing an SPI execute symbol are dblink
+//                      (DBLINK* above), tablefunc (CROSSTAB/CONNECTBY above),
+//                      refint (trigger-only, not callable), the PL handlers
+//                      (reached only through DO/CREATE, both refused) and pgxml,
+//                      where xpath_table is the one caller; no extension SQL or
+//                      plpgsql function runs a dynamic EXECUTE. The other xml2
+//                      xpath_* functions evaluate an XPath over a document
+//                      argument and stay allowed (none starts with XPATH_TABLE).
 // All of these are exempt from default_transaction_read_only, so like the
 // families above the guard is their sole defense (#94 sibling gap). The guard's
 // stated stance (sqlGuard.ts header) accepts over-blocking a query a security
@@ -298,6 +316,7 @@ const FORBIDDEN_FUNCTION_PREFIXES = [
   "TS_REWRITE",
   "CROSSTAB",
   "CONNECTBY",
+  "XPATH_TABLE",
 ];
 
 export interface GuardResult {
