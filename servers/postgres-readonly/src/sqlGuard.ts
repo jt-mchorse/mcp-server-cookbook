@@ -252,6 +252,25 @@ const FORBIDDEN_KEYWORDS_ANYWHERE = [
 //                      not `pg`, so the PG_PREWARM prefix misses them (#110
 //                      sibling gap). Both mutate/side-effect and neither has a
 //                      read-only variant, so the prefix over-blocks no reads.
+//   HEAP_FORCE_*     — pg_surgery's heap_force_kill / heap_force_freeze rewrite
+//                      heap tuples in place, outside MVCC and WAL-logged as page
+//                      surgery. Measured on Postgres 17.6 under
+//                      default_transaction_read_only, heap_force_kill took a
+//                      table from 5 rows to 3 for good (#331). These are the
+//                      extension's only two functions. The pageinspect heap
+//                      readers (heap_page_items, heap_tuple_infomask_flags) use a
+//                      different prefix and are still allowed.
+//   PG_BUFFERCACHE_EVICT* — pg_buffercache_evict(bufferid) throws a shared
+//                      buffer out of the cluster-wide cache, writing it out
+//                      first if it is dirty (it returned `t` in the same session,
+//                      #331). This is the inverse of PG_PREWARM above. The prefix
+//                      also covers PG18's pg_buffercache_evict_relation and
+//                      pg_buffercache_evict_all. The extension's readers
+//                      (pg_buffercache_pages, _summary, _usage_counts) are
+//                      named differently and are still allowed.
+//                      #258 swept only pg_catalog, and both families came out of
+//                      the contrib sweep that test/sqlGuard-volatile-catalog-
+//                      contrib.test.ts now keeps.
 //   QUERY_TO_XML* /  — functions that EXECUTE a string argument as SQL (#254).
 //   TS_STAT /          stripStringLiterals blanks every string before the scan,
 //   TS_REWRITE /       so a forbidden call written inside one of these strings
@@ -311,6 +330,8 @@ const FORBIDDEN_FUNCTION_PREFIXES = [
   "GIN_CLEAN_PENDING_LIST",
   "PG_PREWARM",
   "AUTOPREWARM_",
+  "HEAP_FORCE_",
+  "PG_BUFFERCACHE_EVICT",
   "QUERY_TO_XML",
   "TS_STAT",
   "TS_REWRITE",
