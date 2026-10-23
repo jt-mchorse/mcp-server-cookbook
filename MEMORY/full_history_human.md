@@ -2750,3 +2750,21 @@ are reported as null. The error is the same one #296 gives, and it names
 the request. One loose end remains and has no issue yet: the `public` flag
 is still converted rather than checked, so the text `"false"` reads as
 public.
+
+## 2026-10-23 — The Postgres guard now refuses xml2's xpath_table (#330)
+
+Earlier (#254) the Postgres server's query guard learned to refuse functions
+that take a piece of SQL as a text argument and run it, such as
+`query_to_xml` and `crosstab`. The guard skips over the contents of quoted
+text when it looks for dangerous calls, so a dangerous call hidden inside
+such an argument was invisible. The xml2 extension's `xpath_table` belongs
+to the same group, but it was missed. Its arguments are pasted into a query
+and run. On a scratch PostgreSQL 17 cluster, one such query passed the guard
+and killed another database session. Another deleted rows from a table
+through a separate dblink connection, a real write through the "read-only"
+server. The guard now refuses `xpath_table` however it is spelled. To check
+nothing else in the group was missed, every extension that ships with
+PostgreSQL was installed and searched for code that runs SQL. `xpath_table`
+was the only new one. The other xml2 functions and the built-in `xpath` and
+`xmltable` still work. Eighteen new tests cover the refused spellings and
+the allowed functions.
