@@ -2735,3 +2735,18 @@ characters at the ends of the value. The server now refuses them anywhere,
 with the same kind of error, whether the URL comes from the environment or
 from code. A percent-encoded tab, the legitimate way to write one, still
 works.
+
+## 2026-10-23 — A gist response missing its link, or with wrong-typed fields, is now refused (#332)
+
+The gists server already refused a 200 response that wasn't a gist at all
+(#296), but it only checked for an `id` and a `files` list. A response with
+no `html_url`, or with `html_url` set to a number, was still returned as a
+successful gist with the link missing or wrong. The same went for a numeric
+`description` or a numeric file `language`. Both tools promise those fields
+as text. The server now also needs `html_url` to be a non-empty piece of
+text, and turns away a `description` or `language` that is there but is
+neither text nor null. Leaving those two out is still fine, because they
+are reported as null. The error is the same one #296 gives, and it names
+the request. One loose end remains and has no issue yet: the `public` flag
+is still converted rather than checked, so the text `"false"` reads as
+public.
