@@ -363,6 +363,14 @@ async function readJson(
  * returns names the request it made", so this is a GithubApiError like a
  * non-JSON body. Only what the projection reads is required: a non-empty
  * string `id` and a `files` object whose entries are objects.
+ *
+ * #296 left out `html_url`, though its own repro named it, and passed
+ * `description` and each file's `language` through unchecked, so a 200 with no
+ * `html_url` -- or `html_url: 42`, `description: 5` -- projected as a gist whose
+ * fields break the `ProjectedGist` types the tool description promises (#332).
+ * `html_url` is held to the bar `id` is. The two nullable fields may be absent,
+ * since the projection's `?? null` turns that into the typed `null`, but a
+ * value that is there must be a string or null.
  */
 async function readGist(
   res: { status: number; headers: HeadersLike; json(): Promise<unknown> },
@@ -387,7 +395,12 @@ function gistShapeProblem(body: unknown): string | null {
   if (body === null || typeof body !== "object" || Array.isArray(body)) {
     return `expected an object, got ${body === null ? "null" : Array.isArray(body) ? "an array" : typeof body}`;
   }
-  const { id, files } = body as { id?: unknown; files?: unknown };
+  const { id, files, html_url, description } = body as {
+    id?: unknown;
+    files?: unknown;
+    html_url?: unknown;
+    description?: unknown;
+  };
   if (typeof id !== "string" || id.length === 0) return "no string id";
   if (files === null || typeof files !== "object" || Array.isArray(files)) {
     return "no files object";
@@ -396,8 +409,19 @@ function gistShapeProblem(body: unknown): string | null {
     if (file === null || typeof file !== "object" || Array.isArray(file)) {
       return `file ${JSON.stringify(name)} is not an object`;
     }
+    if (!isOptionalNullableString((file as { language?: unknown }).language)) {
+      return `file ${JSON.stringify(name)} has a language that is not a string or null`;
+    }
   }
+  // Checked after `files` so every #296 refusal keeps its message (#332).
+  if (typeof html_url !== "string" || html_url.length === 0) return "no string html_url";
+  if (!isOptionalNullableString(description)) return "description is not a string or null";
   return null;
+}
+
+/** Absent, `null`, or a string: what `?? null` projects to `string | null` (#332). */
+function isOptionalNullableString(value: unknown): boolean {
+  return value === undefined || value === null || typeof value === "string";
 }
 
 /**

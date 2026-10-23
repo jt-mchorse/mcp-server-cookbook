@@ -31,8 +31,9 @@ async function recordingClient(): Promise<GistsClient> {
     seen.push(`${req.method} ${req.url}`);
     res.writeHead(200, { "content-type": "application/json" });
     // A minimal gist: since #296 a body without an id and files is refused, and
-    // these controls are about the request path, not the body.
-    res.end(JSON.stringify({ id: "abc123", files: {} }));
+    // since #332 one without an html_url; these controls are about the request
+    // path, not the body.
+    res.end(JSON.stringify({ id: "abc123", html_url: "https://gist.github.com/abc123", files: {} }));
   });
   await new Promise<void>((done) => server!.listen(0, "127.0.0.1", () => done()));
   const baseUrl = `http://127.0.0.1:${(server!.address() as AddressInfo).port}`;

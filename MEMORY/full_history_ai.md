@@ -3439,3 +3439,24 @@ context_for_next_session:
   - "#318_GRAMMAR_IS_INLINED_IN_A_SERVER_BIN_not_importable_from_tools/"
 followups: []
 ---
+
+---
+session: 2026-10-23T07:56:17Z
+duration_min: 3   # computed: started 2026-10-23T07:56:17Z (date -u) -> plan comment 07:57:09Z -> code commit 07:58:40Z -> PR #334 07:58:57Z
+issue: 332
+branch: session/2026-10-23-0805-issue-332
+focus: GISTS_SHAPE_CHECK_296_REQUIRED_ONLY_ID_AND_FILES_HTML_URL_DESCRIPTION_LANGUAGE_PROJECTED_UNCHECKED
+phase: shipped
+delta:
+  files_changed: 6
+  tests_added: 12
+  suite: "github-gists 356 -> 368 passed; root tools tests 316 passed; lint, typecheck, build, check-test-count, every tools/check-*.mjs ok"
+decisions_made: []
+measured: "main f28344b, stub fetch, getGist(defaultToolDeps): {id,files:{}} OK no html_url; html_url:42 OK; description:5 OK; language:7 OK. After: all four GithubApiError 'response was not a gist: ...'. Revert of client.ts: 10 red (5 rows x GET+PATCH) / 25 green (2 new controls: null and absent description/language)."
+context_for_next_session:
+  - "HTML_URL_CHECKED_AFTER_FILES_so_every_296_message_is_unchanged"
+  - "DESCRIPTION_LANGUAGE_ABSENT_ACCEPTED_(?? null projects it typed)_present_non-string_refused"
+  - "public_STILL_Boolean(g.public)_'false'_reads_true_not_filed"
+  - "gist-id-dot-segment_loopback_stub_needed_html_url"
+followups: []
+---
