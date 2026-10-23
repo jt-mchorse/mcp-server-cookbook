@@ -11,6 +11,14 @@
  *     {"id":"abc","files":{"a.md":null}}   TypeError: Cannot read properties of null (reading 'content')
  *
  * The OK rows carry no `id` and no `html_url`: the empty "gist" #241 named.
+ *
+ * The check #296 added required `id` and `files` only (#332). Measured on main
+ * f28344b, `getGist(defaultToolDeps(client), "abc")`:
+ *
+ *     {"id":"abc","files":{}}                                       OK {..., no html_url key}
+ *     {"id":"abc","html_url":42,"files":{"a.md":{"content":"x"}}}   OK {..., "html_url":42, ...}
+ *     {..., "description":5}                                        OK {..., "description":5, ...}
+ *     {..., "files":{"a.md":{..., "language":7}}}                   OK {..., "language":7, ...}
  */
 import { describe, expect, it } from "vitest";
 
@@ -49,6 +57,20 @@ const NOT_A_GIST: ReadonlyArray<[string, string, string]> = [
   ["files as an array", JSON.stringify({ ...GIST, files: [] }), "no files object"],
   ["a null file", JSON.stringify({ ...GIST, files: { "a.md": null } }), 'file "a.md" is not an object'],
   ["a string file", JSON.stringify({ ...GIST, files: { "a.md": "hi" } }), 'file "a.md" is not an object'],
+  // #332: the fields the projection hands back typed, which #296 did not check.
+  ["no html_url", JSON.stringify({ id: "abc", files: {} }), "no string html_url"],
+  [
+    "a numeric html_url",
+    JSON.stringify({ id: "abc", html_url: 42, files: { "a.md": { content: "x" } } }),
+    "no string html_url",
+  ],
+  ["an empty html_url", JSON.stringify({ ...GIST, html_url: "" }), "no string html_url"],
+  ["a numeric description", JSON.stringify({ ...GIST, description: 5 }), "description is not a string or null"],
+  [
+    "a numeric language",
+    JSON.stringify({ ...GIST, files: { "a.md": { ...GIST.files["a.md"], language: 7 } } }),
+    'file "a.md" has a language that is not a string or null',
+  ],
 ];
 
 describe("a 2xx body that is not a gist (#296)", () => {
@@ -80,6 +102,21 @@ describe("a 2xx body that is not a gist (#296)", () => {
     expect(out.id).toBe("abc");
     expect(out.html_url).toBe(GIST.html_url);
     expect(out.files.map((f) => f.filename)).toEqual(["a.md"]);
+  });
+
+  it("a null description and a null language still project (control, #332)", async () => {
+    const body = { ...GIST, description: null, files: { "a.md": { ...GIST.files["a.md"], language: null } } };
+    const out = await getGist(defaultToolDeps(client(JSON.stringify(body))), "abc");
+    expect(out.description).toBeNull();
+    expect(out.files[0]?.language).toBeNull();
+  });
+
+  it("an absent description and language project as null (control, #332)", async () => {
+    const body = { id: "abc", html_url: GIST.html_url, files: { "a.md": { content: "x" } } };
+    const out = await getGist(defaultToolDeps(client(JSON.stringify(body))), "abc");
+    expect(out.description).toBeNull();
+    expect(out.files[0]?.language).toBeNull();
+    expect(out.html_url).toBe(GIST.html_url);
   });
 
   it("an empty files object is a gist with no files, not a refusal (control)", async () => {
