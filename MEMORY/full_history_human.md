@@ -2768,3 +2768,21 @@ PostgreSQL was installed and searched for code that runs SQL. `xpath_table`
 was the only new one. The other xml2 functions and the built-in `xpath` and
 `xmltable` still work. Eighteen new tests cover the refused spellings and
 the allowed functions.
+
+## 2026-10-23 — Contrib extension functions that change storage are now refused (#331)
+
+The Postgres server's read-only guard had been checked against every built-in
+function that can have side effects (#258), but not against functions that
+optional extensions add. Two of those got through. pg_surgery's
+`heap_force_kill` permanently deleted rows from a table even in a read-only
+session, taking a test table from five rows to three, and `heap_force_freeze`
+ran the same way. pg_buffercache's `pg_buffercache_evict` pushed pages out of
+the shared memory cache that every session on the server uses. The guard now
+refuses both families, including the PostgreSQL 18 variants of the evict
+function. A new list holds all 140 such extension functions from a server
+with every extension installed. A test requires each one to be either refused
+or named in an allowed group with a written reason, so a new extension
+function cannot slip through unnoticed. While doing this I found that
+pg_walinspect can read rows written in other databases on the same server, by
+reading the server's write-ahead log. Whether to block it is a separate
+decision, so it is filed as #333.

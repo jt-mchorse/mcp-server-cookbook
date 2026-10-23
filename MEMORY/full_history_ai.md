@@ -3480,3 +3480,24 @@ context_for_next_session:
   - "NO_PYTHON_PORT_OF_postgres-readonly;_#331_(contrib_side-effect_functions)_was_concurrently_editing_sqlGuard.ts"
 followups: []
 ---
+
+---
+session: 2026-10-23T07:56:18Z
+duration_min: 5   # computed: worktree created 2026-10-23T07:56:18Z (date -u) -> plan comment 07:58:21Z -> code commit 08:00:46Z -> PR #337 08:01:19Z
+issue: 331
+branch: session/2026-10-23-0805-issue-331
+focus: CONTRIB_SIDE_EFFECT_FUNCTIONS_PG_SURGERY_HEAP_FORCE_AND_PG_BUFFERCACHE_EVICT_PASSED_BECAUSE_258_SWEPT_ONLY_PG_CATALOG
+phase: shipped
+delta:
+  files_changed: 5
+  tests_added: 155
+  suite: "postgres-readonly 728 -> 883 passed; lint, typecheck, build, check-test-count, every tools/check-*.mjs, root tools tests 316/316 ok"
+decisions_made: []
+measured: "main f28344b, scratch PG 17.6 with all 55 shipped extensions created, default_transaction_read_only=on: heap_force_kill victim 5 -> 3 rows, heap_force_freeze ran, pg_buffercache_evict returned t; guard passed 114/140 contrib VOLATILE functions, after 111/140 all in a by-name reasoned category. Revert of sqlGuard.ts: 10 red / 145 green controls. Over-broad HEAP_ + PG_BUFFERCACHE neighbour: 13 red."
+context_for_next_session:
+  - "test/fixtures/pg17-contrib-volatile-functions.txt_IS_extname_proname_PER_LINE;_ALLOWLIST_IS_BY_NAME_NOT_REGEX_so_a_regenerate_fails_on_any_new_function"
+  - "PG_WALINSPECT_READS_OTHER_DATABASES_ROWS_VIA_CLUSTER_WAL_filed_#333;_allowlisted_with_pointer_until_decided"
+  - "xslt_process_STAYS_ALLOWED:_libxslt_refuses_document()_local_file_read_(measured_in_server_log)"
+  - "#330_RUNS_IN_PARALLEL_ON_sqlGuard.ts;_test-counts.json_+_README_count_will_conflict_for_the_second_merge"
+followups: [333]
+---
