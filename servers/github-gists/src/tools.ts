@@ -67,7 +67,8 @@ export function projectGist(g: Gist, maxBytesPerFile: number): ProjectedGist {
   return {
     id: g.id,
     description: g.description ?? null,
-    public: Boolean(g.public),
+    // Already a boolean: `readGist` refuses anything else (#335).
+    public: g.public,
     html_url: g.html_url,
     files,
     // The gist-level flag (#267). GitHub's file list stops at 300 and says so
