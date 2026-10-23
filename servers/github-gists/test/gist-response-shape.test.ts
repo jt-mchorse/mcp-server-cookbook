@@ -19,6 +19,13 @@
  *     {"id":"abc","html_url":42,"files":{"a.md":{"content":"x"}}}   OK {..., "html_url":42, ...}
  *     {..., "description":5}                                        OK {..., "description":5, ...}
  *     {..., "files":{"a.md":{..., "language":7}}}                   OK {..., "language":7, ...}
+ *
+ * #332 left `public`, projected as `Boolean(g.public)` (#335). Measured on main
+ * cb6e1f3, the same call with an otherwise valid body:
+ *
+ *     "public":"false"   OK {..., "public":true, ...}
+ *     "public":1         OK {..., "public":true, ...}
+ *     no public          OK {..., "public":false, ...}
  */
 import { describe, expect, it } from "vitest";
 
@@ -71,6 +78,10 @@ const NOT_A_GIST: ReadonlyArray<[string, string, string]> = [
     JSON.stringify({ ...GIST, files: { "a.md": { ...GIST.files["a.md"], language: 7 } } }),
     'file "a.md" has a language that is not a string or null',
   ],
+  // #335: the flag the projection coerced with `Boolean()`.
+  ["a string public", JSON.stringify({ ...GIST, public: "false" }), "public is not a boolean"],
+  ["a numeric public", JSON.stringify({ ...GIST, public: 1 }), "public is not a boolean"],
+  ["no public", JSON.stringify({ ...GIST, public: undefined }), "public is not a boolean"],
 ];
 
 describe("a 2xx body that is not a gist (#296)", () => {
@@ -112,11 +123,16 @@ describe("a 2xx body that is not a gist (#296)", () => {
   });
 
   it("an absent description and language project as null (control, #332)", async () => {
-    const body = { id: "abc", html_url: GIST.html_url, files: { "a.md": { content: "x" } } };
+    const body = { id: "abc", html_url: GIST.html_url, public: true, files: { "a.md": { content: "x" } } };
     const out = await getGist(defaultToolDeps(client(JSON.stringify(body))), "abc");
     expect(out.description).toBeNull();
     expect(out.files[0]?.language).toBeNull();
     expect(out.html_url).toBe(GIST.html_url);
+  });
+
+  it.each([true, false])("a boolean public %s projects unchanged (control, #335)", async (pub) => {
+    const out = await getGist(defaultToolDeps(client(JSON.stringify({ ...GIST, public: pub }))), "abc");
+    expect(out.public).toBe(pub);
   });
 
   it("an empty files object is a gist with no files, not a refusal (control)", async () => {

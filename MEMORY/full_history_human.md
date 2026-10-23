@@ -2786,3 +2786,18 @@ function cannot slip through unnoticed. While doing this I found that
 pg_walinspect can read rows written in other databases on the same server, by
 reading the server's write-ahead log. Whether to block it is a separate
 decision, so it is filed as #333.
+
+## 2026-10-23 — The gists server now checks the public flag instead of guessing it (#335)
+
+The previous fix (#332) checked the gist fields the tool returns, but it
+left the `public` flag alone. That flag was still converted rather than
+checked: a reply where `public` was the text `"false"` came back as a
+public gist, and a reply with no `public` at all came back as a secret one.
+GitHub always sends this flag as true or false. Now any other value is
+refused with the same "response was not a gist" error, and that error
+names the request. Real true and false values come back exactly as before.
+Eight new tests cover this. When the fix was undone, the six refusal tests
+failed and the two true/false checks still passed. The per-file and
+gist-level `truncated` flags are still converted the same way. Those are
+optional, so they need a slightly different rule, and they are left for a
+later change.

@@ -371,6 +371,11 @@ async function readJson(
  * `html_url` is held to the bar `id` is. The two nullable fields may be absent,
  * since the projection's `?? null` turns that into the typed `null`, but a
  * value that is there must be a string or null.
+ *
+ * #332 in turn left `public`, which the projection read as `Boolean(g.public)`:
+ * a 200 with `"public": "false"` projected as a public gist, and one with no
+ * `public` as a secret one (#335). GitHub always sends it as a boolean, so
+ * anything else is refused rather than coerced into the typed flag.
  */
 async function readGist(
   res: { status: number; headers: HeadersLike; json(): Promise<unknown> },
@@ -395,11 +400,12 @@ function gistShapeProblem(body: unknown): string | null {
   if (body === null || typeof body !== "object" || Array.isArray(body)) {
     return `expected an object, got ${body === null ? "null" : Array.isArray(body) ? "an array" : typeof body}`;
   }
-  const { id, files, html_url, description } = body as {
+  const { id, files, html_url, description, public: isPublic } = body as {
     id?: unknown;
     files?: unknown;
     html_url?: unknown;
     description?: unknown;
+    public?: unknown;
   };
   if (typeof id !== "string" || id.length === 0) return "no string id";
   if (files === null || typeof files !== "object" || Array.isArray(files)) {
@@ -416,6 +422,8 @@ function gistShapeProblem(body: unknown): string | null {
   // Checked after `files` so every #296 refusal keeps its message (#332).
   if (typeof html_url !== "string" || html_url.length === 0) return "no string html_url";
   if (!isOptionalNullableString(description)) return "description is not a string or null";
+  // Last, so every #296/#332 refusal keeps its message (#335).
+  if (typeof isPublic !== "boolean") return "public is not a boolean";
   return null;
 }
 

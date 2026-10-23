@@ -3501,3 +3501,23 @@ context_for_next_session:
   - "#330_RUNS_IN_PARALLEL_ON_sqlGuard.ts;_test-counts.json_+_README_count_will_conflict_for_the_second_merge"
 followups: [333]
 ---
+
+---
+session: 2026-10-23T08:09:21Z
+duration_min: 2   # computed: issue read 2026-10-23T08:09:21Z (date -u) -> plan comment 08:09:49Z -> code commit 08:11:02Z -> PR #338 08:11:18Z
+issue: 335
+branch: session/2026-10-23-0815-issue-335
+focus: GISTS_PUBLIC_PROJECTED_WITH_BOOLEAN()_STRING_FALSE_READ_TRUE_MISSING_READ_FALSE
+phase: shipped
+delta:
+  files_changed: 7
+  tests_added: 8
+  suite: "github-gists 368 -> 376 passed; root tools tests 316 passed; lint, typecheck, build, check-test-count, every tools/check-*.mjs ok"
+decisions_made: []
+measured: "main cb6e1f3, stub fetch, getGist(defaultToolDeps): public 'false' -> OK public:true; 1 -> OK public:true; missing -> OK public:false. After: all three GithubApiError 'response was not a gist: public is not a boolean'; true/false unchanged. Revert of client.ts+tools.ts: 6 red (3 rows x GET+PATCH) / 45 green (2 new controls: true and false)."
+context_for_next_session:
+  - "PUBLIC_CHECKED_LAST_so_every_296/332_message_is_unchanged"
+  - "MISSING_public_REFUSED_(GitHub_always_sends_it)_two_fixtures_gained_public:true"
+  - "truncated_(gist-level_and_per-file)_STILL_Boolean()_optional_field_not_filed"
+followups: []
+---
