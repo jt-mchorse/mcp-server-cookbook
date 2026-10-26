@@ -13,7 +13,8 @@
 // message on stderr. No network, no spawn, no env reads beyond what
 // stdlib needs to traverse the filesystem.
 
-import { readdir, stat } from "node:fs/promises";
+import { constants } from "node:fs";
+import { access, readdir, stat } from "node:fs/promises";
 import { extname, join, resolve } from "node:path";
 
 const DEFAULT_MAX_DEPTH = 4;
@@ -68,6 +69,11 @@ async function walk(root, maxDepth) {
     if (depth > maxDepth) return;
     let entries;
     try {
+      // A root that lists but cannot be searched (mode `r--`) passed the
+      // readdir gate below and then lost every child: each `stat` failed and
+      // added 0 bytes, each subdirectory was skipped, exit 0 (#345). Search
+      // permission is what reading the tree needs, so the root is asked for it.
+      if (depth === 1) await access(dir, constants.R_OK | constants.X_OK);
       entries = await readdir(dir, { withFileTypes: true });
     } catch (e) {
       // The root itself unreadable is an input error, not an empty tree

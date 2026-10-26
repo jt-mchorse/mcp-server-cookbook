@@ -89,6 +89,46 @@ describe.skipIf(!permissionsBite)("an unreadable --root exits 2 (#341)", () => {
     expect(r.stderr).toBe(`--root is not readable: ${join(parent, "child")} (EACCES)\n`);
   });
 
+  it("a root that lists but cannot be searched (444) exits 2, not a zero-byte count (#345)", async () => {
+    const base = await tree();
+    const root = join(base, "noexec");
+    await mkdir(join(root, "sub"), { recursive: true });
+    await writeFile(join(root, "a.ts"), "a".repeat(100));
+    await writeFile(join(root, "b.md"), "b".repeat(200));
+    await writeFile(join(root, "sub", "c.ts"), "hi\n");
+    await lock(root, 0o444);
+
+    const r = cli(root);
+    expect(r.status).toBe(2);
+    expect(r.stdout).toBe("");
+    expect(r.stderr).toBe(`--root is not readable: ${root} (EACCES)\n`);
+  });
+
+  it("the same 444 root via the bridge tool is a non-zero exit (#345)", async () => {
+    const base = await tree();
+    const root = join(base, "noexec");
+    await mkdir(root);
+    await writeFile(join(root, "a.ts"), "a");
+    await lock(root, 0o444);
+
+    const err = await repoStats(defaultBridgeConfig(process.cwd()), { path: root }).catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(NonZeroExitError);
+    expect((err as NonZeroExitError).exitCode).toBe(2);
+    expect((err as NonZeroExitError).stderr).toContain("--root is not readable");
+  });
+
+  it("a nested 444 directory is still skipped at exit 0 (#345 control)", async () => {
+    const root = await tree();
+    await writeFile(join(root, "top.txt"), "x");
+    await mkdir(join(root, "inner"));
+    await writeFile(join(root, "inner", "z.txt"), "y");
+    await lock(join(root, "inner"), 0o444);
+
+    const r = cli(root);
+    expect(r.status).toBe(0);
+    expect(JSON.parse(r.stdout)).toEqual({ root, total_files: 2, total_bytes: 1, by_ext: { ".txt": 2 } });
+  });
+
   it("a nested unreadable directory is still skipped and its siblings counted (control)", async () => {
     const root = await tree();
     await writeFile(join(root, "top.txt"), "x");
