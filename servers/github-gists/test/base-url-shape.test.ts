@@ -159,3 +159,82 @@ describe("a TAB, LF or CR inside the base URL is refused (#326)", () => {
     );
   });
 });
+
+/**
+ * A base URL whose path the URL parser rewrites is refused, not resolved (#339).
+ *
+ * #326 refused what the parser deletes; it did not list what the parser
+ * rewrites. On beb8a59 each row below booted from the env and as a built
+ * config, and a loopback server was sent the second column: the token-bearing
+ * request went to a path the operator never wrote.
+ */
+const REWRITTEN: Array<[string, string, string]> = [
+  ["a backslash", "/api\\v3", "/api/v3/gists/abc123"],
+  ["a `..` segment", "/api/../v3", "/v3/gists/abc123"],
+  ["a percent-encoded `..` segment", "/api/%2e%2e/v3", "/v3/gists/abc123"],
+  ["a trailing `..` segment", "/api/v3/..", "/api/gists/abc123"],
+  ["a `.` segment", "/api/./v3", "/api/v3/gists/abc123"],
+  ["an upper-case percent-encoded `.` segment", "/api/%2E/v3", "/api/v3/gists/abc123"],
+  ["a mixed `.%2E` segment", "/api/.%2E/v3", "/v3/gists/abc123"],
+  ["a `..` right after the host", "/..", "/gists/abc123"],
+];
+
+describe("a base URL whose path fetch would rewrite is refused (#339)", () => {
+  const BASE = "https://ghe.example.test";
+
+  it.each(REWRITTEN)("by validateGistsConfig: %s", (_label, path) => {
+    const message = messageOf(() => validateGistsConfig(cfgWith(BASE + path)));
+    expect(message).toMatch(/^GistsConfig\.baseUrl (contains a backslash|has a `\.` or `\.\.` path segment)/);
+    expect(message).toContain('"ghe.example.test"');
+  });
+
+  it.each(REWRITTEN)("by the GistsClient constructor: %s", (_label, path) => {
+    expect(messageOf(() => new GistsClient({ cfg: cfgWith(BASE + path) }))).toMatch(
+      /^GistsConfig\.baseUrl (contains a backslash|has a `\.` or `\.\.` path segment)/,
+    );
+  });
+
+  it.each(REWRITTEN)("from MCP_GITHUB_GISTS_BASE_URL: %s", (_label, path) => {
+    const message = messageOf(() => readGistsConfigFromEnv({ MCP_GITHUB_GISTS_BASE_URL: BASE + path }));
+    expect(message).toMatch(
+      /^MCP_GITHUB_GISTS_BASE_URL (contains a backslash|has a `\.` or `\.\.` path segment)/,
+    );
+  });
+
+  it("a backslash right after the host, which the parser reads as the path's first `/`", () => {
+    expect(messageOf(() => validateGistsConfig(cfgWith("https://api.github.com\\gists")))).toMatch(
+      /contains a backslash/,
+    );
+  });
+});
+
+describe("a dot that is not a whole segment is sent as written (#339 controls)", () => {
+  let server: Server;
+  let origin: string;
+  const seen: string[] = [];
+
+  beforeAll(async () => {
+    server = createServer((req, res) => {
+      seen.push(req.url ?? "");
+      res.writeHead(404, { "content-type": "application/json" });
+      res.end('{"message":"Not Found"}');
+    });
+    await new Promise<void>((done) => server.listen(0, "127.0.0.1", done));
+    origin = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+  });
+  afterAll(() => new Promise<void>((done) => server.close(() => done())));
+
+  // A gate that refused any `.` in the path would pass every refused row above;
+  // these are the shapes the parser leaves alone, booted from the env.
+  it.each([
+    ["a dot-file segment", "/api/.hidden"],
+    ["`..` inside a segment name", "/api/v..3"],
+    ["a percent-encoded dot inside a segment", "/a%2Eb"],
+    ["a three-dot segment", "/api/..."],
+  ])("%s", async (_label, prefix) => {
+    seen.length = 0;
+    const cfg = readGistsConfigFromEnv({ MCP_GITHUB_GISTS_BASE_URL: origin + prefix });
+    await expect(new GistsClient({ cfg }).getGist("abc123")).rejects.toThrow(/404 GET \/gists\/abc123/);
+    expect(seen).toEqual([`${prefix}/gists/abc123`]);
+  });
+});

@@ -220,6 +220,26 @@ export function assertBaseUrlJoinsCleanly(baseUrl: string, label: string): void 
       "path requested";
   } else if (baseUrl.endsWith("/")) {
     problem = "ends with `/`, so requests would go to //gists/<id>";
+  } else {
+    // The path as written: everything after the authority, which for an
+    // http(s) URL ends at the first `/` or `\` (`?` and `#` are refused above).
+    const path = baseUrl.replace(/^[a-z]+:\/\/[^/\\]*/i, "");
+    if (path.includes("\\")) {
+      // The parser reads `\` as `/` in an http(s) URL, so `/api\v3` sent
+      // `/api/v3/gists/<id>` (#339): a path the operator never wrote, by the
+      // rule #326 applied to TAB, LF and CR.
+      problem = "contains a backslash, which fetch would silently turn into `/` in the " +
+        "requested path";
+    } else if (path.split("/").some((segment) => /^(\.|%2e){1,2}$/i.test(segment))) {
+      // A `.` or `..` segment, in any spelling the URL parser resolves (`%2e`,
+      // `.%2E`, ...), is removed together with its parent before the request
+      // leaves: `/api/../v3` sent `/v3/gists/<id>` and `/api/v3/..` sent
+      // `/api/gists/<id>` (#339), the bearer token with them. #241 refuses the
+      // same segments in `gist_id`. A dot inside a segment (`.hidden`, `a..b`)
+      // is sent as written and still boots.
+      problem = "has a `.` or `..` path segment, which fetch would resolve away, sending " +
+        "requests to a path other than the one written";
+    }
   }
   if (problem === null) return;
   let host = "";
