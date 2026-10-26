@@ -48,14 +48,16 @@ export interface ProjectedGist {
 export function projectGist(g: Gist, maxBytesPerFile: number): ProjectedGist {
   const files: ProjectedGistFile[] = [];
   for (const [name, f] of Object.entries(g.files ?? {})) {
-    const content = typeof f.content === "string" ? f.content : null;
-    const size = typeof f.size === "number" ? f.size : content !== null ? Buffer.byteLength(content, "utf-8") : null;
+    // Typed already: `readGist` refuses a non-string `content` and a non-integer
+    // `size` rather than letting them be coerced here (#340).
+    const content = f.content ?? null;
+    const size = f.size ?? (content !== null ? Buffer.byteLength(content, "utf-8") : null);
     const overCap = content !== null && Buffer.byteLength(content, "utf-8") > maxBytesPerFile;
     files.push({
       filename: name,
       size,
       language: f.language ?? null,
-      truncated: overCap || Boolean(f.truncated),
+      truncated: overCap || f.truncated === true,
       content: overCap ? null : content,
     });
   }
@@ -72,9 +74,9 @@ export function projectGist(g: Gist, maxBytesPerFile: number): ProjectedGist {
     html_url: g.html_url,
     files,
     // The gist-level flag (#267). GitHub's file list stops at 300 and says so
-    // here; dropping it made a 300+ file gist read as complete. Read the way
-    // the per-file flag above is.
-    truncated: Boolean(g.truncated),
+    // here; dropping it made a 300+ file gist read as complete. Absent means
+    // false; any non-boolean is refused by `readGist` (#340).
+    truncated: g.truncated === true,
   };
 }
 

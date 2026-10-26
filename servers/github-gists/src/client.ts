@@ -25,7 +25,7 @@ export interface GistFile {
   language?: string | null;
   size?: number;
   truncated?: boolean;
-  content?: string;
+  content?: string | null;
 }
 
 export interface Gist {
@@ -376,6 +376,14 @@ async function readJson(
  * a 200 with `"public": "false"` projected as a public gist, and one with no
  * `public` as a secret one (#335). GitHub always sends it as a boolean, so
  * anything else is refused rather than coerced into the typed flag.
+ *
+ * #335 left the rest of what the projection coerced (#340): both `truncated`
+ * flags went through `Boolean()`, so `"false"` read as a partial gist or file;
+ * a non-number `size` was silently replaced by a recomputed one; and a
+ * non-string `content` became `null` beside `truncated: false`, which reads as
+ * an empty, complete file. These are optional (GitHub omits `truncated` when it
+ * is false), so each may be absent, but a value that is there must have its
+ * type: `content` may also be `null`, the projection's own "no content".
  */
 async function readGist(
   res: { status: number; headers: HeadersLike; json(): Promise<unknown> },
@@ -424,7 +432,26 @@ function gistShapeProblem(body: unknown): string | null {
   if (!isOptionalNullableString(description)) return "description is not a string or null";
   // Last, so every #296/#332 refusal keeps its message (#335).
   if (typeof isPublic !== "boolean") return "public is not a boolean";
+  // After `public`, so every earlier refusal keeps its message (#340).
+  if (!isOptionalBoolean((body as { truncated?: unknown }).truncated)) {
+    return "truncated is not a boolean";
+  }
+  for (const [name, file] of Object.entries(files)) {
+    const { truncated, size, content } = file as { truncated?: unknown; size?: unknown; content?: unknown };
+    if (!isOptionalBoolean(truncated)) return `file ${JSON.stringify(name)} has a truncated that is not a boolean`;
+    if (size !== undefined && !(Number.isSafeInteger(size) && (size as number) >= 0)) {
+      return `file ${JSON.stringify(name)} has a size that is not a non-negative integer`;
+    }
+    if (!isOptionalNullableString(content)) {
+      return `file ${JSON.stringify(name)} has content that is not a string or null`;
+    }
+  }
   return null;
+}
+
+/** Absent or a boolean: an optional flag GitHub omits when it is false (#340). */
+function isOptionalBoolean(value: unknown): boolean {
+  return value === undefined || typeof value === "boolean";
 }
 
 /** Absent, `null`, or a string: what `?? null` projects to `string | null` (#332). */
