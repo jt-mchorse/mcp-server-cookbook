@@ -26,6 +26,14 @@
  *     "public":"false"   OK {..., "public":true, ...}
  *     "public":1         OK {..., "public":true, ...}
  *     no public          OK {..., "public":false, ...}
+ *
+ * #335 left the other coerced fields (#340). Measured on main beb8a59:
+ *
+ *     gist "truncated":"false"   OK {..., "truncated":true}
+ *     gist "truncated":1         OK {..., "truncated":true}
+ *     file "truncated":"false"   OK {..., file "truncated":true}
+ *     file "size":"999"          OK {..., file "size":2}   (silently recomputed)
+ *     file "content":42          OK {..., file "content":null, "truncated":false}
  */
 import { describe, expect, it } from "vitest";
 
@@ -40,6 +48,11 @@ const GIST = {
   html_url: "https://gist.github.com/abc",
   files: { "a.md": { filename: "a.md", size: 2, content: "hi", language: "Markdown" } },
 };
+
+/** `GIST` with its one file's fields overridden (#340). */
+function withFile(fields: Record<string, unknown>): object {
+  return { ...GIST, files: { "a.md": { ...GIST.files["a.md"], ...fields } } };
+}
 
 function client(body: string): GistsClient {
   const cfg: GistsConfig = {
@@ -82,6 +95,29 @@ const NOT_A_GIST: ReadonlyArray<[string, string, string]> = [
   ["a string public", JSON.stringify({ ...GIST, public: "false" }), "public is not a boolean"],
   ["a numeric public", JSON.stringify({ ...GIST, public: 1 }), "public is not a boolean"],
   ["no public", JSON.stringify({ ...GIST, public: undefined }), "public is not a boolean"],
+  // #340: the optional fields the projection coerced or recomputed.
+  ["a string gist truncated", JSON.stringify({ ...GIST, truncated: "false" }), "truncated is not a boolean"],
+  ["a numeric gist truncated", JSON.stringify({ ...GIST, truncated: 1 }), "truncated is not a boolean"],
+  ["a null gist truncated", JSON.stringify({ ...GIST, truncated: null }), "truncated is not a boolean"],
+  [
+    "a string file truncated",
+    JSON.stringify(withFile({ truncated: "false" })),
+    'file "a.md" has a truncated that is not a boolean',
+  ],
+  [
+    "a string size",
+    JSON.stringify(withFile({ size: "999" })),
+    'file "a.md" has a size that is not a non-negative integer',
+  ],
+  ["a null size", JSON.stringify(withFile({ size: null })), 'file "a.md" has a size that is not a non-negative integer'],
+  ["a negative size", JSON.stringify(withFile({ size: -1 })), 'file "a.md" has a size that is not a non-negative integer'],
+  ["a fractional size", JSON.stringify(withFile({ size: 1.5 })), 'file "a.md" has a size that is not a non-negative integer'],
+  ["a numeric content", JSON.stringify(withFile({ content: 42 })), 'file "a.md" has content that is not a string or null'],
+  [
+    "an object content",
+    JSON.stringify(withFile({ content: { text: "hi" } })),
+    'file "a.md" has content that is not a string or null',
+  ],
 ];
 
 describe("a 2xx body that is not a gist (#296)", () => {
@@ -138,5 +174,32 @@ describe("a 2xx body that is not a gist (#296)", () => {
   it("an empty files object is a gist with no files, not a refusal (control)", async () => {
     const out = await getGist(defaultToolDeps(client(JSON.stringify({ ...GIST, files: {} }))), "abc");
     expect(out.files).toEqual([]);
+  });
+
+  it.each([true, false])("a boolean gist and file truncated %s project unchanged (control, #340)", async (flag) => {
+    const body = { ...withFile({ truncated: flag }), truncated: flag };
+    const out = await getGist(defaultToolDeps(client(JSON.stringify(body))), "abc");
+    expect(out.truncated).toBe(flag);
+    expect(out.files[0]?.truncated).toBe(flag);
+  });
+
+  it("absent truncated, size and content project as before (control, #340)", async () => {
+    const body = { ...GIST, files: { "a.md": { filename: "a.md" } } };
+    const out = await getGist(defaultToolDeps(client(JSON.stringify(body))), "abc");
+    expect(out.truncated).toBe(false);
+    expect(out.files[0]).toEqual({ filename: "a.md", size: null, language: null, truncated: false, content: null });
+  });
+
+  it("an absent size is still computed from the content (control, #340)", async () => {
+    const out = await getGist(defaultToolDeps(client(JSON.stringify(withFile({ size: undefined, content: "héllo" })))), "abc");
+    expect(out.files[0]?.size).toBe(6);
+    expect(out.files[0]?.content).toBe("héllo");
+  });
+
+  it("a size of 0, a null content and an empty content still project (control, #340)", async () => {
+    const out = await getGist(defaultToolDeps(client(JSON.stringify(withFile({ size: 0, content: null })))), "abc");
+    expect(out.files[0]).toMatchObject({ size: 0, content: null, truncated: false });
+    const empty = await getGist(defaultToolDeps(client(JSON.stringify(withFile({ size: 0, content: "" })))), "abc");
+    expect(empty.files[0]).toMatchObject({ size: 0, content: "", truncated: false });
   });
 });
