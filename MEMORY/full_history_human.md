@@ -2829,3 +2829,20 @@ refused with the same "response was not a gist" error, naming the request.
 Replies that leave these fields out, or send them correctly, come back
 exactly as before. There are 25 new tests. When the fix was undone, the 20
 refusal tests failed and the five checks on correct replies still passed.
+
+## 2026-10-26 — repo-stats no longer reports an unreadable folder as empty (#341)
+
+The bridge server's sample `repo-stats` tool already refused a folder that
+does not exist and a path that is not a folder. A folder it was not allowed
+to read was treated differently: it answered "0 files" and reported success,
+exactly like an empty folder. It now stops with an input error saying the
+folder is not readable. Folders it cannot read further down the tree are
+still skipped, and everything else is still counted; reporting those is a
+separate decision about the output format. One related message was also
+wrong: a folder inside a parent the tool could not open was reported as
+"does not exist" while it was there. That now says "not readable" too.
+Other failures, such as a path too long to exist, keep their old message;
+an older test on long emoji paths caught my first attempt at this. There
+are 8 new tests. When the fix was undone, the 3 new refusal tests failed and
+the 5 checks on unchanged behaviour still passed. The README example's file
+count went up by one for the new test file.
