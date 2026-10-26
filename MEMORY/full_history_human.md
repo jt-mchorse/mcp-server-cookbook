@@ -2846,3 +2846,13 @@ an older test on long emoji paths caught my first attempt at this. There
 are 8 new tests. When the fix was undone, the 3 new refusal tests failed and
 the 5 checks on unchanged behaviour still passed. The README example's file
 count went up by one for the new test file.
+
+## 2026-10-26 — repo_stats refuses a root it can list but not search (#345)
+
+The fix for #341 made an unreadable root an error. A root with read but not
+search permission (mode 444) still got through: listing it works, but reading
+each file's size and opening each subfolder fails, so the tool answered with
+the right file names, zero bytes and no subfolders, and exit 0. It now checks
+both permissions on the root before walking it and refuses with the same "not
+readable" message. Folders further down are still skipped as before. Three new
+tests; two fail without the fix and the third checks the nested case.

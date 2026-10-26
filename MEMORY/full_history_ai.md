@@ -3580,3 +3580,22 @@ context_for_next_session:
   - "NESTED_UNREADABLE_DIRS_STILL_SILENTLY_SKIPPED_(skipped_dirs_count_=_output-shape_design_call,_not_filed)"
 followups: []
 ---
+
+---
+session: 2026-10-26T07:43:48Z
+issue: 345
+branch: session/2026-10-26-0742-issue-345
+focus: REPO_STATS_ROOT_THAT_LISTS_BUT_CANNOT_BE_SEARCHED_MODE_444_PASSED_341S_READDIR_GATE_AND_ANSWERED_ZERO_BYTES_EXIT_0
+phase: shipped
+delta:
+  files_changed: 5
+  tests_added: 3
+  suite: "internal-tools-bridge 95 -> 98 passed (after commit); lint, typecheck, build, check-test-count, check-readme ok"
+decisions_made: []
+measured: "main ada9464, macOS: --root <444 dir: a.ts 100B, b.md 200B, sub/c.ts 3B> -> {total_files 2, total_bytes 0} exit 0 (755: 3 files, 303 B). After: '--root is not readable: <root> (EACCES)' exit 2. Revert of bin: 2 of 3 new red; nested-444 control green. Found by a same-run hunt on #344. PR #346."
+context_for_next_session:
+  - "ROOT_GATE_IS_access_R_OK_X_OK_AT_DEPTH_1_BEFORE_READDIR_readdir_alone_succeeds_on_r--_and_the_children_fail_one_by_one"
+  - "README_repo_stats_EXAMPLE_LOCK_IGNORES_total_bytes_a_byte_change_does_not_move_it"
+  - "NESTED_UNSEARCHABLE_DIRS_STILL_SKIPPED_SILENTLY_and_a_per_file_stat_failure_still_adds_0_bytes_both_inside_the_skipped_dirs_design_call"
+followups: []
+---
