@@ -2801,3 +2801,17 @@ failed and the two true/false checks still passed. The per-file and
 gist-level `truncated` flags are still converted the same way. Those are
 optional, so they need a slightly different rule, and they are left for a
 later change.
+
+## 2026-10-26 — The gists server refuses a base URL that fetch would rewrite (#339)
+
+The base URL setting already refused tabs and line breaks inside it (#326),
+because the URL parser deletes them and the request would go somewhere the
+operator never wrote. Two other shapes did the same thing and were still
+accepted: a backslash, which the parser treats as a `/`, and a `.` or `..`
+path segment, which the parser resolves away along with the folder before
+it. With a base URL of `/api/../v3`, a test server received the request,
+and the token with it, at `/v3/gists/abc123`. Both shapes are now refused at
+startup, whether the value comes from the environment or from code. Dots
+that are part of a name, like `.hidden` or `v..3`, are sent as written and
+still work. There are 29 new tests. When the fix was undone, the 25 refusal
+tests failed and the four dot-in-a-name checks still passed.

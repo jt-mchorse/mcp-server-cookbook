@@ -3521,3 +3521,22 @@ context_for_next_session:
   - "truncated_(gist-level_and_per-file)_STILL_Boolean()_optional_field_not_filed"
 followups: []
 ---
+
+---
+session: 2026-10-26T07:20:18Z
+duration_min: 2   # computed: worktree created 2026-10-26T07:20:18Z (date -u) -> plan comment 07:21:03Z -> code commit 07:22:14Z -> PR #342 07:22:30Z
+issue: 339
+branch: session/2026-10-26-0720-issue-339
+focus: GISTS_BASE_URL_BACKSLASH_AND_DOT_SEGMENTS_REWRITTEN_BY_THE_URL_PARSER_THE_SIBLING_326_DID_NOT_LIST
+phase: shipped
+delta:
+  files_changed: 5
+  tests_added: 29
+  suite: "github-gists 376 -> 405 passed; root tools tests 316 passed; lint, typecheck, build, check-test-count, every tools/check-*.mjs ok"
+decisions_made: []
+measured: "main beb8a59, loopback server, env -> GistsClient.getGist: /api\\v3 -> /api/v3/gists/abc123, /api/../v3 and /api/%2e%2e/v3 and /api/.%2E/v3 -> /v3/gists/abc123, /api/v3/.. -> /api/gists/abc123, /.. -> /gists/abc123, all booted. After: all refused at boot via env, validateGistsConfig and GistsClient constructor. Revert of config.ts: 25 red / 4 green (controls .hidden, v..3, %2E-in-name, ...)."
+context_for_next_session:
+  - "GATE_IS_ON_THE_RAW_PATH_SEGMENTS_NOT_new_URL().pathname_COMPARE:_the_parser_also_percent-encodes_space/non-ASCII,_same_path_on_the_wire,_left_accepted"
+  - "#340_(gist_shape_truncated/size/content)_NEXT_IN_THE_SAME_SERVER"
+followups: []
+---
