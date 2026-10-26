@@ -2815,3 +2815,17 @@ startup, whether the value comes from the environment or from code. Dots
 that are part of a name, like `.hidden` or `v..3`, are sent as written and
 still work. There are 29 new tests. When the fix was undone, the 25 refusal
 tests failed and the four dot-in-a-name checks still passed.
+
+## 2026-10-26 — The gists server checks the truncated, size and content fields too (#340)
+
+The last fix (#335) stopped the server guessing the `public` flag, but the
+same guessing was still done for three other fields in a gist reply. A
+`truncated` flag sent as the text `"false"` was read as true, so a complete
+gist or file was reported as cut short. A file size that was not a number
+was quietly replaced with one the server worked out itself. And file content
+that was not text came back as no content with `truncated: false`, which
+tells the client the file is complete and empty. All of these are now
+refused with the same "response was not a gist" error, naming the request.
+Replies that leave these fields out, or send them correctly, come back
+exactly as before. There are 25 new tests. When the fix was undone, the 20
+refusal tests failed and the five checks on correct replies still passed.

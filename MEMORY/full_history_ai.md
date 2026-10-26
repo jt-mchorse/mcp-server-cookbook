@@ -3540,3 +3540,23 @@ context_for_next_session:
   - "#340_(gist_shape_truncated/size/content)_NEXT_IN_THE_SAME_SERVER"
 followups: []
 ---
+
+---
+session: 2026-10-26T07:24:15Z
+duration_min: 2   # computed: worktree created 2026-10-26T07:24:15Z (date -u) -> plan comment 07:24:43Z -> code commit 07:25:39Z -> PR #343 07:25:56Z
+issue: 340
+branch: session/2026-10-26-0724-issue-340
+focus: GISTS_TRUNCATED_SIZE_CONTENT_STILL_COERCED_BY_PROJECTGIST_THE_FIELDS_335_DID_NOT_LIST
+phase: shipped
+delta:
+  files_changed: 6
+  tests_added: 25
+  suite: "github-gists 405 -> 430 passed; root tools tests 316 passed; lint, typecheck, build, check-test-count, every tools/check-*.mjs ok"
+decisions_made: []
+measured: "main beb8a59, stub fetch, getGist(defaultToolDeps): gist truncated 'false'/1 -> OK true; null -> OK false; file truncated 'false' -> OK true; size '999'/null -> OK recomputed 2; content 42 -> OK content:null truncated:false. After: all GithubApiError 'response was not a gist: ...'. Revert of client.ts+tools.ts: 20 red (10 rows x GET+PATCH) / 5 green (new controls)."
+context_for_next_session:
+  - "NEW_CHECKS_RUN_AFTER_public_IN_A_SECOND_FILES_LOOP_so_every_296/332/335_message_is_unchanged"
+  - "size_MUST_BE_A_NON-NEGATIVE_SAFE_INTEGER_(not_just_number);_content_null_ALLOWED_(projection's_own_no-content)"
+  - "GIST_RESPONSE_FIELDS_projectGist_READS_ARE_NOW_ALL_CHECKED:_id,files,html_url,description,public,truncated,file.language/truncated/size/content"
+followups: []
+---
