@@ -48,6 +48,17 @@ function parseArgs(argv) {
   return args;
 }
 
+class RootUnreadableError extends Error {
+  constructor(root, cause) {
+    super(`--root is not readable: ${root}${errnoSuffix(cause)}`);
+  }
+}
+
+/** ` (EACCES)` for a Node fs error, else nothing: the code, never the message. */
+function errnoSuffix(e) {
+  return e && typeof e.code === "string" ? ` (${e.code})` : "";
+}
+
 async function walk(root, maxDepth) {
   const byExt = new Map();
   let totalFiles = 0;
@@ -58,8 +69,14 @@ async function walk(root, maxDepth) {
     let entries;
     try {
       entries = await readdir(dir, { withFileTypes: true });
-    } catch {
-      // Unreadable directory — silently skip; the count is honest.
+    } catch (e) {
+      // The root itself unreadable is an input error, not an empty tree
+      // (#341): skipping it answered `total_files: 0`, exit 0, the same as an
+      // empty directory. Thrown for `main` to report, beside the missing and
+      // non-directory roots it already refuses.
+      if (depth === 1) throw new RootUnreadableError(root, e);
+      // A nested unreadable directory is skipped; the rest of the tree is still
+      // counted. (Surfacing it would change the output shape: a separate call.)
       return;
     }
     // Sort entries deterministically so output is stable for the same tree.
@@ -113,11 +130,27 @@ async function main() {
       process.stderr.write(`--root is not a directory: ${absRoot}\n`);
       process.exit(2);
     }
-  } catch {
-    process.stderr.write(`--root does not exist: ${absRoot}\n`);
+  } catch (e) {
+    // A permission failure is not "does not exist" (#341): a root under a
+    // directory the process cannot search fails `stat` with EACCES, and was
+    // reported as missing while it was there. Every other failure (ENOENT,
+    // ENOTDIR, ENAMETOOLONG, ...) keeps the message it always had.
+    const denied = e && (e.code === "EACCES" || e.code === "EPERM");
+    process.stderr.write(
+      denied
+        ? `--root is not readable: ${absRoot}${errnoSuffix(e)}\n`
+        : `--root does not exist: ${absRoot}\n`,
+    );
     process.exit(2);
   }
-  const out = await walk(absRoot, args.maxDepth);
+  let out;
+  try {
+    out = await walk(absRoot, args.maxDepth);
+  } catch (e) {
+    if (!(e instanceof RootUnreadableError)) throw e;
+    process.stderr.write(`${e.message}\n`);
+    process.exit(2);
+  }
   process.stdout.write(JSON.stringify(out) + "\n");
 }
 
