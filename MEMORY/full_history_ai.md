@@ -3560,3 +3560,23 @@ context_for_next_session:
   - "GIST_RESPONSE_FIELDS_projectGist_READS_ARE_NOW_ALL_CHECKED:_id,files,html_url,description,public,truncated,file.language/truncated/size/content"
 followups: []
 ---
+
+---
+session: 2026-10-26T07:27:41Z
+duration_min: 3   # computed: worktree created 2026-10-26T07:27:41Z (date -u) -> plan comment 07:27:58Z -> code commit 07:30:07Z -> PR #344 07:30:32Z
+issue: 341
+branch: session/2026-10-26-0727-issue-341
+focus: REPO_STATS_UNREADABLE_ROOT_ANSWERED_ZERO_FILES_EXIT_0_LIKE_AN_EMPTY_DIR_PLUS_STAT_EACCES_REPORTED_AS_DOES_NOT_EXIST
+phase: shipped
+delta:
+  files_changed: 5
+  tests_added: 8
+  suite: "internal-tools-bridge 87 -> 95 passed (run after commit); root tools tests 316 passed; lint, typecheck, build, check-test-count, every tools/check-*.mjs ok"
+decisions_made: []
+measured: "main 1aaba7e/beb8a59 bin, macOS: --root <chmod 000 dir with 2 files> -> total_files 0 exit 0 (= empty dir); --root <child of chmod 600 dir> -> '--root does not exist' exit 2. After: both '--root is not readable: <path> (EACCES)' exit 2; empty/missing/file/below-a-file roots and nested-unreadable skip unchanged. Revert of bin: 3 red / 5 green (controls). Refuse-at-every-depth neighbour: 1 red (nested control)."
+context_for_next_session:
+  - "STAT_CATCH:_ONLY_EACCES/EPERM_SAY_NOT_READABLE;_ENAMETOOLONG_MUST_STAY_DOES_NOT_EXIST_(error-text-surrogate #282 tests pin it;_my_first_cut_broke_them)"
+  - "README_repo_stats_EXAMPLE_IS_LOCKED_TO_git_ls-files:_a_new_test_file_is_+1_.ts;_regenerate_via_git_archive_+_bin/repo-stats.mjs_--max-depth_3"
+  - "NESTED_UNREADABLE_DIRS_STILL_SILENTLY_SKIPPED_(skipped_dirs_count_=_output-shape_design_call,_not_filed)"
+followups: []
+---

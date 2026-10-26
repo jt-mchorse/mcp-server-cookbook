@@ -142,15 +142,15 @@ Returns (paths and counts are what `bin/repo-stats.mjs` prints for this director
 ```json
 {
   "root": "/.../servers/internal-tools-bridge",
-  "total_files": 20,
-  "total_bytes": 239008,
+  "total_files": 21,
+  "total_bytes": 247435,
   "by_ext": {
     ".example": 1,
     ".js": 1,
     ".json": 3,
     ".md": 1,
     ".mjs": 1,
-    ".ts": 13
+    ".ts": 14
   }
 }
 ```
@@ -170,7 +170,7 @@ this paragraph has to change with it.
 ## Tests
 
 ```bash
-npm test          # 87 tests (30 bridge, 16 tools, 3 public-surface, 3 repo-stats-readme, 10 timeout-clamp, 12 server-boot-config, 6 cwd-kind-and-args, 7 error-text-surrogate) — ~5s
+npm test          # 95 tests (30 bridge, 16 tools, 3 public-surface, 3 repo-stats-readme, 10 timeout-clamp, 12 server-boot-config, 6 cwd-kind-and-args, 7 error-text-surrogate, 8 repo-stats-unreadable-root) — ~5s
 npm run lint
 npm run typecheck
 ```
