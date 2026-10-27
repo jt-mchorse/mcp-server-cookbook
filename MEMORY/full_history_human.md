@@ -2876,3 +2876,23 @@ check. Normal results came back byte-for-byte the same across 23 kinds of
 query. `EXPLAIN` output is not covered and can still crash the server; that is
 reported separately. There are 52 new tests (901 to 953). With the fix undone
 at the call sites, 23 failed and the helper and control tests passed.
+
+## 2026-10-27 — huge EXPLAIN plans and error messages no longer crash the Postgres server (#350)
+
+The size cap from #347 works by running the query inside a wrapper that the
+database checks. Two kinds of reply bypassed it. `EXPLAIN` cannot be wrapped,
+and Postgres writes constants into the plan text, so `EXPLAIN VERBOSE` of a
+600-million character string still crashed the server. Casting such a string
+to a number crashed it as well, because the database's error message repeats
+the whole value. The server now reads the small header in front of every
+message the database sends, which states the message's size, before the
+driver reads the message itself. If one message is bigger than the cap plus
+64 KiB, or the plan lines of an `EXPLAIN` add up to more than the cap, the
+server drops the connection at that header and returns an error naming the
+limit. Memory stays around 54 MB, where it used to reach 1.7 GB or exit. The
+second check does not apply to normal queries, because the database already
+enforces their cap, and counting bytes on the wire would wrongly refuse
+results the cap allows. Results were identical before and after for the
+queries compared. There are 16 new tests (953 to 969). They use a small fake
+database, so they run in CI. With the fix undone, 13 of the 16 failed and the
+other 3 are controls.
