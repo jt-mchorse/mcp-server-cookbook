@@ -3599,3 +3599,26 @@ context_for_next_session:
   - "NESTED_UNSEARCHABLE_DIRS_STILL_SKIPPED_SILENTLY_and_a_per_file_stat_failure_still_adds_0_bytes_both_inside_the_skipped_dirs_design_call"
 followups: []
 ---
+
+---
+session: 2026-10-27T07:17:33Z
+duration_min: 19   # computed: worktree created 2026-10-27T07:17:33Z (date -u) -> plan comment 07:27:40Z -> code commit 07:35:49Z -> PR #349 07:36:13Z
+issue: 347
+branch: session/2026-10-27-0717-issue-347
+focus: RUN_SELECT_AND_SAMPLE_ROWS_CAPPED_ROWS_NOT_BYTES_ONE_600M_CHAR_VALUE_THREW_ERR_STRING_TOO_LONG_IN_PG_PROTOCOL_AND_KILLED_THE_PROCESS
+phase: shipped
+delta:
+  files_changed: 10
+  tests_added: 52
+  suite: "postgres-readonly 901 -> 953 passed (after commit); lint, typecheck, build, check-test-count, check-readme, check-env-example, both env-grammar checks, boot-config guard; root tools tests 316 passed"
+decisions_made: []
+measured: "main 0e7aa4c, local PostgreSQL 17.6, runSelect maxRows=1 peak RSS: 1e8 618 MB rows, 4e8 1960 MB rows, 6e8 ERR_STRING_TOO_LONG process exit (stdio: id unanswered, exit 1 after 4.1 s). After: 79-80 MB isError naming MAX_RESULT_BYTES for all three; sample_rows 50 x 1 MB 318 MB -> 114 MB isError. 23-shape live payload parity main vs fix byte-identical. Revert: src to main 9 red + new file import error; call-site revert 23 red / 58 green (helper units + 2 controls)."
+context_for_next_session:
+  - "CAP_IS_ENFORCED_IN_POSTGRES_running_window_sum_of_octet_length((s.*)::text)_and_a_nonce-carrying_::int_cast_that_fails_the_FETCH_a_WHERE_filter_would_scan_to_timeout"
+  - "WHOLE_ROW_MUST_BE_(s.*)_NOT_BARE_s_a_column_named_s_shadows_it_(measured_4_vs_57_bytes)_=_cap_bypass"
+  - "subqueryBody_CUTS_TRAILING_;_AND_REFUSES_UNBALANCED_PARENS_else_SELECT_x))_s)_w_/*_closes_the_wrapper_and_comments_out_the_check"
+  - "ISSUE_PREMISE_WRONG:_CI_HAS_NO_POSTGRES_SERVICE_tests_are_hermetic_mocks;_live_numbers_from_a_private_initdb_on_port_55347"
+  - "EXPLAIN_IS_NOT_BOUNDED:_EXPLAIN_VERBOSE_SELECT_repeat('x',6e8)_still_crashes_(folded_constant_in_plan_text)_reported_not_fixed"
+followups:
+  - "EXPLAIN output byte bound (needs a non-SQL mechanism, e.g. a byte-counting pg stream)"
+---
