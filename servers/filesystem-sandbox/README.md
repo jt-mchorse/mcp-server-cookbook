@@ -15,6 +15,13 @@ errors before any IO:
 - Absolute paths outside the allow-list.
 - Symlinks under the allow-list pointing outside it.
 - Symlinks at parent components of a non-existent target path.
+- A path component swapped for a symlink *between* the check and the IO
+  (#233). The check proves the realpath is inside the allow-list; every
+  read, listing and write then goes through a handle on the directory it
+  checked, opened without following a symlink at any component, so a
+  concurrent writer inside the root cannot redirect it. Linux and macOS
+  (`/proc/self/fd` and `O_NOFOLLOW_ANY` + `/.vol`); elsewhere the IO is
+  by path.
 - Null-byte injection (path truncation tricks).
 - ASCII control characters (`0x01–0x1f`, `0x7f`) including newline / CR.
 - Relative paths (rejected categorically — CWD-dependent behavior is a
@@ -100,7 +107,7 @@ npm run build
 ## Test
 
 ```bash
-npm test                # 307 hermetic vitest tests
+npm test                # 319 hermetic vitest tests
 npm run lint            # eslint
 npm run typecheck       # tsc --noEmit
 ```

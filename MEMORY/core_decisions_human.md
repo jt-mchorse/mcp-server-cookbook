@@ -352,3 +352,18 @@ The bound is the immediate fix; the test is the durable one. It fails on 2.2.0 w
 **Reversibility:** Cheap.
 
 **Related issues:** #210, #163, #177
+
+## D-016 — filesystem-sandbox does its IO through a handle on the directory it checked (2026-10-27)
+**Decision:** After `Sandbox.resolve` proves a path is inside the allow-list, every filesystem operation the tools perform (read, list, and every step of the atomic write) goes through a handle on the checked directory, opened beneath the root without following a symlink at any component. The Python port walks the path with `os.open(..., O_NOFOLLOW, dir_fd=...)` and then uses `dir_fd=` for everything. Node has no `openat`, so the TS port names children through the held handle instead: `/proc/self/fd/<fd>/<name>` on Linux, and `O_NOFOLLOW_ANY` plus `/.vol/<dev>/<ino>/<name>` on macOS. Other platforms keep path-based IO, and the README says so.
+
+**Why:** The check realpath'd the path, then the tools opened it by path, so the kernel walked it a second time. A directory swapped for a symlink in between was followed: a hunt agent measured 5306 of 39870 reads and 763 of 966 writes landing outside the root, and swapping right after `resolve` returns escaped with all three tools in both ports. The issue offered documenting the residual race as one option, which would have changed the threat model. Closing the race keeps the published "symlink-safe" claim true instead.
+
+**Alternatives considered:**
+- Open with `O_NOFOLLOW`, then compare the handle's inode with an `lstat` walk. Rejected: the walk is by path, so swapping and swapping back between its steps passes it. It narrows the window without closing it.
+- Document the residual race. Rejected: the race can be closed on both platforms the cookbook runs on.
+- `process.chdir` as a stand-in for `openat`. Rejected: it is process-global and the tools are async.
+- A native addon for `openat2`. Rejected: a build dependency for what `/proc/self/fd` already provides.
+
+**Reversibility:** Cheap.
+
+**Related issues:** #233, #285, #238, #60

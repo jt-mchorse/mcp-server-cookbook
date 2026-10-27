@@ -63,6 +63,7 @@ the two ports are exercised against literally the same inputs (#141).
 | Trailing-sep prefix match (no `/tmp/foo` ↔ `/tmp/foobar`)       | ✅   | ✅   |
 | `mustExist:false` for write-to-new-file (parent must exist)    | ✅   | ✅   |
 | `resolve()` verdict *and* reason, over a shared path table     | ✅   | ✅   |
+| IO through the checked directory: a component swapped for a symlink mid-call is refused (#233) | ✅   | ✅   |
 | Binary file detection on `read_file`                           | ✅   | ✅   |
 | Per-call byte cap (`MCP_FS_SANDBOX_MAX_BYTES`)                 | ✅   | ✅   |
 | Read-only mode (`MCP_FS_SANDBOX_READ_ONLY`)                    | ✅   | ✅   |
@@ -74,6 +75,7 @@ What's idiomatically different (same posture, different language):
 |---------------------------------|----------------------------------------|-----------------------------------------------|
 | Sync vs async API on the prim.  | Async (`fs.realpath` is async in Node) | Sync (`os.path.realpath` is sync)             |
 | Server boilerplate              | `@modelcontextprotocol/sdk` + stdio    | `mcp.server.Server` + `mcp.server.stdio`      |
+| How IO is held to the checked directory (#233) | `/proc/self/fd/<fd>/…` (Linux), `O_NOFOLLOW_ANY` + `/.vol/<dev>/<ino>/…` (macOS), by path elsewhere: Node has no `openat` | `dir_fd=` and a per-component `O_NOFOLLOW` walk |
 | Test runner                     | `vitest`                               | `pytest`                                      |
 | Lint / format                   | `eslint` / `prettier`                  | `ruff`                                        |
 | Dependency posture              | `@modelcontextprotocol/sdk` required   | Primitive dep-free; SDK behind `[server]` extra|
@@ -120,7 +122,7 @@ on macOS):
 
 ```bash
 pip install -e '.[dev]'      # no [server] needed — primitive tests don't import mcp
-pytest                        # 368 tests, ~0.6 s
+pytest                        # 380 tests, ~0.6 s
 ruff check . && ruff format --check .
 ```
 

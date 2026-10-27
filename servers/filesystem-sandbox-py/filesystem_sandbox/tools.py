@@ -11,12 +11,17 @@ output dicts.
 
 from __future__ import annotations
 
+import contextlib
+import errno
 import os
+import stat
+from collections.abc import Iterator
 from dataclasses import dataclass
 from typing import Literal
 
+from .anchored import AnchorRefused, anchoring_supported, open_anchored_dir
 from .atomic_write import atomic_write_bytes
-from .sandbox import Sandbox, SandboxEscape
+from .sandbox import Sandbox, SandboxedPath, SandboxEscape
 
 DirEntryKind = Literal["file", "directory", "symlink", "other"]
 
@@ -56,9 +61,43 @@ class DirEntry:
     size: int | None = None
 
 
+def _root_dir(sp: SandboxedPath) -> str:
+    """The allow-list root ``sp`` belongs to, without its trailing separator."""
+    return sp.root[:-1] if len(sp.root) > 1 else sp.root
+
+
+@contextlib.contextmanager
+def _anchor(
+    sp: SandboxedPath, dir_path: str, input_value: str, *, readable: bool = False
+) -> Iterator[int | None]:
+    """Hold ``dir_path`` open beneath ``sp``'s root, refusing a symlink at any
+    component (#233). ``resolve`` checked the realpath; this is what makes the
+    IO that follows use the directory it checked, not whatever the path names
+    by then. ``None`` where the platform has no ``dir_fd`` support.
+    """
+    if not anchoring_supported():  # pragma: no cover - Windows
+        yield None
+        return
+    try:
+        fd = open_anchored_dir(_root_dir(sp), dir_path, readable=readable)
+    except AnchorRefused:
+        raise SandboxEscape("outside_allowlist", input_value) from None
+    try:
+        yield fd
+    finally:
+        os.close(fd)
+
+
 def list_directory(deps: ToolDeps, dir_path: str) -> list[DirEntry]:
     """Return the directory contents as a sorted-by-name list of entries."""
     sp = deps.sandbox.resolve_dir(dir_path)
+    # Through the held directory (#233): `scandir(sp.resolved)` listed whatever
+    # a swapped-in symlink pointed at, and the per-entry stat sized its files.
+    with _anchor(sp, sp.resolved, dir_path, readable=True) as dfd:
+        return _list(sp.resolved if dfd is None else dfd)
+
+
+def _list(target: str | int) -> list[DirEntry]:
     out: list[DirEntry] = []
     # Kinds from the directory read (`d_type`), as the TS port's `Dirent` does
     # (#285). `os.path.islink`/`isfile`/`isdir` each stat the entry, which needs
@@ -66,7 +105,7 @@ def list_directory(deps: ToolDeps, dir_path: str) -> list[DirEntry]:
     # 0644) all three failed and every entry, a subdirectory included, was
     # listed as "other". `DirEntry` answers without a system call; where the
     # filesystem gives no `d_type` it stats, and an `OSError` there is "other".
-    with os.scandir(sp.resolved) as it:
+    with os.scandir(target) as it:
         for e in it:
             size: int | None = None
             try:
@@ -80,9 +119,12 @@ def list_directory(deps: ToolDeps, dir_path: str) -> list[DirEntry]:
                     kind = "other"
             except OSError:
                 kind = "other"
+            # `follow_symlinks=False` (#233): the entry was a file when listed;
+            # if it has been swapped for a symlink since, its own size is the
+            # honest answer, not the size of whatever it points at.
             if kind == "file":
                 try:
-                    size = e.stat().st_size
+                    size = e.stat(follow_symlinks=False).st_size
                 except OSError:
                     size = None
             out.append(DirEntry(name=e.name, kind=kind, size=size))
@@ -104,8 +146,27 @@ def read_file(deps: ToolDeps, file_path: str) -> str:
     # One handle for the size check and the read, and the read bounded (#232):
     # `getsize(path)` then `open(path).read()` returned a file that grew in
     # between in full, past the cap. At most `max_bytes + 1` is read here.
-    with open(sp.resolved, "rb") as fh:
-        size = os.fstat(fh.fileno()).st_size
+    #
+    # Opened through the held parent with `O_NOFOLLOW` (#233), so the file is
+    # the one `resolve_file` checked even if a component was swapped for a
+    # symlink since. `O_NONBLOCK` so a leaf swapped for a FIFO cannot block the
+    # open; the type check below then refuses it.
+    flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_NONBLOCK", 0)
+    with _anchor(sp, os.path.dirname(sp.resolved), file_path) as dfd:
+        try:
+            if dfd is None:  # pragma: no cover - Windows
+                fd = os.open(sp.resolved, flags | getattr(os, "O_BINARY", 0))
+            else:
+                fd = os.open(os.path.basename(sp.resolved), flags, dir_fd=dfd)
+        except OSError as exc:
+            if exc.errno == errno.ELOOP:
+                raise SandboxEscape("outside_allowlist", file_path) from None
+            raise
+    with open(fd, "rb") as fh:
+        st = os.fstat(fh.fileno())
+        if not stat.S_ISREG(st.st_mode):
+            raise SandboxEscape("not_a_file", file_path)
+        size = st.st_size
         if size > deps.max_bytes:
             raise FileTooLargeError(size, deps.max_bytes)
         # Up to `max_bytes + 1`, in chunks (#279): `fh.read(max_bytes + 1)`
@@ -159,9 +220,24 @@ def write_file(deps: ToolDeps, file_path: str, content: str) -> dict[str, int]:
     # so the caller's bytes were written there before ``os.replace`` failed.
     # Refused before any write, with the reason the read path uses; parity with
     # the TS twin.
-    if os.path.isdir(sp.resolved):
+    if sp.resolved == _root_dir(sp):
         raise SandboxEscape("not_a_file", file_path)
-    # Atomic write (temp + fsync + os.replace) so a mid-write crash can't leave a
-    # partial/truncated file — parity with the TS twin's `atomicWriteFile`.
-    atomic_write_bytes(sp.resolved, data)
+    # Everything below goes through the held parent (#233): the directory
+    # check, the temp file, the mode copy and the rename. By path, a parent
+    # swapped for a symlink after `resolve` put the bytes outside the root.
+    base = os.path.basename(sp.resolved)
+    with _anchor(sp, os.path.dirname(sp.resolved), file_path) as dfd:
+        try:
+            st = os.stat(
+                base if dfd is not None else sp.resolved, dir_fd=dfd, follow_symlinks=False
+            )
+            is_dir = stat.S_ISDIR(st.st_mode)
+        except OSError:
+            is_dir = False
+        if is_dir:
+            raise SandboxEscape("not_a_file", file_path)
+        # Atomic write (temp + fsync + os.replace) so a mid-write crash can't
+        # leave a partial/truncated file — parity with the TS twin's
+        # `atomicWriteFile`.
+        atomic_write_bytes(sp.resolved, data, dir_fd=dfd)
     return {"bytes_written": len(data)}
