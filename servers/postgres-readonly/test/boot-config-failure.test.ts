@@ -111,7 +111,7 @@ const GOOD_ENV: Record<string, string> = { DATABASE_URL: DSN };
  * for the wrong reason, and a developer's own shell could otherwise decide
  * whether a "missing required variable" case is really missing.
  */
-const CONFIG_KEYS: ReadonlyArray<string> = ["DATABASE_URL", "MAX_ROWS", "STATEMENT_TIMEOUT_MS"];
+const CONFIG_KEYS: ReadonlyArray<string> = ["DATABASE_URL", "MAX_ROWS", "STATEMENT_TIMEOUT_MS", "MAX_RESULT_BYTES"];
 
 const TIMEOUT = 30_000;
 
@@ -127,6 +127,9 @@ const BAD_ENVS: ReadonlyArray<readonly [string, Record<string, string>]> = [
   ["negative STATEMENT_TIMEOUT_MS", { DATABASE_URL: DSN, STATEMENT_TIMEOUT_MS: "-1" }],
   // Past the 32-bit setTimeout range of the client timers #229 added (#277).
   ["STATEMENT_TIMEOUT_MS past the timer range", { DATABASE_URL: DSN, STATEMENT_TIMEOUT_MS: "2147483648" }],
+  ["MAX_RESULT_BYTES with a unit", { DATABASE_URL: DSN, MAX_RESULT_BYTES: "16MB" }],
+  // Past V8's maximum string length, where one value crashed the server (#347).
+  ["MAX_RESULT_BYTES past the string length limit", { DATABASE_URL: DSN, MAX_RESULT_BYTES: "536870889" }],
 ];
 
 describe("postgres-readonly refuses a bad boot config with one line", () => {

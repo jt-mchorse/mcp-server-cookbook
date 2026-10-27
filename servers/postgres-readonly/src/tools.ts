@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import pg from "pg";
-import { type DbConfig, withClient } from "./db.js";
-import { guardQuery, leadingKeyword } from "./sqlGuard.js";
+import { DEFAULT_MAX_RESULT_BYTES, type DbConfig, withClient } from "./db.js";
+import { guardQuery, leadingKeyword, subqueryBody } from "./sqlGuard.js";
 import { exactTimestamptzParser } from "./timestamptz.js";
 
 export interface ToolResult {
@@ -358,14 +358,100 @@ export function rowsByName(
   );
 }
 
+/* ------------------------------------------------------------------ */
+/* result byte cap (#347)                                              */
+/* ------------------------------------------------------------------ */
+
+/**
+ * One query's byte bound: `sql` wraps the query so Postgres itself stops at
+ * the first row that takes the result past `cap` bytes of row text (#347).
+ *
+ * MAX_ROWS bounded rows, not bytes, and a single value is enough to kill the
+ * process: `SELECT repeat('x', 600000000)` threw ERR_STRING_TOO_LONG inside
+ * pg-protocol's socket handler, where no catch reaches, and the server exited
+ * (measured on PostgreSQL 17.6; 4e8 characters returned after a 1.6 GB peak).
+ * Nothing in this process can refuse a value it has already been sent, so the
+ * check runs in the database, before the row is sent:
+ *
+ * - each row is measured as `octet_length((s.*)::text)`, its record text. That
+ *   is at least the bytes its columns put on the wire (it adds quotes,
+ *   escapes and separators). It is `(s.*)`, not bare `s`: a bare name
+ *   resolves to a COLUMN `s` before the whole row, and a query with a column
+ *   called `s` then measured that column alone (4 bytes for a 57-byte row);
+ * - a window keeps the running total, which streams: a FETCH of 11 rows from a
+ *   3M-row table took 0.09 ms wrapped and 0.13 ms bare;
+ * - once the total passes `cap`, a cast of a text that holds a per-call nonce
+ *   fails, which aborts the FETCH before that row leaves the server. A WHERE
+ *   that skipped the row instead would go on scanning for rows that can never
+ *   pass, until the statement timeout.
+ *
+ * The total travels as one extra trailing column, named with the same nonce so
+ * no column of the query can take its name. `withoutByteColumn` removes it, and
+ * `byteCapError` turns the cast's error back into a message naming the cap.
+ */
+export interface ByteCap {
+  sql: string;
+  nonce: string;
+  column: string;
+  cap: number;
+}
+
+export function byteCappedQuery(body: string, cap: number, nonce: string = randomUUID().replace(/-/g, "")): ByteCap {
+  const column = `mcp_bytes_${nonce}`;
+  // The body ends on its own line: a trailing `--` comment would otherwise run
+  // over the closing parenthesis.
+  const sql =
+    `SELECT * FROM (SELECT s.*, sum(octet_length((s.*)::text)) ` +
+    `OVER (ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS ${column} FROM (\n${body}\n) s) w ` +
+    `WHERE CASE WHEN w.${column} > ${cap} THEN ('${nonce}:' || w.${column})::int = 0 ELSE true END`;
+  return { sql, nonce, column, cap };
+}
+
+/**
+ * The result without the byte cap's running-total column. Postgres always
+ * returns it last; it is matched by its nonce name, so a column of the query
+ * can never be mistaken for it.
+ */
+export function withoutByteColumn<R extends { fields?: Array<{ name: string }>; rows?: unknown }>(
+  result: R,
+  cap: ByteCap,
+): R {
+  const fields = result.fields ?? [];
+  if (fields.length === 0 || fields[fields.length - 1]!.name !== cap.column) return result;
+  const rows = Array.isArray(result.rows) ? (result.rows as unknown[][]).map((r) => r.slice(0, -1)) : result.rows;
+  return { ...result, fields: fields.slice(0, -1), rows };
+}
+
+/** The tool's message for an error the byte cap raised, or undefined for any other error. */
+export function byteCapError(message: string, cap: ByteCap, setting: string): string | undefined {
+  const m = message.match(new RegExp(`${cap.nonce}:(\\d+)`));
+  if (!m) return undefined;
+  return (
+    `result too large: the rows read so far total ${m[1]} bytes as text, over the ${setting} cap of ` +
+    `${cap.cap} bytes (#347); select fewer rows or columns, or shorten large values (e.g. left(col, 1000))`
+  );
+}
+
 export async function runSelect(args: RunSelectArgs, cfg: DbConfig): Promise<ToolResult> {
   const guard = guardQuery(args.sql);
   if (!guard.ok) {
     return err(`query rejected by guard: ${guard.reason}`);
   }
 
+  // Checked before connecting, like the guard: a query the wrapper cannot
+  // hold is refused rather than embedded (#347). EXPLAIN is read directly.
+  const explain = leadingKeyword(args.sql) === "EXPLAIN";
+  const body = explain ? null : subqueryBody(args.sql);
+  if (!explain && body === null) {
+    return err(
+      "query rejected: unbalanced parentheses or an unterminated comment or literal; " +
+        "run_select runs the query as a subquery to bound its size (#347)",
+    );
+  }
+
   return withClient(cfg, async (c) => {
     let result;
+    let cap: ByteCap | undefined;
     try {
       // Append LIMIT cfg.maxRows + 1 if the query has no LIMIT? No — that's a
       // quietly-modify-the-query semantic the operator probably doesn't want.
@@ -378,22 +464,27 @@ export async function runSelect(args: RunSelectArgs, cfg: DbConfig): Promise<Too
       // maxRows + 1 rows are fetched -- the extra one is how `truncated` is
       // known. EXPLAIN cannot be a cursor body; its output is a plan, not data.
       // The DB-side statement_timeout (set in withClient) bounds runtime.
-      if (leadingKeyword(args.sql) === "EXPLAIN") {
+      if (explain) {
         result = await c.query({ text: args.sql, types: SELECT_TYPES, rowMode: "array" });
       } else {
+        // The query is the inner subquery of a byte-capped wrapper (#347), so
+        // MAX_RESULT_BYTES is enforced in Postgres as rows are produced.
+        cap = byteCappedQuery(body!, cfg.maxResultBytes ?? DEFAULT_MAX_RESULT_BYTES);
         await c.query("BEGIN");
-        await c.query(`DECLARE mcp_run_select NO SCROLL CURSOR FOR ${args.sql}`);
-        result = await c.query({
+        await c.query(`DECLARE mcp_run_select NO SCROLL CURSOR FOR ${cap.sql}`);
+        const fetched = await c.query({
           text: `FETCH FORWARD ${cfg.maxRows + 1} FROM mcp_run_select`,
           types: SELECT_TYPES,
           rowMode: "array",
         });
         await c.query("COMMIT");
+        result = withoutByteColumn(fetched, cap);
       }
       await parseUnregisteredArrays(c, result.fields, Array.isArray(result.rows) ? result.rows : []);
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
-      return err(`query execution error: ${msg}`);
+      const tooLarge = cap && byteCapError(msg, cap, "MAX_RESULT_BYTES");
+      return err(tooLarge || `query execution error: ${msg}`);
     }
 
     const dups = duplicateColumnNames(result.fields);
@@ -450,17 +541,29 @@ export async function sampleRows(args: SampleRowsArgs, cfg: DbConfig): Promise<T
   const limit = Math.min(requested, 50, cfg.maxRows);
 
   return withClient(cfg, async (c) => {
-    return runSampleQuery(c, schema, args.table, limit);
+    return runSampleQuery(c, schema, args.table, limit, cfg.maxResultBytes ?? DEFAULT_MAX_RESULT_BYTES);
   });
 }
 
-async function runSampleQuery(c: pg.Client, schema: string, table: string, limit: number): Promise<ToolResult> {
+async function runSampleQuery(
+  c: pg.Client,
+  schema: string,
+  table: string,
+  limit: number,
+  maxResultBytes: number,
+): Promise<ToolResult> {
   // Identifiers are validated above and quoted explicitly. Don't use parameter
   // binding for identifiers — Postgres won't accept it and it'd hide the
   // strictness above.
   const sql = `SELECT * FROM "${schema}"."${table}" LIMIT ${limit}`;
+  // Same bound as run_select (#347): 50 rows of a wide table are as able to
+  // exhaust the process as one huge value.
+  const cap = byteCappedQuery(sql, maxResultBytes);
   try {
-    const result = await c.query({ text: sql, types: SELECT_TYPES, rowMode: "array" });
+    const result = withoutByteColumn(
+      await c.query({ text: cap.sql, types: SELECT_TYPES, rowMode: "array" }),
+      cap,
+    );
     await parseUnregisteredArrays(c, result.fields, result.rows);
     return ok(
       stringifyPayload({
@@ -471,6 +574,6 @@ async function runSampleQuery(c: pg.Client, schema: string, table: string, limit
     );
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
-    return err(`sample_rows error: ${msg}`);
+    return err(byteCapError(msg, cap, "MAX_RESULT_BYTES") ?? `sample_rows error: ${msg}`);
   }
 }
