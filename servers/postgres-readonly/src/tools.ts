@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import pg from "pg";
-import { DEFAULT_MAX_RESULT_BYTES, type DbConfig, withClient } from "./db.js";
+import { DEFAULT_MAX_RESULT_BYTES, type DbConfig, ResultTooLargeError, responseGuardOf, withClient } from "./db.js";
 import { guardQuery, leadingKeyword, subqueryBody } from "./sqlGuard.js";
 import { exactTimestamptzParser } from "./timestamptz.js";
 
@@ -465,7 +465,17 @@ export async function runSelect(args: RunSelectArgs, cfg: DbConfig): Promise<Too
       // known. EXPLAIN cannot be a cursor body; its output is a plan, not data.
       // The DB-side statement_timeout (set in withClient) bounds runtime.
       if (explain) {
-        result = await c.query({ text: args.sql, types: SELECT_TYPES, rowMode: "array" });
+        // ...so its plan rows are bounded on the wire instead (#350): the
+        // planner folds constants into the plan text, and one plan line held a
+        // 600M-character value that crashed the process.
+        const guard = responseGuardOf(c);
+        guard?.limitResponse(cfg.maxResultBytes ?? DEFAULT_MAX_RESULT_BYTES);
+        try {
+          result = await c.query({ text: args.sql, types: SELECT_TYPES, rowMode: "array" });
+        } finally {
+          guard?.endResponse();
+        }
+        if (guard?.refused !== undefined) return err(guard.refused);
       } else {
         // The query is the inner subquery of a byte-capped wrapper (#347), so
         // MAX_RESULT_BYTES is enforced in Postgres as rows are produced.
@@ -482,6 +492,7 @@ export async function runSelect(args: RunSelectArgs, cfg: DbConfig): Promise<Too
       }
       await parseUnregisteredArrays(c, result.fields, Array.isArray(result.rows) ? result.rows : []);
     } catch (e) {
+      if (e instanceof ResultTooLargeError) return err(e.message);
       const msg = e instanceof Error ? e.message : String(e);
       const tooLarge = cap && byteCapError(msg, cap, "MAX_RESULT_BYTES");
       return err(tooLarge || `query execution error: ${msg}`);
@@ -573,6 +584,7 @@ async function runSampleQuery(
       }),
     );
   } catch (e) {
+    if (e instanceof ResultTooLargeError) return err(e.message);
     const msg = e instanceof Error ? e.message : String(e);
     return err(byteCapError(msg, cap, "MAX_RESULT_BYTES") ?? `sample_rows error: ${msg}`);
   }

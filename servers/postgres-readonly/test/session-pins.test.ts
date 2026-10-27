@@ -21,6 +21,9 @@ let failOn: string | undefined;
 
 vi.mock("pg", () => {
   class Client {
+    on() {
+      return this;
+    }
     async connect() {
       issued.push("<connect>");
     }

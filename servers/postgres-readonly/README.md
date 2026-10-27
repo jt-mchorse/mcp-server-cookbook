@@ -101,7 +101,15 @@ The agent emits `SELECT * FROM big_table CROSS JOIN big_table` or sleeps.
   an `isError` naming the cap, and the server stays at about 80 MB. A query
   with unbalanced parentheses is refused rather than embedded, because it
   could close the subquery early. The setting is capped at V8's maximum string
-  length (536870888). `EXPLAIN` output is not bounded by it.
+  length (536870888). Replies the subquery cannot bound are bounded on the
+  wire (#350). The planner folds constants into `EXPLAIN` text, so
+  `EXPLAIN VERBOSE SELECT repeat('x', 600000000)` crashed the server the
+  same way. `SELECT repeat('x', 600000000)::int` crashed it too, because its
+  error message quotes the whole value. The server reads each reply's
+  message headers before `pg-protocol` does. It drops the connection, and
+  returns an `isError`, at the header of any message longer than the cap
+  plus 64 KiB of framing, or of the `EXPLAIN` row that takes the plan past
+  the cap.
 
 ### 3. Backend disruption
 

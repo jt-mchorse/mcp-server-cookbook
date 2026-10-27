@@ -267,8 +267,16 @@ export async function withClient<T>(
     connectionTimeoutMillis: Math.max(cfg.statementTimeoutMs, CONNECT_TIMEOUT_FLOOR_MS),
     query_timeout: cfg.statementTimeoutMs + 1000,
   });
+  // A destroyed socket (the byte guard below, or a database that drops the
+  // connection) makes pg emit `error` on the client as well as rejecting the
+  // active query. With no listener that emit throws and the process exits; the
+  // query's rejection already carries the error to the caller.
+  client.on("error", () => {});
   await client.connect();
   try {
+    // Installed before the first SET so that every reply this session reads
+    // is bounded (#350). See ResponseByteGuard.
+    responseGuards.set(client, guardResponses(client, cfg.maxResultBytes ?? DEFAULT_MAX_RESULT_BYTES));
     await client.query(`SET statement_timeout = ${cfg.statementTimeoutMs}`);
     // Belt & suspenders: this also rejects writes at the server-session level,
     // so even if the role is mis-configured the session can't write.
@@ -309,4 +317,151 @@ export async function withClient<T>(
   } finally {
     await client.end();
   }
+}
+
+/* ------------------------------------------------------------------ */
+/* wire byte guard (#350)                                              */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Wire bytes allowed on one message beyond `MAX_RESULT_BYTES`. A DataRow
+ * frames its values with 6 bytes plus 4 per column (at most 1664 columns, plus
+ * the #347 running-total column and its digits), so the largest row #347's
+ * wrapper lets through is under 7 KiB longer on the wire than its record text.
+ */
+export const MESSAGE_FRAMING_ALLOWANCE = 64 * 1024;
+
+/** A reply refused by the byte guard; its message is the tool's error text. */
+export class ResultTooLargeError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "ResultTooLargeError";
+  }
+}
+
+const MESSAGE_KINDS: Record<string, string> = { D: "row", E: "error message", N: "notice" };
+
+/**
+ * Counts the bytes of the database's replies from their message headers, and
+ * says when one goes past a bound (#350).
+ *
+ * #347 bounds `run_select` and `sample_rows` inside Postgres, by running the
+ * query as a byte-capped subquery. Two replies are not rows of such a
+ * subquery, and each could still carry one value longer than V8 allows into
+ * pg-protocol's socket handler, where ERR_STRING_TOO_LONG is thrown with no
+ * catch above it and the process exits. Measured on PostgreSQL 18.0:
+ *
+ * - `EXPLAIN VERBOSE SELECT repeat('x', 600000000)`. EXPLAIN cannot be a
+ *   subquery, and the planner folds the constant into the plan text;
+ * - `SELECT repeat('x', 600000000)::int`, wrapped, whose ErrorResponse quotes
+ *   the whole value (1670 MB peak, then the same exit).
+ *
+ * A Postgres message starts with a type byte and a 4-byte length (which counts
+ * itself), so its size is known before its body arrives. Every message longer
+ * than `messageLimit` is refused at its header. Rows of a response armed with
+ * `limitResponse` (EXPLAIN, which nothing else bounds) are refused once their
+ * total passes that limit, also at the header of the row that would cross it.
+ * Wrapped queries get no total here: #347 enforces theirs in Postgres, and the
+ * wire framing of many narrow rows is several times their record text, so a
+ * wire total would refuse results #347 allows.
+ */
+export class ResponseByteGuard {
+  private readonly header = Buffer.alloc(5);
+  private headerFill = 0;
+  /** Body bytes of the current message not yet seen. */
+  private remaining = 0;
+  private responseLimit: number | undefined;
+  private responseBytes = 0;
+  /** Why the stream was refused, once it has been. */
+  refused: string | undefined;
+
+  constructor(readonly messageLimit: number) {}
+
+  /** Bound the row bytes of the next reply to `bytes` (until `endResponse`). */
+  limitResponse(bytes: number): void {
+    this.responseLimit = bytes;
+    this.responseBytes = 0;
+  }
+
+  endResponse(): void {
+    this.responseLimit = undefined;
+  }
+
+  /** Read one chunk of the stream; the reason to refuse it, or undefined. */
+  feed(chunk: Buffer): string | undefined {
+    let i = 0;
+    while (i < chunk.length) {
+      if (this.remaining > 0) {
+        const skip = Math.min(this.remaining, chunk.length - i);
+        this.remaining -= skip;
+        i += skip;
+        continue;
+      }
+      const take = Math.min(5 - this.headerFill, chunk.length - i);
+      chunk.copy(this.header, this.headerFill, i, i + take);
+      this.headerFill += take;
+      i += take;
+      if (this.headerFill < 5) break;
+      this.headerFill = 0;
+      const type = String.fromCharCode(this.header[0]!);
+      const length = this.header.readUInt32BE(1);
+      const kind = MESSAGE_KINDS[type] ?? `'${type}' message`;
+      if (length > this.messageLimit) {
+        return (
+          `result too large: the database sent a ${length}-byte ${kind}, over the ${this.messageLimit}-byte ` +
+          `limit for one message (MAX_RESULT_BYTES plus framing, #350); select fewer columns or shorten ` +
+          `large values (e.g. left(col, 1000))`
+        );
+      }
+      if (type === "D" && this.responseLimit !== undefined) {
+        this.responseBytes += length - 4;
+        if (this.responseBytes > this.responseLimit) {
+          return (
+            `result too large: the rows read so far total more than ${this.responseLimit} bytes on the wire, ` +
+            `over the MAX_RESULT_BYTES cap (#350); EXPLAIN output is bounded as it arrives, since it cannot ` +
+            `run as a subquery`
+          );
+        }
+      }
+      this.remaining = Math.max(0, length - 4);
+    }
+    return undefined;
+  }
+}
+
+const responseGuards = new WeakMap<object, ResponseByteGuard | undefined>();
+
+/** The byte guard `withClient` installed on `client`, if it has a socket (test doubles do not). */
+export function responseGuardOf(client: object): ResponseByteGuard | undefined {
+  return responseGuards.get(client);
+}
+
+/** The largest single message `withClient` reads for a given MAX_RESULT_BYTES. */
+export function messageLimitFor(maxResultBytes: number): number {
+  // Never above V8's string limit: one value that long is the crash itself.
+  return Math.min(maxResultBytes + MESSAGE_FRAMING_ALLOWANCE, MAX_MAX_RESULT_BYTES);
+}
+
+function guardResponses(client: pg.Client, maxResultBytes: number): ResponseByteGuard | undefined {
+  // `connection.stream` is the stream pg-protocol parses: after TLS is set up
+  // it is the decrypted one, so headers can be read from it.
+  const stream = (client as { connection?: { stream?: NodeJS.ReadableStream & { destroy(e?: Error): void } } })
+    .connection?.stream;
+  if (!stream || typeof stream.prependListener !== "function") return undefined;
+  const guard = new ResponseByteGuard(messageLimitFor(maxResultBytes));
+  // Prepended, so the guard reads each chunk before the parser does. The
+  // parser still gets the chunk that carried the refused header. A message
+  // over `messageLimit` is longer than any socket read (64 KiB), so the parser
+  // only buffers its start. The rows of a response over its total can arrive
+  // whole in that chunk, and the query then resolves: callers that limit a
+  // response check `refused` after it.
+  stream.prependListener("data", (chunk: Buffer) => {
+    if (guard.refused !== undefined) return;
+    const reason = guard.feed(chunk);
+    if (reason !== undefined) {
+      guard.refused = reason;
+      stream.destroy(new ResultTooLargeError(reason));
+    }
+  });
+  return guard;
 }
