@@ -3599,3 +3599,23 @@ context_for_next_session:
   - "NESTED_UNSEARCHABLE_DIRS_STILL_SKIPPED_SILENTLY_and_a_per_file_stat_failure_still_adds_0_bytes_both_inside_the_skipped_dirs_design_call"
 followups: []
 ---
+
+---
+session: 2026-10-27T07:17:44Z
+duration_min: 16   # computed: start 2026-10-27T07:17:44Z (date -u) -> plan comment 07:22:56Z -> PR #348 07:33:17Z (gh created_at)
+issue: 233
+branch: session/2026-10-27-0718-issue-233
+focus: FS_SANDBOX_CHECKED_THE_REALPATH_THEN_OPENED_BY_PATH_A_DIRECTORY_SWAPPED_FOR_A_SYMLINK_MID_CALL_ESCAPED_WITH_ALL_THREE_TOOLS_IN_BOTH_PORTS
+phase: shipped
+delta:
+  files_changed: 15
+  tests_added: 24
+  suite: "filesystem-sandbox 320 -> 332 on macOS (CI count 307 -> 319); filesystem-sandbox-py 381 -> 393 passed on macOS 3.12 and 3.11 (CI count 368 -> 380); root tools tests 316 passed after commit; lint, typecheck, build, ruff check, ruff format --check, every tools/check-*.mjs ok"
+decisions_made: [D-016]
+measured: "main 0e7aa4c, macOS, deterministic swap of root/realsub for a symlink to out/ right after resolve* returns: both ports read_file -> SECRET-OUTSIDE, list_directory -> out/ listing with sizes, write_file -> out/f.txt = PWNED. After: all three outside_allowlist, out/ unchanged. Revert probe 7 red / 5 green per port (greens = leaf-symlink write control + 4 no-regression controls). The FIFO arm hung pytest on the unfixed tree until a 2 s watchdog writer was added to both ports."
+context_for_next_session:
+  - "ANCHORING_TS:_linux_/proc/self/fd/<fd>/<name>_walk_O_PATH|O_DIRECTORY|O_NOFOLLOW;_darwin_O_SEARCH|O_NOFOLLOW_ANY_(fallback_O_RDONLY_for_a_644_dir,_#285_test_caught_it)_+_/.vol/<dev>/<ino>/<name>;_windows_path-based"
+  - "LINUX_PATH_WAS_FIRST_EXERCISED_BY_CI_ON_PR_348_(no_docker_daemon_locally)"
+  - "TS_PLATFORM_COUNTS_DIFFER:_macOS_runs_13_more_cases_than_CI_in_each_fs-sandbox_port;_test-counts.json_holds_the_CI_number"
+followups: []
+---

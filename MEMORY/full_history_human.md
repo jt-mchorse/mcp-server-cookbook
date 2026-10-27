@@ -2856,3 +2856,19 @@ the right file names, zero bytes and no subfolders, and exit 0. It now checks
 both permissions on the root before walking it and refuses with the same "not
 readable" message. Folders further down are still skipped as before. Three new
 tests; two fail without the fix and the third checks the nested case.
+
+## 2026-10-27 — filesystem-sandbox no longer follows a symlink swapped in after the check (#233)
+
+The sandbox checked that a path was inside the allowed folders by resolving
+it, then opened it again by name. Someone able to write inside an allowed
+folder could replace a subfolder with a link to somewhere else between those
+two steps, and the open followed the link. Doing that swap right after the
+check let all three tools escape in both versions of the server: reading
+returned a file from outside, listing showed an outside folder, and writing
+overwrote an outside file. Each tool now keeps the checked folder open and
+does all of its work through that handle, refusing a link at every step of
+the way, so a swap is refused instead of followed. In Python this uses the
+standard directory-relative calls; Node lacks those, so the TypeScript
+version goes through `/proc/self/fd` on Linux and `/.vol` on macOS. There
+are 12 new tests in each version. When the fix was undone, 7 failed in each,
+and the 5 checks on unchanged behaviour still passed. Recorded as D-016.
