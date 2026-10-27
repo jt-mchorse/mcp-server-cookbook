@@ -3622,3 +3622,25 @@ context_for_next_session:
 followups:
   - "EXPLAIN output byte bound (needs a non-SQL mechanism, e.g. a byte-counting pg stream)"
 ---
+
+---
+session: 2026-10-27T07:38:53Z
+duration_min: 9   # computed: worktree created 2026-10-27T07:38:53Z (date -u) -> plan comment 07:42:43Z -> code commit 07:47:21Z -> PR #351 07:48:13Z
+issue: 350
+branch: session/2026-10-27-0738-issue-350
+focus: EXPLAIN_VERBOSE_FOLDED_CONSTANT_AND_ERRORRESPONSE_QUOTING_A_HUGE_VALUE_BYPASSED_349S_SUBQUERY_CAP_AND_CRASHED_PG_PROTOCOL
+phase: shipped
+delta:
+  files_changed: 8
+  tests_added: 16
+  suite: "postgres-readonly 953 -> 969 passed (after commit); lint, typecheck, build, check-test-count, every tools/check-*.mjs; root tools tests 316 passed"
+decisions_made: []
+measured: "main d56ecfa, local PostgreSQL 18.0 (Postgres.app latest; 17.6 not installed), runSelect maxRows=1: EXPLAIN VERBOSE repeat 6e8 ERR_STRING_TOO_LONG exit 1; SELECT repeat 6e8 ::int (wrapped) 1670 MB then same exit (ErrorResponse quotes the value); EXPLAIN VERBOSE 1e8 452 MB rows. After: all 54 MB isError; stdio: before exit 1 at 4.9 s with id unanswered, after isError at 4.1 s and next call answered. 9-shape run_select + sample_rows + describe_schema live parity main vs fix hash-identical. Revert: src to main 13 red / 3 green controls; guard uninstalled 5 red / 11 green; EXPLAIN unarmed 1 red; error listener removed 5 unhandled errors; total-every-response neighbour 1 red. PR #351."
+context_for_next_session:
+  - "WIRE_GUARD_READS_5_BYTE_HEADERS_ON_client.connection.stream_(post-TLS)_VIA_prependListener_AND_DESTROYS_AT_THE_HEADER;_PER_MESSAGE_LIMIT_=_MAX_RESULT_BYTES_+_64KiB_CLAMPED_TO_0x1fffffe8"
+  - "RESPONSE_TOTAL_ONLY_FOR_EXPLAIN:_A_WIRE_TOTAL_ON_WRAPPED_QUERIES_REFUSES_WHAT_349_ALLOWS_(2e6_narrow_rows_~8x_wire_vs_record_text)"
+  - "THE_TRIPPING_CHUNK_STILL_REACHES_THE_PARSER:_A_WHOLE_SMALL_RESPONSE_CAN_RESOLVE_AFTER_A_TOTAL_TRIP_so_runSelect_checks_guard.refused;_a_per-message_trip_cannot_complete_since_socket_reads_are_<=_64KiB_(measured)"
+  - "client.on('error')_IS_LOAD_BEARING:_without_it_pg's_emit_after_destroy_throws_(5_unhandled_errors_in_the_suite)"
+  - "HERMETIC_FAKE_POSTGRES_IN_test/response-byte-guard.test.ts_(AuthenticationOk_+_simple_query)_drives_the_real_pg.Client_reusable_for_wire-level_tests"
+followups: []
+---
