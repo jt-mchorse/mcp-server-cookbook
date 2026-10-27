@@ -7,7 +7,24 @@ export interface DbConfig {
   maxRows: number;
   /** Per-query timeout in ms. Server cancels queries exceeding this. */
   statementTimeoutMs: number;
+  /**
+   * Cap on the bytes of row text one `run_select` or `sample_rows` reads
+   * (#347). Optional so a `DbConfig` built before it existed keeps working;
+   * absent means DEFAULT_MAX_RESULT_BYTES.
+   */
+  maxResultBytes?: number;
 }
+
+/** `MAX_RESULT_BYTES` when unset (#347): 16 MiB of row text. */
+export const DEFAULT_MAX_RESULT_BYTES = 16 * 1024 * 1024;
+
+/**
+ * Largest `MAX_RESULT_BYTES` that still prevents the crash it exists for
+ * (#347): V8's maximum string length, 0x1fffffe8. One value longer than this
+ * threw ERR_STRING_TOO_LONG inside pg-protocol's socket handler, where nothing
+ * catches it, and the process exited.
+ */
+export const MAX_MAX_RESULT_BYTES = 0x1fffffe8;
 
 export function readDbConfigFromEnv(): DbConfig {
   // Trim before gating, and gate on *content* rather than falsiness (#157).
@@ -51,7 +68,14 @@ export function readDbConfigFromEnv(): DbConfig {
         `immediately; got ${statementTimeoutMs}`,
     );
   }
-  return { connectionString, maxRows, statementTimeoutMs };
+  const maxResultBytes = parseIntEnv("MAX_RESULT_BYTES", DEFAULT_MAX_RESULT_BYTES);
+  if (maxResultBytes > MAX_MAX_RESULT_BYTES) {
+    throw new Error(
+      `env MAX_RESULT_BYTES must be <= ${MAX_MAX_RESULT_BYTES} (V8's maximum string length); ` +
+        `above it one value can crash the server before the cap applies; got ${maxResultBytes}`,
+    );
+  }
+  return { connectionString, maxRows, statementTimeoutMs, maxResultBytes };
 }
 
 /**
@@ -186,6 +210,14 @@ export function validateDbConfig(cfg: DbConfig): void {
     throw new Error(
       `DbConfig.maxRows must be <= ${MAX_MAX_ROWS}; got ${cfg.maxRows}. run_select fetches ` +
         `maxRows + 1 rows, and Postgres reads a FETCH count as a 32-bit integer (#280).`,
+    );
+  }
+  if (
+    cfg.maxResultBytes !== undefined &&
+    (!Number.isInteger(cfg.maxResultBytes) || cfg.maxResultBytes < 1 || cfg.maxResultBytes > MAX_MAX_RESULT_BYTES)
+  ) {
+    throw new Error(
+      `DbConfig.maxResultBytes must be an integer from 1 to ${MAX_MAX_RESULT_BYTES}; got ${cfg.maxResultBytes} (#347)`,
     );
   }
   if (!Number.isInteger(cfg.statementTimeoutMs) || cfg.statementTimeoutMs < 1) {

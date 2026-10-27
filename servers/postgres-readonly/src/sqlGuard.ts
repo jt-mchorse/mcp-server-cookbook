@@ -865,6 +865,89 @@ export function leadingKeyword(sqlInput: string): string | undefined {
   return (stmt.match(/^\s*([A-Za-z]+)/) || [])[1]?.toUpperCase();
 }
 
+/**
+ * A query `guardQuery` accepted, as text that can sit inside `( ... )` as a
+ * subquery, or null when it cannot (#347).
+ *
+ * `run_select` bounds a result's bytes in Postgres by running the query as a
+ * subquery of its own SQL. Two shapes the guard accepts do not survive that:
+ * - A trailing `;`, which ended the old `DECLARE ... FOR <q>` statement and is
+ *   a syntax error inside parentheses. The text is cut at the first `;` outside
+ *   a literal, identifier or comment; the guard admitted one statement, so only
+ *   whitespace and comments follow it.
+ * - A `)` that closes the wrapper early. `SELECT repeat('x', 600000000)) s) w /*`
+ *   is refused by Postgres as a statement of its own, but inside the wrapper it
+ *   closes the subquery and comments out the size check. Every valid query has
+ *   balanced parentheses outside its literals, identifiers and comments, so an
+ *   unbalanced one is refused here rather than embedded.
+ *
+ * Lexed with the guard's own rules: nested block comments (#240), `E'...'`
+ * (#236), dollar quotes at a token start, and doubled quotes. An unterminated
+ * literal or comment returns null; Postgres would refuse it anyway.
+ */
+export function subqueryBody(sql: string): string | null {
+  let depth = 0;
+  let i = 0;
+  while (i < sql.length) {
+    const c = sql[i];
+    const tag = c === "$" ? dollarQuoteOpenAt(sql, i) : null;
+    if (tag !== null) {
+      const end = sql.indexOf(tag, i + tag.length);
+      if (end === -1) return null;
+      i = end + tag.length;
+      continue;
+    }
+    if (isEscapeStringStart(sql, i)) {
+      const end = escapeStringEnd(sql, i);
+      if (end === -1) return null;
+      i = end;
+      continue;
+    }
+    if (c === "'" || c === '"') {
+      let j = i + 1;
+      for (;;) {
+        if (j >= sql.length) return null;
+        if (sql[j] === c) {
+          if (sql[j + 1] === c) {
+            j += 2;
+            continue;
+          }
+          break;
+        }
+        j++;
+      }
+      i = j + 1;
+      continue;
+    }
+    if (c === "-" && sql[i + 1] === "-") {
+      while (i < sql.length && sql[i] !== "\n") i++;
+      continue;
+    }
+    if (c === "/" && sql[i + 1] === "*") {
+      let nest = 1;
+      i += 2;
+      while (nest > 0) {
+        if (i >= sql.length) return null;
+        if (sql[i] === "/" && sql[i + 1] === "*") {
+          nest++;
+          i += 2;
+        } else if (sql[i] === "*" && sql[i + 1] === "/") {
+          nest--;
+          i += 2;
+        } else {
+          i++;
+        }
+      }
+      continue;
+    }
+    if (c === "(") depth++;
+    if (c === ")" && --depth < 0) return null;
+    if (c === ";") return depth === 0 ? sql.slice(0, i) : null;
+    i++;
+  }
+  return depth === 0 ? sql : null;
+}
+
 export function guardQuery(sqlInput: string): GuardResult {
   if (typeof sqlInput !== "string" || sqlInput.trim().length === 0) {
     return { ok: false, reason: "empty query" };

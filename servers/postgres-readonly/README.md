@@ -82,7 +82,7 @@ The agent emits `SELECT * FROM big_table CROSS JOIN big_table` or sleeps.
   (#277).
 - `pg_sleep` is in the forbidden-keywords list.
 - `MAX_ROWS` (default 1000) caps the rows the server reads, not only the
-  ones it returns: `run_select` runs the query unchanged as the body of a
+  ones it returns: `run_select` runs the query unchanged inside the body of a
   cursor and fetches `MAX_ROWS + 1` rows, the extra one telling it whether to
   report `truncated` (#256). Before, every row was loaded into the server
   first. A 400,000-row query asked for 10 rows took the process from 86 MB to
@@ -90,6 +90,18 @@ The agent emits `SELECT * FROM big_table CROSS JOIN big_table` or sleeps.
   directly. Postgres reads a FETCH count as a 32-bit integer, so `MAX_ROWS`
   above 2147483646 is refused at boot rather than failing every `run_select`
   with a syntax error (#280).
+- `MAX_RESULT_BYTES` (default 16 MiB) caps the bytes of row text one
+  `run_select` or `sample_rows` reads, and Postgres enforces it (#347). Rows
+  alone were not enough: `SELECT repeat('x', 600000000)` crashed the server.
+  The string was too long for V8, and the error was thrown inside
+  `pg-protocol`'s socket handler, where nothing catches it. A 4e8-character
+  value was returned after a 1960 MB peak. The query now runs as a subquery
+  whose running total of `octet_length((s.*)::text)` fails the FETCH at the
+  first row past the cap, before that row leaves the database. The result is
+  an `isError` naming the cap, and the server stays at about 80 MB. A query
+  with unbalanced parentheses is refused rather than embedded, because it
+  could close the subquery early. The setting is capped at V8's maximum string
+  length (536870888). `EXPLAIN` output is not bounded by it.
 
 ### 3. Backend disruption
 

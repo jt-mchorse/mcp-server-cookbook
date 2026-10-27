@@ -55,15 +55,18 @@ describe("run_select reads through a cursor (#256)", () => {
     "VALUES (1), (2)",
     "TABLE pg_am",
     "/* lead */ SELECT 1",
-  ])("runs %s unchanged as the cursor body and fetches max_rows + 1", async (sql) => {
+  ])("runs %s unchanged inside the cursor body and fetches max_rows + 1", async (sql) => {
     rowsToReturn = 3;
     await runSelect({ sql }, CFG);
+    // The cursor body is the #347 byte-capped wrapper; the query is its inner
+    // subquery, unchanged and on its own lines.
     expect(issued).toEqual([
       "BEGIN",
-      `DECLARE mcp_run_select NO SCROLL CURSOR FOR ${sql}`,
+      expect.stringMatching(/^DECLARE mcp_run_select NO SCROLL CURSOR FOR SELECT \* FROM \(SELECT s\.\*, /),
       "FETCH FORWARD 11 FROM mcp_run_select",
       "COMMIT",
     ]);
+    expect(issued[1]).toContain(` FROM (\n${sql}\n) s) w WHERE `);
   });
 
   it("reports truncated from the one extra row the cursor returned", async () => {

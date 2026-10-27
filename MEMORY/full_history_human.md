@@ -2856,3 +2856,23 @@ the right file names, zero bytes and no subfolders, and exit 0. It now checks
 both permissions on the root before walking it and refuses with the same "not
 readable" message. Folders further down are still skipped as before. Three new
 tests; two fail without the fix and the third checks the nested case.
+
+## 2026-10-27 — run_select and sample_rows cap result bytes, so one huge value no longer crashes the server (#347)
+
+The Postgres server limited how many rows a query could return but not how
+big they were. One query, `SELECT repeat('x', 600000000)`, produced a value
+too long for Node to hold as a string. The error happened inside the database
+driver, where nothing catches it, so the whole server exited. A 400-million
+character value did come back, but only after the process grew to almost
+2 GB. There is now a `MAX_RESULT_BYTES` setting (16 MiB by default), and the
+database enforces it: the query runs inside a wrapper that keeps a running
+total of each row's size and fails as soon as the total passes the cap, before
+the oversized row is sent. The tool returns an error naming the cap, and the
+server stays at about 80 MB. `sample_rows` has the same limit. Two details
+matter for safety. The row is measured as a whole, so a column that happens
+to be called `s` cannot stand in for it. And a query with unbalanced
+parentheses is refused, because it could close the wrapper early and skip the
+check. Normal results came back byte-for-byte the same across 23 kinds of
+query. `EXPLAIN` output is not covered and can still crash the server; that is
+reported separately. There are 52 new tests (901 to 953). With the fix undone
+at the call sites, 23 failed and the helper and control tests passed.
