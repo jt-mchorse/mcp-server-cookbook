@@ -130,6 +130,12 @@ found `pg_sleep_for`/`pg_sleep_until`, `pg_log_standby_snapshot` (writes WAL),
 `pg_hba_file_rules`, `pg_ident_file_mappings`, `pg_show_all_file_settings` and
 `pg_current_logfile`. All of them are now refused.
 
+The other direction is the database dropping the server's connection
+mid-query: an administrator's `pg_terminate_backend`, a restart, a backend
+that dies, a network reset. The call returns an `isError` naming the drop,
+and the next call opens a new connection. Before #351 a connection that
+closed without an error message from Postgres crashed the server (#352).
+
 ### 4. Identifier injection via `sample_rows`
 
 `sample_rows` interpolates `schema` and `table` into the SQL because

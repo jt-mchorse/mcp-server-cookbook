@@ -3644,3 +3644,24 @@ context_for_next_session:
   - "HERMETIC_FAKE_POSTGRES_IN_test/response-byte-guard.test.ts_(AuthenticationOk_+_simple_query)_drives_the_real_pg.Client_reusable_for_wire-level_tests"
 followups: []
 ---
+
+---
+session: 2026-10-27T07:51:01Z
+duration_min: 7   # computed: worktree created 2026-10-27T07:51:01Z (stat) -> plan comment 07:54:15Z -> code commit 07:57:19Z -> PR #353 07:57:36Z
+issue: 352
+branch: session/2026-10-27-0751-issue-352
+focus: PIN_THAT_A_CONNECTION_DROPPED_MID_QUERY_IS_AN_ISERROR_AND_THE_SERVER_SURVIVES_PRE_351_A_CLOSE_WITHOUT_ERRORRESPONSE_EXITED_THE_PROCESS
+phase: shipped
+delta:
+  files_changed: 4
+  tests_added: 12
+  suite: "postgres-readonly 969 -> 981 passed (after commit); lint, typecheck, build, check-test-count, every tools/check-*.mjs; root tools tests 316 passed; new file + response-byte-guard + boot-config-failure green on Node 20.9"
+decisions_made: []
+measured: "local PostgreSQL 18.0 (private initdb, port 55352), built server over stdio, run_select count(*) over generate_series(1,2e9) (pg_sleep is guard-refused). d56ecfa (pre-#351): backend SIGKILL -> Unhandled 'error' event 'Connection terminated unexpectedly', exit 1, call unanswered; pg_terminate_backend and pg_ctl restart -m fast (57P01) -> isError, next call answered (no crash). main dfa9f44: all three isError and next call answered. Test-only PR #353. Revert (client.on('error') removed): 2 red (spawned fin/rst), 10 green + 7 unhandled errors (in-process fin/rst arms); 57P01 arms are controls."
+context_for_next_session:
+  - "57P01_NEVER_CRASHED:_FATAL_REJECTS_THE_QUERY_THEN_withClient_finally_client.end()_SETS__ending_IN_MICROTASKS_BEFORE_THE_SOCKET_close_MACROTASK;_ONLY_A_CLOSE_WITH_NO_MESSAGE_(FIN/RST)_HIT_THE_UNHANDLED_EMIT"
+  - "IN_PROCESS_AN_UNHANDLED_EMIT_IS_ONLY_A_VITEST_UNHANDLED_ERROR_NOT_A_RED_TEST;_THE_SPAWNED_tsx_SERVER_ARM_IS_WHAT_GOES_RED"
+  - "RUN_SELECT_GUARD_REFUSES_pg_sleep:_USE_A_LONG_generate_series_COUNT_FOR_MID_QUERY_REPROS;_ACTIVE_BACKEND_QUERY_IS_THE_FETCH_FORWARD_..._mcp_run_select"
+  - "RST_TEXT_IS_'read_ECONNRESET'_(pg_connection_error_path),_FIN_IS_'Connection_terminated_unexpectedly'_(pg_end_path)"
+followups: []
+---

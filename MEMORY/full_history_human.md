@@ -2896,3 +2896,22 @@ results the cap allows. Results were identical before and after for the
 queries compared. There are 16 new tests (953 to 969). They use a small fake
 database, so they run in CI. With the fix undone, 13 of the 16 failed and the
 other 3 are controls.
+
+## 2026-10-27 — tests pin that a dropped database connection is an error, not a crash (#352)
+
+Before #351, the Postgres server crashed if the database closed its connection
+in the middle of a query without first sending an error message. A backend
+process that dies or a network reset both do this. The driver raised an error
+event that nothing was listening for, and the process exited without
+answering. This was reproduced on a local PostgreSQL 18 by killing the backend
+mid-query. An administrator's `pg_terminate_backend` and a fast database
+restart did not crash even then. The database sends an error message first,
+and the server closes its side before the connection drops. #351 added a
+listener for its own reasons, and that also fixed this crash. So this change
+adds only tests and a README note. A small fake database closes the
+connection mid-query in three ways, and the tests check that each tool returns
+an error naming the drop and that the next call works on a new connection. One
+test starts the real server process, so a missing listener fails as a test
+rather than only as a warning. There are 12 new tests (969 to 981). With the
+listener removed, the two process-level tests for a silent close failed. The
+other arms reported 7 unhandled errors, which also fail the run.
