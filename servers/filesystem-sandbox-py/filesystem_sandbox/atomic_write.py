@@ -121,7 +121,7 @@ def _cap_base_for_temp(base: str) -> str:
 _CREATE_MODE = 0o666
 
 
-def _existing_mode(target: Path) -> int | None:
+def _existing_mode(target: Path, dir_fd: int | None = None) -> int | None:
     """Permission bits of the file already at *target*, or ``None`` if absent.
 
     An overwrite keeps the target's mode (#200), which is what the plain
@@ -136,45 +136,70 @@ def _existing_mode(target: Path) -> int | None:
     bits (0o755 on macOS, 0o777 on Linux) would make the result world-writable.
     A dangling link stats as missing and falls back to the umask default.
 
+    Under an anchored parent (#233, ``dir_fd`` given) it is an ``lstat``
+    through the descriptor, and a symlink counts as absent: the parent is held
+    precisely because the tree may be changing, and following a link that
+    appeared mid-call would read a file outside the root. The rename replaces
+    the link itself, so the umask default is the right mode.
+
     Masked to ``0o777``: setuid/setgid/sticky are not carried over. A plain
     write by an unprivileged process makes the kernel drop setuid/setgid, so
     copying them onto new content would be more permissive than the write this
     helper replaced. Parity with the TS twin's ``existingMode``.
     """
     try:
-        st = os.stat(target)
+        if dir_fd is None:
+            st = os.stat(target)
+        else:
+            st = os.stat(target.name, dir_fd=dir_fd, follow_symlinks=False)
     except FileNotFoundError:
+        return None
+    if stat.S_ISLNK(st.st_mode):
         return None
     return stat.S_IMODE(st.st_mode) & 0o777
 
 
-def atomic_write_bytes(path: str | Path, data: bytes) -> None:
+def atomic_write_bytes(path: str | Path, data: bytes, *, dir_fd: int | None = None) -> None:
+    """Write *data* to *path* atomically.
+
+    With ``dir_fd`` (the sandbox's write path, #233), ``dir_fd`` is *path*'s
+    directory held open beneath the allow-list root, and every operation here
+    -- temp create, mode copy, rename, cleanup -- names its file relative to
+    it, so a parent swapped for a symlink mid-call cannot redirect any of
+    them. The parent must already exist; it is not created. Without
+    ``dir_fd`` the parent is created if missing and everything goes by path.
+    """
     # Write to a sibling temp file in the destination's parent directory,
     # fsync, then `os.replace` (atomic on POSIX within the same filesystem).
     # Same-directory placement guarantees same filesystem so the rename cannot
     # fall back to a copy. On any exception between the temp write and the
     # rename, the temp is unlinked so a crashed write leaves no debris.
     target = Path(path)
-    target.parent.mkdir(parents=True, exist_ok=True)
+    if dir_fd is None:
+        target.parent.mkdir(parents=True, exist_ok=True)
     name = f".{_cap_base_for_temp(target.name)}.{os.getpid()}.{secrets.token_hex(6)}.tmp"
-    candidate = target.parent / name
-    tmp_path: Path | None = None
+    # Relative to `dir_fd` when anchored, by path otherwise.
+    candidate: str | Path = name if dir_fd is not None else target.parent / name
+    dest: str | Path = target.name if dir_fd is not None else target
+    tmp_path: str | Path | None = None
     try:
         # O_EXCL: fail loudly on a name collision rather than clobber a file
         # someone else is writing (parity with the TS twin). Mode 0o666 so the
         # kernel applies the umask (#200, see `_CREATE_MODE`).
-        fd = os.open(candidate, os.O_WRONLY | os.O_CREAT | os.O_EXCL, _CREATE_MODE)
+        fd = os.open(candidate, os.O_WRONLY | os.O_CREAT | os.O_EXCL, _CREATE_MODE, dir_fd=dir_fd)
         tmp_path = candidate
         with os.fdopen(fd, "wb") as tmp:
             tmp.write(data)
             tmp.flush()
-            mode = _existing_mode(target)
+            mode = _existing_mode(target, dir_fd)
             if mode is not None:
-                os.chmod(tmp_path, mode)
+                # Through the handle when anchored: the path may name
+                # something else by now.
+                os.chmod(tmp.fileno() if dir_fd is not None else tmp_path, mode)
             os.fsync(tmp.fileno())
-        os.replace(tmp_path, target)
+        os.replace(tmp_path, dest, src_dir_fd=dir_fd, dst_dir_fd=dir_fd)
         tmp_path = None
     finally:
         if tmp_path is not None:
             with contextlib.suppress(FileNotFoundError):
-                tmp_path.unlink()
+                os.unlink(tmp_path, dir_fd=dir_fd)

@@ -160,3 +160,17 @@
   reversibility: cheap
   related_issues: ["#210", "#163", "#177"]
   superseded_by: null
+
+- id: D-016
+  date: 2026-10-27
+  decision: filesystem_sandbox_IO_GOES_THROUGH_A_HANDLE_ON_THE_CHECKED_DIRECTORY_opened_beneath_the_root_WITHOUT_FOLLOWING_A_SYMLINK_AT_ANY_COMPONENT_the_realpath_check_stays_as_the_containment_proof_and_the_handle_makes_the_IO_use_what_it_proved
+  rationale: resolve_realpaths_then_the_tools_opened_sp_resolved_BY_PATH_so_the_kernel_walked_the_path_a_SECOND_time_and_a_directory_swapped_for_a_symlink_in_between_was_followed_hunt_agent_measured_5306_of_39870_reads_and_763_of_966_writes_outside_the_root_reproduced_deterministically_by_swapping_right_after_resolve_returns_ALL_THREE_TOOLS_in_BOTH_PORTS_read_returned_the_outside_file_list_listed_and_sized_the_outside_dir_write_overwrote_the_outside_file
+  mechanism_python: per_component_os_open_O_DIRECTORY_O_NOFOLLOW_with_dir_fd_from_the_root_O_PATH_on_linux_O_SEARCH_on_macos_so_search_only_dirs_still_work_then_dir_fd_for_open_lstat_scandir_replace_unlink_fchmod
+  mechanism_ts_node_has_no_openat: "linux: walk via /proc/self/fd/<fd>/<name> with O_PATH|O_DIRECTORY|O_NOFOLLOW, children named /proc/self/fd/<fd>/<name>. macos: one open with O_NOFOLLOW_ANY (O_SEARCH, falling back to O_RDONLY for a readable-unsearchable dir #285), children named /.vol/<dev>/<ino>/<name>, verified at open so a volume without volfs refuses rather than falling back to the path. elsewhere (windows): path-based IO, stated in the README"
+  every_op_not_only_the_issues_two: "read open (+O_NOFOLLOW +O_NONBLOCK and an fstat type check, so a leaf swapped for a FIFO cannot hang the open), list readdir + per-entry size (lstat, not stat), write directory check + temp create + mode copy (lstat; a symlink counts as absent) + rename + cleanup unlink; the anchored write path no longer mkdir -p's the parent (resolve already requires it to exist)"
+  threat_model_unchanged: the_issue_reserved_a_THREAT_MODEL_CHANGE_for_JT_option_3_document_the_residual_race_this_closes_the_race_instead_so_the_published_symlink_safe_claim_stays_true_and_gains_one_bullet
+  alternatives_rejected: ["OPEN_WITH_O_NOFOLLOW_THEN_VERIFY_fstat_AGAINST_AN_lstat_WALK_REJECTED_the_walk_is_by_path_so_swap_then_swap_back_between_its_lstats_passes_it_narrows_the_window_and_does_not_close_it", "DOCUMENT_THE_RESIDUAL_RACE_REJECTED_the_race_is_closable_on_both_platforms_ci_and_dev_run", "process_chdir_AS_AN_openat_REJECTED_process_global_and_the_tools_are_async", "A_NATIVE_ADDON_FOR_openat2_REJECTED_a_build_dependency_for_what_proc_self_fd_already_gives"]
+  measured: "deterministic swap after resolve: before, both ports returned SECRET-OUTSIDE, listed out/, and overwrote out/f.txt; after, all three refuse as outside_allowlist and out/ is byte-identical. New arms: TS 12, Py 12; revert probe 7 red / 5 green in each port (greens: the leaf-symlink write control and four no-regression controls). fs-sandbox 307 -> 319, fs-sandbox-py 368 -> 380 (CI-platform counts)"
+  reversibility: cheap
+  related_issues: ["#233", "#285", "#238", "#60"]
+  superseded_by: null

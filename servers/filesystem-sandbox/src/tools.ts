@@ -6,10 +6,12 @@
  * tools safe; the tools themselves are thin glue.
  */
 
-import { promises as fs } from "node:fs";
+import { promises as fs, constants as fsc } from "node:fs";
+import type { FileHandle } from "node:fs/promises";
 import path from "node:path";
+import { AnchorRefused, openAnchoredDir, type AnchoredDir } from "./anchored.js";
 import { atomicWriteFile } from "./atomic_write.js";
-import { Sandbox, SandboxEscape } from "./sandbox.js";
+import { Sandbox, SandboxEscape, type SandboxedPath } from "./sandbox.js";
 
 export interface ToolDeps {
   sandbox: Sandbox;
@@ -37,9 +39,42 @@ export interface DirEntry {
   size?: number;
 }
 
+/** The allow-list root `sp` belongs to, without its trailing separator. */
+function rootDir(sp: SandboxedPath): string {
+  return sp.root.length > 1 ? sp.root.slice(0, -1) : sp.root;
+}
+
+/**
+ * Hold `dir` open beneath `sp`'s root, refusing a symlink at any component
+ * (#233). `resolve` checked the realpath; this is what makes the IO that
+ * follows use the directory it checked, not whatever the path names by then.
+ * `null` where the platform cannot anchor (see `anchored.ts`).
+ */
+async function anchor(sp: SandboxedPath, dir: string, input: string): Promise<AnchoredDir | null> {
+  try {
+    return await openAnchoredDir(rootDir(sp), dir);
+  } catch (err) {
+    if (err instanceof AnchorRefused) throw new SandboxEscape("outside_allowlist", input);
+    throw err;
+  }
+}
+
 export async function listDirectory(deps: ToolDeps, dir: string): Promise<DirEntry[]> {
   const sp = await deps.sandbox.resolveDir(dir);
-  const entries = await fs.readdir(sp.resolved, { withFileTypes: true });
+  // Through the held directory (#233): `readdir(sp.resolved)` listed whatever
+  // a swapped-in symlink pointed at, and the per-entry stat sized its files.
+  const anchored = await anchor(sp, sp.resolved, dir);
+  try {
+    return await listAnchored(anchored, sp.resolved);
+  } finally {
+    await anchored?.close();
+  }
+}
+
+async function listAnchored(anchored: AnchoredDir | null, resolved: string): Promise<DirEntry[]> {
+  const at = anchored ? anchored.self : resolved;
+  const child = (name: string) => (anchored ? anchored.child(name) : path.join(resolved, name));
+  const entries = await fs.readdir(at, { withFileTypes: true });
   const out: DirEntry[] = [];
   for (const e of entries) {
     let kind: DirEntry["kind"];
@@ -49,12 +84,14 @@ export async function listDirectory(deps: ToolDeps, dir: string): Promise<DirEnt
     else kind = "other";
     const entry: DirEntry = { name: e.name, kind };
     if (kind === "file") {
+      // `lstat` (#233): the entry was a file when listed; if it has been
+      // swapped for a symlink since, its own size is the honest answer, not
+      // the size of whatever it points at.
       try {
-        const stat = await fs.stat(path.join(sp.resolved, e.name));
+        const stat = await fs.lstat(child(e.name));
         entry.size = stat.size;
       } catch {
-        // ignore — stat can fail on broken symlinks; we already
-        // know the entry type.
+        // ignore — the entry may be gone by now; we already know its type.
       }
     }
     out.push(entry);
@@ -111,10 +148,32 @@ export async function readFile(deps: ToolDeps, file: string): Promise<string> {
   // in between was returned whole -- 1205 of 2211 reads past a 1 KiB cap,
   // up to 4.7 MB. Reading at most `maxBytes + 1` through the handle makes the
   // cap hold whatever the file does meanwhile.
-  const fh = await fs.open(sp.resolved, "r");
+  //
+  // Opened through the held parent and `O_NOFOLLOW` (#233), so the file is the
+  // one `resolveFile` checked even if a component was swapped for a symlink
+  // since. `O_NONBLOCK` so a leaf swapped for a FIFO cannot block the open;
+  // the type check below then refuses it.
+  const dir = await anchor(sp, path.dirname(sp.resolved), file);
+  let fh: FileHandle;
+  try {
+    fh = await fs.open(
+      dir ? dir.child(path.basename(sp.resolved)) : sp.resolved,
+      fsc.O_RDONLY | fsc.O_NOFOLLOW | fsc.O_NONBLOCK,
+    );
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code === "ELOOP") {
+      throw new SandboxEscape("outside_allowlist", file);
+    }
+    throw err;
+  } finally {
+    await dir?.close();
+  }
   let buf: Buffer;
   try {
     const stat = await fh.stat();
+    if (!stat.isFile()) {
+      throw new SandboxEscape("not_a_file", file);
+    }
     if (stat.size > deps.maxBytes) {
       throw new FileTooLargeError(stat.size, deps.maxBytes);
     }
@@ -197,11 +256,23 @@ export async function writeFile(
   // root, a directory outside the sandbox -- so the caller's bytes were written
   // and fsynced outside it before the rename failed with EISDIR. Refused here,
   // before any filesystem write, with the same reason the read path uses.
-  const existing = await fs.stat(sp.resolved).catch(() => null);
-  if (existing?.isDirectory()) {
+  if (sp.resolved === rootDir(sp)) {
     throw new SandboxEscape("not_a_file", file);
   }
-  await atomicWriteFile(sp.resolved, data);
+  // Everything below goes through the held parent (#233): the directory
+  // check, the temp file, the mode copy and the rename. By path, a parent
+  // swapped for a symlink after `resolve` put the bytes outside the root.
+  const dir = await anchor(sp, path.dirname(sp.resolved), file);
+  try {
+    const leaf = dir ? dir.child(path.basename(sp.resolved)) : sp.resolved;
+    const existing = await fs.lstat(leaf).catch(() => null);
+    if (existing?.isDirectory()) {
+      throw new SandboxEscape("not_a_file", file);
+    }
+    await atomicWriteFile(sp.resolved, data, dir ?? undefined);
+  } finally {
+    await dir?.close();
+  }
   return { bytes_written: data.byteLength };
 }
 

@@ -328,3 +328,16 @@ with a JSON-RPC error (`-32602` for a lone surrogate, `-32600` otherwise). The
 answer goes through the SDK's own write stream, so it can't interleave with
 another response. Every other line reaches the SDK unchanged.
 
+### filesystem-sandbox does its IO through the directory it checked (#233, D-016)
+
+`Sandbox.resolve` proves containment by realpath'ing the input. The tools used
+to then open `sp.resolved` by path, so a directory swapped for a symlink
+between the check and the open was followed, and reads, listings and writes
+landed outside the root. Now each tool holds the checked directory open
+beneath the root, refusing a symlink at every component, and names every file
+through that handle: `dir_fd=` in the Python port; in the TS port, which has no
+`openat`, `/proc/self/fd/<fd>/<name>` on Linux and `O_NOFOLLOW_ANY` plus
+`/.vol/<dev>/<ino>/<name>` on macOS (`src/anchored.ts`,
+`filesystem_sandbox/anchored.py`). The realpath'd path never contains a
+symlink, so this refuses nothing the check accepted unless the tree changed
+mid-call.

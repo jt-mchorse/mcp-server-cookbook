@@ -26,6 +26,7 @@
 import { randomBytes } from "node:crypto";
 import { promises as fs, constants as fsc } from "node:fs";
 import path from "node:path";
+import type { AnchoredDir } from "./anchored.js";
 
 // Cap the target basename's contribution to the temp filename. The temp name
 // is `.<base>.<pid>.<12-hex>.tmp`; the affixes add ~25 bytes, so prepending a
@@ -71,27 +72,46 @@ const CREATE_MODE = 0o666;
  * macOS, 0o777 on Linux) would make the result world-writable. A dangling link
  * stats as ENOENT and falls back to the umask default.
  *
+ * Under an anchored parent (#233) it is `lstat`, and a symlink counts as
+ * absent: the parent is held precisely because the tree may be changing, and
+ * following a link that appeared mid-call would read a file outside the root.
+ * The rename replaces the link itself, so the umask default is the right mode.
+ *
  * Masked to `0o777`: setuid/setgid/sticky are not carried over. A plain write
  * by an unprivileged process makes the kernel drop setuid/setgid, so copying
  * them onto new content would be more permissive than the write this helper
  * replaced. Parity with the Python twin's `_existing_mode`.
  */
-async function existingMode(target: string): Promise<number | null> {
+async function existingMode(target: string, anchored: boolean): Promise<number | null> {
   try {
-    return (await fs.stat(target)).mode & 0o777;
+    const st = anchored ? await fs.lstat(target) : await fs.stat(target);
+    if (st.isSymbolicLink()) return null;
+    return st.mode & 0o777;
   } catch (err) {
     if ((err as NodeJS.ErrnoException).code === "ENOENT") return null;
     throw err;
   }
 }
 
-export async function atomicWriteFile(target: string, data: Buffer): Promise<void> {
+/**
+ * Write `data` to `target` atomically.
+ *
+ * With `parent` (the sandbox's write path, #233), `parent` is `target`'s
+ * directory held open beneath the allow-list root, and every operation here
+ * -- temp create, mode copy, rename, cleanup -- names its file through it, so
+ * a parent swapped for a symlink mid-call cannot redirect any of them. The
+ * parent must already exist; it is not created. Without `parent`, the
+ * directory is created if missing and everything goes by path.
+ */
+export async function atomicWriteFile(target: string, data: Buffer, parent?: AnchoredDir): Promise<void> {
   const dir = path.dirname(target);
   const base = path.basename(target);
-  await fs.mkdir(dir, { recursive: true });
+  if (parent === undefined) await fs.mkdir(dir, { recursive: true });
+  const child = (name: string) => (parent ? parent.child(name) : path.join(dir, name));
+  const dest = child(base);
 
   const token = randomBytes(6).toString("hex");
-  const tmp = path.join(dir, `.${capBaseForTemp(base)}.${process.pid}.${token}.tmp`);
+  const tmp = child(`.${capBaseForTemp(base)}.${process.pid}.${token}.tmp`);
 
   // O_WRONLY | O_CREAT | O_EXCL — fail loudly if the temp name
   // already exists (collision with a concurrent attempt by another
@@ -101,11 +121,11 @@ export async function atomicWriteFile(target: string, data: Buffer): Promise<voi
   let renamed = false;
   try {
     await handle.writeFile(data);
-    const mode = await existingMode(target);
+    const mode = await existingMode(dest, parent !== undefined);
     if (mode !== null) await handle.chmod(mode);
     await handle.sync();
     await handle.close();
-    await fs.rename(tmp, target);
+    await fs.rename(tmp, dest);
     renamed = true;
   } finally {
     if (!renamed) {
