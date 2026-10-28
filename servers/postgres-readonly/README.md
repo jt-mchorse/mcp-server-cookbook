@@ -45,7 +45,9 @@ The agent emits `DROP TABLE`, `DELETE`, `UPDATE`, `INSERT`, `TRUNCATE`,
   [`src/sqlGuard.ts`](src/sqlGuard.ts), which:
   - strips comments before any keyword check (an attacker can't hide writes
     inside a `--` or `/* */` comment); block comments nest, as they do in
-    Postgres, so `/* /* */ ' */` is one comment (#240),
+    Postgres, so `/* /* */ ' */` is one comment (#240), and a `--` comment
+    ends at a carriage return as well as a line feed, Postgres's
+    `newline [\n\r]`, so nothing after `--<CR>` is mistaken for comment (#354),
   - splits on `;` while honoring single, double, and dollar-quoted strings
     (so `SELECT 'a;b'` doesn't get falsely split), and `E'...'` escape
     strings, where `\'` does not end the literal (#236). A dollar quote
