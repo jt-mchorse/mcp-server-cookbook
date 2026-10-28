@@ -384,9 +384,11 @@ function isEscapeStringStart(sql: string, i: number): boolean {
   return (sql[i] === "E" || sql[i] === "e") && sql[i + 1] === "'" && startsToken(sql, i);
 }
 
-/** Index just past the closing quote of the E-string whose `E` is at `i`, or -1. */
-function escapeStringEnd(sql: string, i: number): number {
-  let j = i + 2;
+/** Index just past the closing quote of one backslash-escaped `'...'` body whose
+ *  opening quote is at `q`, or -1 if it never closes. Applies the `\\` escape and
+ *  the `''` doubled-quote rule. */
+function escapeBodyEnd(sql: string, q: number): number {
+  let j = q + 1;
   while (j < sql.length) {
     if (sql[j] === "\\") {
       j += 2;
@@ -402,6 +404,38 @@ function escapeStringEnd(sql: string, i: number): number {
     j++;
   }
   return -1;
+}
+
+/** If a string constant ending at `end` is continued by `{whitespace_with_newline}'`
+ *  (Postgres's `quotecontinue` rule), the index of that next opening quote, else -1.
+ *  The separating run must be whitespace AND contain a newline: without a newline the
+ *  two `'...'` are separate constants, which Postgres rejects as a syntax error, so the
+ *  guard need not join them. `space` is `[ \t\n\r\f\v]` (scan.l). */
+function stringContinuationQuote(sql: string, end: number): number {
+  let j = end;
+  let sawNewline = false;
+  while (j < sql.length && " \t\n\r\f\v".includes(sql[j])) {
+    if (sql[j] === "\n" || sql[j] === "\r") sawNewline = true;
+    j++;
+  }
+  return sawNewline && sql[j] === "'" ? j : -1;
+}
+
+/** Index just past the end of the E-string whose `E` is at `i` (#236), INCLUDING any
+ *  backslash-escaped continuations across a newline (#357), or -1 if it never closes.
+ *  Postgres carries escape-string semantics into each continued constant, so
+ *  `E'a'\n'\''` is one constant there -- the guard read the continuation as an ordinary
+ *  string and swallowed the live SQL after it. */
+function escapeStringEnd(sql: string, i: number): number {
+  let end = escapeBodyEnd(sql, i + 1);
+  if (end === -1) return -1;
+  for (;;) {
+    const q = stringContinuationQuote(sql, end);
+    if (q === -1) return end;
+    const next = escapeBodyEnd(sql, q);
+    if (next === -1) return -1;
+    end = next;
+  }
 }
 
 function isUnicodeIdentifierStart(sql: string, i: number): boolean {
