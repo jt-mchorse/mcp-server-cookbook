@@ -3684,3 +3684,22 @@ context_for_next_session:
   - "ROOT_tools_TESTS_NEED_THE_ROOT_npm_install_yaml_a_fresh_worktree_reports_3_ERR_MODULE_NOT_FOUND_failures_unrelated_to_the_change"
 followups: []
 ---
+
+---
+session: 2026-10-28T08:36Z
+issue: 357
+branch: session/2026-10-28-0834-issue-mcp-cont
+focus: AN_E_STRING_CONTINUED_ACROSS_A_NEWLINE_WAS_LEXED_AS_AN_ORDINARY_STRING_SO_STACKED_DDL_AND_PG_SLEEP_AFTER_IT_PASSED_THE_GUARD
+phase: shipped
+delta:
+  files_changed: 4
+  tests_added: 14
+  suite: "postgres-readonly 1004 -> 1018; typecheck + check-test-count + check-readme ok"
+decisions_made: []
+measured: "PG 17.6 standard_conforming_strings=on: SELECT E(apos)a(apos) NEWLINE (apos)backslash-apos(apos) AS a, (apos)MARK(apos) AS b -> a=a-apos, b=MARK (continuation closes, MARK is live SQL). e2e via runSelect, pg_sleep(2) variant: origin/main guardQuery ok:true and ran 2006 ms; fixed refused (PG_SLEEP) with no query sent. Revert probe 8 red / 6 green. PR #358."
+context_for_next_session:
+  - "escapeStringEnd_NOW_LOOPS_OVER_quotecontinue_CONTINUATIONS_shared_by_all_four_scanners_via_escapeBodyEnd"
+  - "quotecontinue_NEEDS_A_NEWLINE_IN_THE_SEPARATOR_space_only_is_two_constants_a_PG_syntax_error_so_safe"
+  - "LEXER_PARITY_WITH_SCAN_L_IS_THE_PRODUCTIVE_VEIN_HERE_236_252_354_357_each_a_distinct_lexical_form"
+followups: []
+---

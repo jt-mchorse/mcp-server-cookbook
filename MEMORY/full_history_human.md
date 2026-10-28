@@ -2927,3 +2927,13 @@ for two seconds. Both scanners that skip comments now use one shared rule
 that stops at either character, and both inputs are refused. 23 new tests.
 I checked Postgres's other character classes and found no other place where
 the guard reads less as code than Postgres does. PR #356.
+
+## 2026-10-28 — A multi-line escape string could hide an attack from the SQL guard (#357)
+
+Postgres joins two quoted strings across a line break into one, and a string
+marked with `E` keeps its backslash rules across that break. The read-only SQL
+guard did not: it read the second line as a plain string and skipped over the
+real SQL that followed, so a hidden `DROP TABLE` or `pg_sleep` passed. Measured
+on PostgreSQL 17, a `pg_sleep(2)` hidden this way ran for two seconds before the
+fix and is refused after it. All four of the guard's scanners now share one
+rule that follows the continuation. PR #358.
