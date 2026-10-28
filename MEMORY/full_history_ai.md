@@ -3665,3 +3665,22 @@ context_for_next_session:
   - "RST_TEXT_IS_'read_ECONNRESET'_(pg_connection_error_path),_FIN_IS_'Connection_terminated_unexpectedly'_(pg_end_path)"
 followups: []
 ---
+
+---
+session: 2026-10-28T07:26Z
+issue: 354
+branch: session/2026-10-28-0726-issue-354
+focus: SQL_GUARD_ENDS_A_DASH_DASH_COMMENT_AT_CR_AS_WELL_AS_LF_LIKE_POSTGRES_SCAN_L_NEWLINE_CLASS_ONE_HELPER_FOR_BOTH_SCANNERS
+phase: shipped
+delta:
+  files_changed: 5
+  tests_added: 23
+  suite: "postgres-readonly 981 -> 1004 passed; typecheck, check-test-count, check-readme ok"
+decisions_made: []
+measured: "local PostgreSQL 17.6 scratch cluster (LC_ALL=C needed or the postmaster refuses to start, 'became multithreaded'): psql 'SELECT 1 AS a --x<CR>, 2 AS b' -> 1|2; '--<CR>; DROP TABLE victim' dropped it. Real runSelect via readDbConfigFromEnv, origin/main 65db010: EXPLAIN ... --<CR>; ... DROP TABLE victim -> ok 7 ms and victim dropped; SELECT 1 --<CR>, pg_sleep(2) -> ok 2013 ms. Branch: both refused by the guard. Revert probe 10 red / 13 green (controls; the CRLF row is green on main via its LF). Partial: only subqueryBody fixed -> 8 red; only stripComments fixed -> 2 red. PR #356."
+context_for_next_session:
+  - "SCAN_L_OTHER_CLASSES_CHECKED_NO_UNSAFE_MISMATCH_space_is_a_subset_of_JS_backslash_s_ident_cont_covered_by_startsToken_E_string_quote_continuation_only_over_refuses"
+  - "TWO_SCANNERS_HAD_THE_SAME_LEXING_RULE_COPIED_lineCommentEnd_is_now_the_one_definition_grep_for_another_copy_before_adding_a_third_scanner"
+  - "ROOT_tools_TESTS_NEED_THE_ROOT_npm_install_yaml_a_fresh_worktree_reports_3_ERR_MODULE_NOT_FOUND_failures_unrelated_to_the_change"
+followups: []
+---
