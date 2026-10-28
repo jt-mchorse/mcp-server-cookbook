@@ -463,6 +463,22 @@ function dollarQuoteOpenAt(sql: string, i: number): string | null {
   return m ? m[0] : null;
 }
 
+/**
+ * Index of the newline that ends the `--` comment starting at `i`, or the
+ * input's length when nothing does.
+ *
+ * Postgres ends a line comment at `newline [\n\r]` (scan.l), so a bare CR ends
+ * it too. Both `--` skips below stopped at LF only, so everything after
+ * `--<CR>` was a comment to the guard and live SQL to Postgres: a stacked
+ * `DROP TABLE` and a `pg_sleep` passed, and `--<CR>) s) w` closed #349's
+ * size-cap wrapper early (#354). One definition, so the two scanners cannot
+ * disagree on it again.
+ */
+function lineCommentEnd(sql: string, i: number): number {
+  while (i < sql.length && sql[i] !== "\n" && sql[i] !== "\r") i++;
+  return i;
+}
+
 function stripComments(sql: string): string {
   let out = "";
   let i = 0;
@@ -549,7 +565,7 @@ function stripComments(sql: string): string {
     // tokenization exactly — a comment can separate tokens but never split one
     // (#74).
     if (c === "-" && sql[i + 1] === "-") {
-      while (i < sql.length && sql[i] !== "\n") i++;
+      i = lineCommentEnd(sql, i);
       out += " ";
       continue;
     }
@@ -920,7 +936,7 @@ export function subqueryBody(sql: string): string | null {
       continue;
     }
     if (c === "-" && sql[i + 1] === "-") {
-      while (i < sql.length && sql[i] !== "\n") i++;
+      i = lineCommentEnd(sql, i);
       continue;
     }
     if (c === "/" && sql[i + 1] === "*") {

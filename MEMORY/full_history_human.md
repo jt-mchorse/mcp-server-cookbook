@@ -2915,3 +2915,15 @@ test starts the real server process, so a missing listener fails as a test
 rather than only as a warning. There are 12 new tests (969 to 981). With the
 listener removed, the two process-level tests for a silent close failed. The
 other arms reported 7 unhandled errors, which also fail the run.
+
+## 2026-10-28 — The SQL guard now ends a `--` comment where Postgres does (#354)
+
+Postgres ends a `--` comment at either a line feed or a carriage return. The
+guard only stopped at a line feed. Everything after `--` plus a carriage
+return therefore looked like a comment to the guard, but Postgres ran it.
+On a local Postgres 17 cluster, an `EXPLAIN` with a stacked `DROP TABLE`
+passed the guard and dropped the table. A hidden `pg_sleep(2)` also ran,
+for two seconds. Both scanners that skip comments now use one shared rule
+that stops at either character, and both inputs are refused. 23 new tests.
+I checked Postgres's other character classes and found no other place where
+the guard reads less as code than Postgres does. PR #356.
