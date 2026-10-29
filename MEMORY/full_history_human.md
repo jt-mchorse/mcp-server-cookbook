@@ -2949,3 +2949,16 @@ guard now steps over `--` comments in that gap and still requires a line
 break. A `/* */` comment still ends the string, which matches Postgres. I ran
 30 kinds of gap through both Postgres and the guard. Before the fix 18 of
 them disagreed. After it none do. 36 new tests. PR #360.
+
+## 2026-10-29 — A block comment can no longer make the guard join two strings Postgres keeps apart (#361)
+
+The guard reads a query twice. On the second read, a `/* */` comment has
+already been replaced by a space. After a backslash-escaped string, that
+space and a line break made the guard join the next quoted string onto the
+first, which Postgres never does. One query hid a `pg_sleep` from the guard
+this way, but Postgres refuses it as a syntax error, so nothing ever ran. The
+guard now refuses any query in that shape. I recorded the guard's verdict on
+5.2 million generated queries before and after the change. Nothing it refused
+before is accepted now, and the 8 queries newly refused are all ones Postgres
+rejects. Every new test row was checked against a local Postgres 17. 60 new
+tests. PR #362.

@@ -3722,3 +3722,21 @@ context_for_next_session:
   - "GUARDQUERY_LEXES_TWICE:_stripComments_TURNS_A_BLOCK_COMMENT_INTO_A_SPACE_SO_THE_LATER_PASSES_JOIN_E'a'_/*c*/<LF>'...'_WHICH_PG_SPLITS;_OVER_JOIN_ONLY_AND_PG_REJECTS_THAT_TEXT_AS_A_SYNTAX_ERROR_(two_adjacent_constants);_subqueryBody_is_one_pass_and_is_where_block-comment_parity_is_pinned"
 followups: []
 ---
+
+---
+session: 2026-10-29T08:02Z
+issue: 361
+branch: session/2026-10-29-0802-issue-361
+focus: STRIPCOMMENTS_BLOCK_COMMENT_SPACE_MADE_THE_LATER_PASSES_JOIN_A_QUOTE_ONTO_AN_E_STRING_POSTGRES_ENDS_AT_THE_COMMENT_GUARD_NOW_REFUSES_THAT_SHAPE
+phase: shipped
+delta:
+  files_changed: 4
+  tests_added: 60
+  suite: "postgres-readonly 1054 -> 1114 passed; lint, typecheck, build, check-test-count, every tools/check-*.mjs; root tools tests 316 passed"
+decisions_made: []
+measured: "private PG 17.6 (/tmp/pg361, port 54361). Issue's literal payload (AS z --') already refused on main (unterminated: stripComments drops the --'); brute-forced reachable form SELECT E'a' /* c */<LF>'\\' AS a, pg_sleep(0) AS z' -> main ok:true, PG syntax error, branch refused. 11 block-comment separators SELECT E'a'<sep>'b' all PG syntax errors. Differential over 5,229,043 generated inputs: 0 refused->ok, 8 ok->refused (all the target shape), 142 reason changes. Revert probe 22 red / 38 green (controls). PR #362."
+context_for_next_session:
+  - "FIX_IS_FAIL_CLOSED_NOT_RELEX:_stripComments_RETURNS_{text,splitContinuation};_guardQuery_REFUSES_ON_THE_FLAG;_LATER_PASSES_STILL_WOULD_MISREAD_THAT_TEXT_SO_ANY_NEW_CALLER_OF_stripComments_MUST_CHECK_THE_FLAG"
+  - "A_REFUSE_SET_DIFFERENTIAL_(record_verdicts_on_main_over_a_generated_corpus,_diff_after)_IS_CHEAP_AND_PROVES_NO_NEW_ADMITS;_5.2M_inputs_ran_in_about_a_minute"
+followups: []
+---
