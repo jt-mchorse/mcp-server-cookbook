@@ -410,11 +410,22 @@ function escapeBodyEnd(sql: string, q: number): number {
  *  (Postgres's `quotecontinue` rule), the index of that next opening quote, else -1.
  *  The separating run must be whitespace AND contain a newline: without a newline the
  *  two `'...'` are separate constants, which Postgres rejects as a syntax error, so the
- *  guard need not join them. `space` is `[ \t\n\r\f\v]` (scan.l). */
+ *  guard need not join them. `space` is `[ \t\n\r\f\v]` (scan.l).
+ *
+ *  Whitespace there includes `--` line comments (#359): `E'a' -- c<LF>'\''` is one
+ *  constant to Postgres. Skipping only raw whitespace left the guard reading `'\''` as
+ *  an ordinary string, and a `pg_sleep` after it passed. Each comment ends where
+ *  `lineCommentEnd` ends it, and the newline after it counts. A block comment is NOT
+ *  separator whitespace there (Postgres ends the string at it), so it stops the scan. */
 function stringContinuationQuote(sql: string, end: number): number {
   let j = end;
   let sawNewline = false;
-  while (j < sql.length && " \t\n\r\f\v".includes(sql[j])) {
+  while (j < sql.length) {
+    if (sql[j] === "-" && sql[j + 1] === "-") {
+      j = lineCommentEnd(sql, j);
+      continue;
+    }
+    if (!" \t\n\r\f\v".includes(sql[j])) break;
     if (sql[j] === "\n" || sql[j] === "\r") sawNewline = true;
     j++;
   }

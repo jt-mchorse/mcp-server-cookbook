@@ -3703,3 +3703,22 @@ context_for_next_session:
   - "LEXER_PARITY_WITH_SCAN_L_IS_THE_PRODUCTIVE_VEIN_HERE_236_252_354_357_each_a_distinct_lexical_form"
 followups: []
 ---
+
+---
+session: 2026-10-29T07:54Z
+issue: 359
+branch: session/2026-10-29-0754-issue-359
+focus: A_DASH_DASH_COMMENT_IN_AN_E_STRING_CONTINUATION_SEPARATOR_IS_WHITESPACE_LIKE_POSTGRES_QUOTECONTINUE_357_SKIPPED_RAW_WHITESPACE_ONLY
+phase: shipped
+delta:
+  files_changed: 4
+  tests_added: 36
+  suite: "postgres-readonly 1018 -> 1054 passed; lint, typecheck, build, check-test-count, every tools/check-*.mjs; root tools tests 316 passed"
+decisions_made: []
+measured: "local PostgreSQL 17.6 (private initdb /tmp/pg359, port 54359; LC_ALL=en_US.UTF-8 needed or 'postmaster became multithreaded'). Issue payload on origin/main 1434e7e: guardQuery ok:true, Postgres a=a-apos, pg_sleep 2004 ms; branch refuses (PG_SLEEP). 30-separator table vs Postgres (SELECT E'a'<sep>'b' = ab?): main 18 mismatches, branch 0. Revert probe 27 red / 9 green (controls: stacked-statement row, 8 non-join/EOF rows). Neighbour wrong fix (also skip block comments) 3 red. PR #360."
+context_for_next_session:
+  - "stringContinuationQuote_SKIPS_DASH_DASH_COMMENTS_VIA_lineCommentEnd_AND_STILL_NEEDS_A_NEWLINE;_BLOCK_COMMENTS_STOP_IT_(PG_ends_the_string_there)"
+  - "PG17_horiz_space_INCLUDES_VT:_E'a'<VT><LF>'b'_and_<VT>--c<LF>_JOIN_(measured)"
+  - "GUARDQUERY_LEXES_TWICE:_stripComments_TURNS_A_BLOCK_COMMENT_INTO_A_SPACE_SO_THE_LATER_PASSES_JOIN_E'a'_/*c*/<LF>'...'_WHICH_PG_SPLITS;_OVER_JOIN_ONLY_AND_PG_REJECTS_THAT_TEXT_AS_A_SYNTAX_ERROR_(two_adjacent_constants);_subqueryBody_is_one_pass_and_is_where_block-comment_parity_is_pinned"
+followups: []
+---
