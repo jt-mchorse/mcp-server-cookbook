@@ -2937,3 +2937,15 @@ real SQL that followed, so a hidden `DROP TABLE` or `pg_sleep` passed. Measured
 on PostgreSQL 17, a `pg_sleep(2)` hidden this way ran for two seconds before the
 fix and is refused after it. All four of the guard's scanners now share one
 rule that follows the continuation. PR #358.
+
+## 2026-10-29 — A comment between the halves of a multi-line escape string no longer hides SQL (#359)
+
+Postgres joins two quoted strings across a line break even when a `--`
+comment sits in the gap, because it treats that comment as whitespace. Last
+session's fix (#357) only joined them across plain whitespace. With a comment
+in the gap, the guard read the second half as a plain string, and a hidden
+`pg_sleep(2)` passed it and ran for two seconds on a local Postgres 17. The
+guard now steps over `--` comments in that gap and still requires a line
+break. A `/* */` comment still ends the string, which matches Postgres. I ran
+30 kinds of gap through both Postgres and the guard. Before the fix 18 of
+them disagreed. After it none do. 36 new tests. PR #360.
