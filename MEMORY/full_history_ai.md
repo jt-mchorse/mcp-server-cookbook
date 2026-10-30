@@ -3760,3 +3760,23 @@ context_for_next_session:
   - "SWEEP_SCRIPT_GOTCHA:_ToolResult.isError_IS_UNDEFINED_ON_SUCCESS_SO_`res.isError_&&_x`_IS_undefined_NOT_false;_USE_!!"
 followups: []
 ---
+
+---
+session: 2026-10-30T08:01Z
+issue: 366
+branch: session/2026-10-30-0801-issue-366
+focus: DESCRIBE_SCHEMA_HAD_NO_MAX_RESULT_BYTES_CAP_SO_HUGE_CONTROL_CHARACTER_DEFAULTS_MADE_ONE_REPLY_TOO_LARGE_TO_SERIALISE
+phase: shipped
+delta:
+  files_changed: 6
+  tests_added: 8
+  suite: "postgres-readonly 1125 -> 1133 passed (after commit); lint, typecheck, build, check-test-count, every tools/check-*.mjs and root node --test suites ok"
+decisions_made: []
+measured: "private PG 17.6 (/tmp/pg366, port 54366, role ro), Node 25.5. cap 1 MiB: schema four (4 x 300,000 U+0001 defaults) main isError false 7,200,155 chars, branch isError rows-read 1200116 bytes; schema one (1 x 200,000, under the cap in PG) main 1,200,052 chars, branch isError listing 1200052 bytes. Default cap, 4 x 16.5M defaults over stdio against dist/server.js: branch answers describe_schema with a 321-byte isError and run_select select 1 still answered. Byte-identical SHA-256 main vs branch for sample-db public, pg_catalog (42,331 chars), information_schema, small, missing schema. Revert probe 5 red / 3 green (controls: other error propagates, ordinary schema byte-identical, empty schema). PR #367."
+context_for_next_session:
+  - "describeSchema_RUNS_BOTH_CATALOG_QUERIES_THROUGH_byteCappedQuery_IN_OBJECT_ROW_MODE;_THE_mcp_bytes_COLUMN_IS_AN_IGNORED_EXTRA_KEY_SO_NO_withoutByteColumn_NEEDED"
+  - "THE_LISTING_IS_COUNTED_AFTER_listed()_IN_UTF8_BYTES_INCLUDING_JOIN_NEWLINES;_EXACT_AT_CAP_IS_ALLOWED"
+  - "byteCapError_TAKES_AN_OPTIONAL_ADVICE_ARG;_describe_schema_POINTS_AT_run_select_WITH_left(column_default,1000)"
+  - "ALL_THREE_TOOLS_ARE_NOW_BYTE_CAPPED;_A_NEW_TOOL_MUST_BE_TOO"
+followups: []
+---
