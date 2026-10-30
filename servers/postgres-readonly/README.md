@@ -145,6 +145,16 @@ Postgres won't bind identifiers as parameters. We validate both against
 `/^[A-Za-z_][A-Za-z0-9_]*$/` before any quoting; non-bare-identifier input
 is rejected with a clear error.
 
+The SQL `sample_rows` builds then goes through the same guard as
+`run_select`, before it connects (#363). Until #363 it did not, so
+`sample_rows {schema: "pg_catalog", table: "pg_hba_file_rules"}` returned
+`pg_hba.conf` (and `pg_ident_file_mappings` / `pg_file_settings` their files)
+while `run_select` refused the same views. The guard reads the double-quoted
+names `sample_rows` emits, so a test runs every relation in `pg_class` on
+PostgreSQL 17 through both tools and requires the same verdict. A table whose
+name is a forbidden keyword or starts with a forbidden function prefix (a
+table called `lo_items`, say) is refused by both.
+
 ### 5. Connection-level escapes
 
 `SET ROLE`, `SET search_path`, `SET session_replication_role`, etc., would

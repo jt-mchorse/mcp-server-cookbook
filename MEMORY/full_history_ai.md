@@ -3740,3 +3740,23 @@ context_for_next_session:
   - "A_REFUSE_SET_DIFFERENTIAL_(record_verdicts_on_main_over_a_generated_corpus,_diff_after)_IS_CHEAP_AND_PROVES_NO_NEW_ADMITS;_5.2M_inputs_ran_in_about_a_minute"
 followups: []
 ---
+
+---
+session: 2026-10-30T07:21Z
+issue: 363
+branch: session/2026-10-30-0721-issue-363
+focus: SAMPLE_ROWS_NEVER_CALLED_guardQuery_SO_PG_HBA_FILE_RULES_PG_IDENT_FILE_MAPPINGS_PG_FILE_SETTINGS_WERE_READABLE_THROUGH_IT_WHILE_RUN_SELECT_REFUSED_THEM
+phase: shipped
+delta:
+  files_changed: 6
+  tests_added: 11
+  suite: "postgres-readonly 1114 -> 1125 passed (after commit); lint, typecheck, build, check-test-count, every tools/check-*.mjs; root tools tests 316 passed"
+decisions_made: []
+measured: "private PG 17.6 (/tmp/pg363, port 54363, superuser). origin/main cea2810: sample_rows pg_catalog.pg_hba_file_rules ok row_count 1, pg_ident_file_mappings ok row_count 0, pg_file_settings ok row_count 1; run_select refused all three. Live sweep of all 211 pg_class relations (relkind r,v,m,f,p) through sampleRows: main 211 sampled, 5 verdicts differ from run_select's guard; branch 206 sampled, 5 refused (the 3 views + pg_replication_origin, pg_replication_origin_status by PG_REPLICATION_ORIGIN* prefix), 0 differ. Revert probe 5 red / 6 green (controls: 3 guard-reads-quoted-identifier cases, ordinary table, pg_settings, fixture shape). PR #364."
+context_for_next_session:
+  - "sampleRows_NOW_BUILDS_ITS_SQL_THEN_guardQuery_BEFORE_withClient;_runSampleQuery_TAKES_THE_SQL_STRING;_THE_GUARD_DOES_NOT_STRIP_DOUBLE_QUOTED_IDENTIFIERS_SO_QUOTING_HIDES_NOTHING"
+  - "SIDE_EFFECT_USER_TABLES_NAMED_A_FORBIDDEN_KEYWORD_OR_PREFIX_(lo_items,_ts_stats,_do)_ARE_NOW_REFUSED_BY_sample_rows_AS_run_select_ALREADY_DID"
+  - "test/fixtures/pg17-relations.txt_IS_THE_pg_class_POPULATION_(211);_REGENERATE_ON_A_MAJOR_BUMP_WITH_THE_COMMAND_IN_ITS_HEADER"
+  - "SWEEP_SCRIPT_GOTCHA:_ToolResult.isError_IS_UNDEFINED_ON_SUCCESS_SO_`res.isError_&&_x`_IS_undefined_NOT_false;_USE_!!"
+followups: []
+---

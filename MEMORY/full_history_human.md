@@ -2962,3 +2962,17 @@ guard now refuses any query in that shape. I recorded the guard's verdict on
 before is accepted now, and the 8 queries newly refused are all ones Postgres
 rejects. Every new test row was checked against a local Postgres 17. 60 new
 tests. PR #362.
+
+## 2026-10-30 — `sample_rows` now goes through the same guard as `run_select` (#363)
+
+`sample_rows` builds its own `SELECT * FROM "schema"."table" LIMIT n` and
+never ran it past the SQL guard. The guard refuses three config-file views by
+name: `pg_hba_file_rules`, `pg_ident_file_mappings` and `pg_file_settings`.
+On a local Postgres 17 over a superuser connection, `run_select` refused all
+three, but `sample_rows` on the same views returned rows from `pg_hba.conf`
+and `postgresql.conf`. `sample_rows` now runs the guard on the query it builds
+before it connects. I ran every one of the 211 tables and views in a fresh
+Postgres 17 through both tools. Before the fix, 5 got different answers from
+the two tools. After it, none do. One side effect is that a user table whose
+name is a forbidden word, such as `lo_items`, is now refused by `sample_rows`.
+`run_select` already refused it. 11 new tests. PR #364.
