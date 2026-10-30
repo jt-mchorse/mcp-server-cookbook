@@ -524,9 +524,27 @@ function lineCommentEnd(sql: string, i: number): number {
   return i;
 }
 
-function stripComments(sql: string): string {
+/**
+ * `sql` with its comments replaced by spaces, and whether a block comment's
+ * space joined a `'...'` onto an `E'...'` string where Postgres does not (#361).
+ *
+ * Postgres ends an `E'...'` string at a block comment, which is not
+ * continuation whitespace (#359). The space it becomes here is. So for `E'a'`,
+ * a block comment, a newline and `'\' AS a, pg_sleep(0) AS z'`, the later
+ * passes over `text` joined `'\'` onto the E-string as an escaped quote and
+ * never saw the `pg_sleep`, while Postgres reads two adjacent constants. That
+ * text is a syntax error to Postgres, so `guardQuery` refuses it on this flag
+ * instead of re-lexing it: refusing adds no way in, and no valid query has that
+ * shape.
+ * The check is the later passes' own rule (`stringContinuationQuote`) applied
+ * to the text they will read.
+ */
+function stripComments(sql: string): { text: string; splitContinuation: boolean } {
   let out = "";
   let i = 0;
+  let splitContinuation = false;
+  // Index in `out` just past the last E-string copied, until the next `'`.
+  let eStringEnd = -1;
   while (i < sql.length) {
     const c = sql[i];
 
@@ -558,11 +576,16 @@ function stripComments(sql: string): string {
       }
       out += sql.slice(i, end);
       i = end;
+      eStringEnd = out.length;
       continue;
     }
 
     // Single-quoted string literal ('...' with '' escape): copy verbatim.
     if (c === "'") {
+      if (eStringEnd !== -1 && stringContinuationQuote(out + c, eStringEnd) === out.length) {
+        splitContinuation = true;
+      }
+      eStringEnd = -1;
       out += c;
       i++;
       while (i < sql.length) {
@@ -640,7 +663,7 @@ function stripComments(sql: string): string {
     out += c;
     i++;
   }
-  return out;
+  return { text: out, splitContinuation };
 }
 
 /** Walk the string and split on `;` boundaries, but ignore semicolons inside string literals. */
@@ -922,7 +945,7 @@ function containsFunctionPrefix(text: string, prefix: string): boolean {
  * statement can be the body of a cursor (#256).
  */
 export function leadingKeyword(sqlInput: string): string | undefined {
-  const stmt = splitStatements(stripComments(sqlInput))[0] ?? "";
+  const stmt = splitStatements(stripComments(sqlInput).text)[0] ?? "";
   return (stmt.match(/^\s*([A-Za-z]+)/) || [])[1]?.toUpperCase();
 }
 
@@ -1014,7 +1037,13 @@ export function guardQuery(sqlInput: string): GuardResult {
     return { ok: false, reason: "empty query" };
   }
 
-  const stripped = stripComments(sqlInput);
+  const { text: stripped, splitContinuation } = stripComments(sqlInput);
+  if (splitContinuation) {
+    return {
+      ok: false,
+      reason: "a block comment between an E'...' string and a following '...' string",
+    };
+  }
   const statements = splitStatements(stripped);
 
   if (statements.length === 0) {
