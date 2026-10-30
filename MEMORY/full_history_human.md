@@ -2976,3 +2976,18 @@ Postgres 17 through both tools. Before the fix, 5 got different answers from
 the two tools. After it, none do. One side effect is that a user table whose
 name is a forbidden word, such as `lo_items`, is now refused by `sample_rows`.
 `run_select` already refused it. 11 new tests. PR #364.
+
+## 2026-10-30 — `describe_schema` now has the same size cap as the other two tools (#366)
+
+`MAX_RESULT_BYTES` capped `run_select` and `sample_rows`, but not
+`describe_schema`. A table whose column defaults held millions of control
+characters made one listing hundreds of megabytes long, because each control
+character is written as a six-byte escape. On Node 25 that crashed the
+server, and on Node 20 and 22 the call was never answered. Both catalog
+queries now run inside the same Postgres-side size cap, and the listing is
+counted as it is built, after the escaping. On a local Postgres 17 with a
+1 MiB cap, the four-column repro went from a 7.2-million-character reply to
+the cap error. At the default cap, the full 16.5M-character version now gets
+a short error, and the server keeps answering. Listings of ordinary schemas,
+including `pg_catalog`, are byte-for-byte the same as before. 8 new tests.
+PR #367.

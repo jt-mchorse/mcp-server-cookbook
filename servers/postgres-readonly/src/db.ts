@@ -8,8 +8,9 @@ export interface DbConfig {
   /** Per-query timeout in ms. Server cancels queries exceeding this. */
   statementTimeoutMs: number;
   /**
-   * Cap on the bytes of row text one `run_select` or `sample_rows` reads
-   * (#347). Optional so a `DbConfig` built before it existed keeps working;
+   * Cap on the bytes of row text one `run_select`, `sample_rows` or
+   * `describe_schema` reads (#347, #366), and on the bytes of the listing
+   * `describe_schema` writes. Optional so a `DbConfig` built before it existed keeps working;
    * absent means DEFAULT_MAX_RESULT_BYTES.
    */
   maxResultBytes?: number;
