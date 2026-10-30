@@ -551,22 +551,28 @@ export async function sampleRows(args: SampleRowsArgs, cfg: DbConfig): Promise<T
   }
   const limit = Math.min(requested, 50, cfg.maxRows);
 
-  return withClient(cfg, async (c) => {
-    return runSampleQuery(c, schema, args.table, limit, cfg.maxResultBytes ?? DEFAULT_MAX_RESULT_BYTES);
-  });
-}
-
-async function runSampleQuery(
-  c: pg.Client,
-  schema: string,
-  table: string,
-  limit: number,
-  maxResultBytes: number,
-): Promise<ToolResult> {
   // Identifiers are validated above and quoted explicitly. Don't use parameter
   // binding for identifiers — Postgres won't accept it and it'd hide the
   // strictness above.
-  const sql = `SELECT * FROM "${schema}"."${table}" LIMIT ${limit}`;
+  const sql = `SELECT * FROM "${schema}"."${args.table}" LIMIT ${limit}`;
+  // The same guard as run_select, on the SQL this tool builds (#363). Until
+  // #363 it never ran here, so the relations the deny list refuses by name --
+  // `pg_hba_file_rules`, `pg_ident_file_mappings` and `pg_file_settings`
+  // (#258), which return pg_hba.conf, pg_ident.conf and postgresql.conf --
+  // came back from `sample_rows {schema: "pg_catalog"}`. The guard leaves
+  // double-quoted identifiers visible to its keyword scan, so the quoting
+  // above does not hide a name from it.
+  const guard = guardQuery(sql);
+  if (!guard.ok) {
+    return err(`query rejected by guard: ${guard.reason}`);
+  }
+
+  return withClient(cfg, async (c) => {
+    return runSampleQuery(c, sql, cfg.maxResultBytes ?? DEFAULT_MAX_RESULT_BYTES);
+  });
+}
+
+async function runSampleQuery(c: pg.Client, sql: string, maxResultBytes: number): Promise<ToolResult> {
   // Same bound as run_select (#347): 50 rows of a wide table are as able to
   // exhaust the process as one huge value.
   const cap = byteCappedQuery(sql, maxResultBytes);
