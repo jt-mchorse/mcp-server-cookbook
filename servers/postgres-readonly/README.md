@@ -93,8 +93,9 @@ The agent emits `SELECT * FROM big_table CROSS JOIN big_table` or sleeps.
   above 2147483646 is refused at boot rather than failing every `run_select`
   with a syntax error (#280).
 - `MAX_RESULT_BYTES` (default 16 MiB) caps the bytes of row text one
-  `run_select` or `sample_rows` reads, and Postgres enforces it (#347). Rows
-  alone were not enough: `SELECT repeat('x', 600000000)` crashed the server.
+  `run_select`, `sample_rows` or `describe_schema` reads, and Postgres
+  enforces it (#347). Rows alone were not enough:
+  `SELECT repeat('x', 600000000)` crashed the server.
   The string was too long for V8, and the error was thrown inside
   `pg-protocol`'s socket handler, where nothing catches it. A 4e8-character
   value was returned after a 1960 MB peak. The query now runs as a subquery
@@ -112,6 +113,13 @@ The agent emits `SELECT * FROM big_table CROSS JOIN big_table` or sleeps.
   returns an `isError`, at the header of any message longer than the cap
   plus 64 KiB of framing, or of the `EXPLAIN` row that takes the plan past
   the cap.
+  `describe_schema` was not capped until #366. Four column defaults of
+  16.5M control characters made one 396,000,155-character listing, which
+  crashed the server on Node 25 and went unanswered on Node 20 and 22. Its
+  two catalog queries now run inside the same subquery. The listing is also
+  counted as it is built, after control characters are quoted, because
+  quoting writes six bytes for each one. A listing past the cap is an
+  `isError` naming it.
 
 ### 3. Backend disruption
 

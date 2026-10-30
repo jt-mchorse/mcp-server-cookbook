@@ -67,6 +67,10 @@ export function listed(text: string): string {
   return /[\u0000-\u001f\u007f-\u009f\u2028\u2029]/.test(text) ? JSON.stringify(text) : text;
 }
 
+/** What a caller can do about a schema too large to list (#366). */
+const DESCRIBE_ADVICE =
+  "list a smaller schema, or read information_schema.columns through run_select with left(column_default, 1000)";
+
 export async function describeSchema(args: DescribeSchemaArgs, cfg: DbConfig): Promise<ToolResult> {
   const schema = args.schema ?? "public";
   // `typeof` first: `IDENT_RE.test(x)` coerces via String(x), so a non-string
@@ -76,34 +80,53 @@ export async function describeSchema(args: DescribeSchemaArgs, cfg: DbConfig): P
     return err(`schema name must match ${IDENT_RE.source}; got ${JSON.stringify(schema)}`);
   }
 
+  const maxResultBytes = cfg.maxResultBytes ?? DEFAULT_MAX_RESULT_BYTES;
   return withClient(cfg, async (c) => {
-    const tables = await c.query<{ table_name: string; table_type: string }>(
+    // Both catalog queries are bounded like run_select and sample_rows (#366):
+    // until then nothing capped this tool, and four column defaults of 16.5M
+    // control characters made one 396,000,155-character listing, which
+    // crashed Node 25 in JSON.stringify and left the call unanswered on 20/22.
+    // Rows are read as objects, so the cap's running-total column is one more
+    // key, and nothing below reads it.
+    const tablesCap = byteCappedQuery(
       `SELECT table_name, table_type
          FROM information_schema.tables
         WHERE table_schema = $1
           AND table_type IN ('BASE TABLE', 'VIEW')
         ORDER BY table_name`,
-      [schema],
+      maxResultBytes,
     );
-
-    if (tables.rows.length === 0) {
-      return ok(`schema "${schema}" has no tables or views`);
-    }
-
-    const columns = await c.query<{
-      table_name: string;
-      column_name: string;
-      data_type: string;
-      udt_name: string;
-      is_nullable: string;
-      column_default: string | null;
-    }>(
+    const columnsCap = byteCappedQuery(
       `SELECT table_name, column_name, data_type, udt_name, is_nullable, column_default
          FROM information_schema.columns
         WHERE table_schema = $1
         ORDER BY table_name, ordinal_position`,
-      [schema],
+      maxResultBytes,
     );
+    let tables;
+    let columns;
+    try {
+      tables = await c.query<{ table_name: string; table_type: string }>(tablesCap.sql, [schema]);
+      if (tables.rows.length === 0) {
+        return ok(`schema "${schema}" has no tables or views`);
+      }
+      columns = await c.query<{
+        table_name: string;
+        column_name: string;
+        data_type: string;
+        udt_name: string;
+        is_nullable: string;
+        column_default: string | null;
+      }>(columnsCap.sql, [schema]);
+    } catch (e) {
+      if (e instanceof ResultTooLargeError) return err(e.message);
+      const msg = e instanceof Error ? e.message : String(e);
+      const tooLarge =
+        byteCapError(msg, tablesCap, "MAX_RESULT_BYTES", DESCRIBE_ADVICE) ??
+        byteCapError(msg, columnsCap, "MAX_RESULT_BYTES", DESCRIBE_ADVICE);
+      if (tooLarge !== undefined) return err(tooLarge);
+      throw e;
+    }
 
     const byTable = new Map<string, typeof columns.rows>();
     for (const row of columns.rows) {
@@ -112,15 +135,31 @@ export async function describeSchema(args: DescribeSchemaArgs, cfg: DbConfig): P
       byTable.set(row.table_name, list);
     }
 
-    const lines: string[] = [`schema "${schema}":`];
+    // The listing is counted too, after `listed()`: JSON-quoting a control
+    // character writes six bytes for one, so rows under the cap can still
+    // render to six times it (#366).
+    const lines: string[] = [];
+    let bytes = 0;
+    const push = (line: string): boolean => {
+      bytes += Buffer.byteLength(line) + (lines.length > 0 ? 1 : 0);
+      if (bytes > maxResultBytes) return false;
+      lines.push(line);
+      return true;
+    };
+    const tooLong = () =>
+      err(
+        `result too large: the listing built so far totals ${bytes} bytes, over the MAX_RESULT_BYTES cap of ` +
+          `${maxResultBytes} bytes (#366); ${DESCRIBE_ADVICE}`,
+      );
+    if (!push(`schema "${schema}":`)) return tooLong();
     for (const t of tables.rows) {
       const cols = byTable.get(t.table_name) ?? [];
-      lines.push(`\n  ${t.table_type === "VIEW" ? "[view] " : ""}${listed(t.table_name)}`);
+      if (!push(`\n  ${t.table_type === "VIEW" ? "[view] " : ""}${listed(t.table_name)}`)) return tooLong();
       for (const col of cols) {
         const nullable = col.is_nullable === "YES" ? "" : " NOT NULL";
         const dflt = col.column_default ? ` DEFAULT ${listed(col.column_default)}` : "";
         const type = formatColumnType(col.data_type, col.udt_name);
-        lines.push(`    - ${listed(col.column_name)}: ${listed(type)}${nullable}${dflt}`);
+        if (!push(`    - ${listed(col.column_name)}: ${listed(type)}${nullable}${dflt}`)) return tooLong();
       }
     }
     return ok(lines.join("\n"));
@@ -423,12 +462,17 @@ export function withoutByteColumn<R extends { fields?: Array<{ name: string }>; 
 }
 
 /** The tool's message for an error the byte cap raised, or undefined for any other error. */
-export function byteCapError(message: string, cap: ByteCap, setting: string): string | undefined {
+export function byteCapError(
+  message: string,
+  cap: ByteCap,
+  setting: string,
+  advice = "select fewer rows or columns, or shorten large values (e.g. left(col, 1000))",
+): string | undefined {
   const m = message.match(new RegExp(`${cap.nonce}:(\\d+)`));
   if (!m) return undefined;
   return (
     `result too large: the rows read so far total ${m[1]} bytes as text, over the ${setting} cap of ` +
-    `${cap.cap} bytes (#347); select fewer rows or columns, or shorten large values (e.g. left(col, 1000))`
+    `${cap.cap} bytes (#347); ${advice}`
   );
 }
 
